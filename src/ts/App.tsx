@@ -3,6 +3,7 @@ import MiniPlayer from './components/MiniPlayer'
 import { useEffect } from 'react'
 import { runStartupScan } from './lib/scanFolders'
 import { useMappedTranslations } from './lib/i18n'
+import '../css/default.css'
 
 export default function App() {
   useEffect(() => {

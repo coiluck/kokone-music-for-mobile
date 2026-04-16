@@ -1,6 +1,32 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { addScanFolder, runStartupScan } from '../lib/scanFolders'
+import { ColorPicker } from '../components/ColorPicker'
+import '../../css/pages/SettingsPage.css'
+
+export interface SettingsStore {
+  // 外観
+  bgColor: string,
+  bgMildColor: string,
+  accentColor: string,
+  textColor: string,
+  iconStyle: 'fill' | 'line',
+  font: 'mamelon' | 'm-plus-rounded' | 'noto-sans-ja' | 'noto-serif'
+  page: string[]
+  // 音楽
+  musicVolume: number, // 0 to 2
+  fadeTime: number, // ms, 0 to 2
+  scanFolder: string[], // folder path
+  isTrailingSilence: boolean,
+  isNormalizeVolume: boolean,
+}
+const backgroundColorsPreset = [
+  '#fff3f1', '#cce6e5', '#888', '#0a0f1e', '#1e1e1e'
+]
+const primaryColorsPreset = [
+  '#ff7f7e', '#37D67A',
+  '#2CCCE4', '#dce775', '#e565ff',
+]
 
 export default function SettingsPage() {
   const [folders, setFolders] = useState<string[]>([])
@@ -12,10 +38,10 @@ export default function SettingsPage() {
   }, [])
 
   const handleAddFolder = async () => {
-    const added = await addScanFolder()  // ★ダイアログ → 設定保存
+    const added = await addScanFolder()
     if (added) {
       setFolders(prev => [...prev, added])
-      await runStartupScan()             // ★追加直後にスキャン実行
+      await runStartupScan()
     }
   }
 
@@ -26,7 +52,26 @@ export default function SettingsPage() {
   }
 
   return (
-    <div>
+    <div className='page fade-in'>
+      <div className='settings-container'>
+        <div className='settings-section'>
+          <div className='settings-section-label'>外観</div>
+          <div className='settings-section-content'>
+            <ColorPicker
+              color="#ff7f7e"
+              onChange={v => console.log(v)}
+              label="color"
+              presetColors={primaryColorsPreset}
+            />
+            <ColorPicker
+              color="#1e1e28"
+              onChange={v => console.log(v)}
+              label="bg"
+              presetColors={backgroundColorsPreset}
+            />
+          </div>
+        </div>
+      </div>
       <h2>スキャンフォルダ</h2>
       <ul>
         {folders.map(f => (

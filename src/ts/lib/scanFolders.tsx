@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { useScanStore } from './scanStore'
 
 // ---------------------------------------------------
 // 設定ファイルに保存されたフォルダパスを取得
@@ -43,6 +44,9 @@ export async function runStartupScan(): Promise<void> {
 
   // Rustコマンドでフォルダを再帰スキャン
   // 戻り値: 新規追加されたトラック数（スキップ済みは含まない）
+  const { setScanningFlag, notifyScanCompleted } = useScanStore.getState()
+  setScanningFlag(true)
   const added = await invoke<number>('music_scan_folders', { paths: folders })
   console.log(`スキャン完了: ${added}件追加`)
+  notifyScanCompleted() 
 }
