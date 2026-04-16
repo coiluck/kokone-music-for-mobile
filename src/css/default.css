@@ -4,7 +4,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: var(--text);
+  color: var(--color-text);
   font-weight: normal;
   font-family: var(--font);
   user-select: none;
@@ -21,6 +21,7 @@ button, select {
 }
 body {
   min-height: 100vh;
+  background-color: var(--color-bg);
   line-height: 1.6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -32,13 +33,13 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  width: 100%;
+  width: 90%;
   height: 100%;
+  margin: 0 auto;
 }
 @media (min-width: 768px) {
   .page {
     width: 70%;
-    margin: 0 auto;
   }
 }
 

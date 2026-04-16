@@ -4,10 +4,13 @@ import { useEffect } from 'react'
 import { runStartupScan } from './lib/scanFolders'
 import { useMappedTranslations } from './lib/i18n'
 import '../css/default.css'
+import { loadAndApplyTheme } from './lib/theme'
 
 export default function App() {
   useEffect(() => {
     runStartupScan()
+    // 保存済みテーマを読み込んで CSS 変数へ適用する
+    loadAndApplyTheme()
   }, [])
 
   const t = useMappedTranslations({
@@ -23,7 +26,7 @@ export default function App() {
         <p>Music</p>
         <NavLink to="/settings">設定</NavLink>
       </header>
-      
+
       {/* サイドバーナビ */}
       <nav className="app-sidebar">
         <NavLink to="/">{t.library}</NavLink>

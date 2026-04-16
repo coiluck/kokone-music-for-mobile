@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { addScanFolder, runStartupScan } from '../lib/scanFolders'
 import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
+import { saveThemeKey, judgeBrightness, makeMildBg } from '../lib/theme'
+import { useMappedTranslations } from '../lib/i18n'
 
 export interface SettingsStore {
   // 外観
@@ -20,22 +22,52 @@ export interface SettingsStore {
   isTrailingSilence: boolean,
   isNormalizeVolume: boolean,
 }
+
 const backgroundColorsPreset = [
-  '#fff3f1', '#cce6e5', '#888', '#0a0f1e', '#1e1e1e'
+  '#fff3f1', '#cce6e5', '#aaaabc', '#0a0f1e', '#1e1e1e'
 ]
 const primaryColorsPreset = [
   '#ff7f7e', '#37D67A',
   '#2CCCE4', '#dce775', '#e565ff',
 ]
 
+async function getSetting<T>(key: string, fallback: T): Promise<T> {
+  const v = await invoke<T | null>('settings_get', { key })
+  return v ?? fallback
+}
+
 export default function SettingsPage() {
+  const t = useMappedTranslations({
+    appearance: 'settings.appearance',
+    accentColor: 'settings.accentColor',
+    background: 'settings.background',
+    icon: 'settings.icon',
+    font: 'settings.font',
+  })
   const [folders, setFolders] = useState<string[]>([])
 
+  const [accentColor, setAccentColor] = useState('#ff7f7e')
+  const [bgColor,     setBgColor]     = useState('#0a0f1e')
+  const [bgMildColor, setBgMildColor] = useState('#2a2a36')
+  const [textColor,   setTextColor]   = useState('#f0f0f0')
+
   useEffect(() => {
-    // 現在の設定済みフォルダ一覧を表示
-    invoke<string[]>('settings_get', { key: 'scan-folders' })
-      .then(f => setFolders(f ?? []))
+    // 設定を取得 & 反映
+    getSetting('scan-folders', []).then(setFolders)
+    getSetting('accentColor', '#ff7f7e').then(setAccentColor)
+    getSetting('bgColor',     '#0a0f1e').then(setBgColor)
+    getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
+    getSetting('textColor',   '#f0f0f0').then(setTextColor)
   }, [])
+
+  const handleColorChange = async <K extends 'accentColor' | 'bgColor' | 'bgMildColor' | 'textColor'>(
+    key: K,
+    value: string,
+    setter: (v: string) => void,
+  ) => {
+    setter(value)
+    await saveThemeKey(key, value)
+  }
 
   const handleAddFolder = async () => {
     const added = await addScanFolder()
@@ -55,18 +87,27 @@ export default function SettingsPage() {
     <div className='page fade-in'>
       <div className='settings-container'>
         <div className='settings-section'>
-          <div className='settings-section-label'>外観</div>
+          <div className='settings-section-label'>{t.appearance}</div>
           <div className='settings-section-content'>
             <ColorPicker
-              color="#ff7f7e"
-              onChange={v => console.log(v)}
-              label="color"
+              color={accentColor}
+              onChange={v => handleColorChange('accentColor', v, setAccentColor)}
+              label={t.accentColor}
               presetColors={primaryColorsPreset}
             />
             <ColorPicker
-              color="#1e1e28"
-              onChange={v => console.log(v)}
-              label="bg"
+              color={bgColor}
+              onChange={v => {
+                const mild = makeMildBg(v, judgeBrightness(v) ? 'darker' : 'lighter')
+                const text = judgeBrightness(v) ? '#000' : '#fff'
+                setBgColor(v)
+                setBgMildColor(mild)
+                setTextColor(text)
+                saveThemeKey('bgColor', v)
+                saveThemeKey('bgMildColor', mild)
+                saveThemeKey('textColor', text)
+              }}
+              label={t.background}
               presetColors={backgroundColorsPreset}
             />
           </div>

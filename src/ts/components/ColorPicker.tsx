@@ -5,7 +5,7 @@ import { BlockPicker, SliderPicker } from 'react-color';
 interface Props {
   color: string;
   onChange: (color: string) => void;
-  label?: string;
+  label: string;
   presetColors: string[]
 }
 
@@ -50,7 +50,7 @@ export const ColorPicker = ({ color, onChange, label, presetColors }: Props) => 
       triangle="hide"
       styles={{
         default: {
-          card: { borderRadius: '6px 6px 0 0', boxShadow: 'none' },
+          card: { borderRadius: '10px 10px 0 0', boxShadow: 'none' },
         }
       }}
     />
@@ -63,7 +63,7 @@ export const ColorPicker = ({ color, onChange, label, presetColors }: Props) => 
             padding: '0 12px',
             paddingBottom: '14px',
             background: '#fff',
-            borderRadius: '0 0 6px 6px',
+            borderRadius: '0 0 10px 10px',
           },
         } as any // wrapの型定義がないみたい
       }}
