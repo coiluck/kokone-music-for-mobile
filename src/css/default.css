@@ -19,6 +19,9 @@ ul {
 button, select {
   cursor: pointer;
 }
+a {
+  text-decoration: none;
+}
 body {
   min-height: 100vh;
   background-color: var(--color-bg);

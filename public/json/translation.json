@@ -3,6 +3,7 @@
   "page.playlist": { "ja": "Playlist", "en": "Playlist" },
   "page.artist.top": { "ja": "Artist", "en": "Artist" },
   "page.album": { "ja": "Album", "en": "Album" },
+  "page.tags": { "ja": "Tags", "en": "Tags"},
   "settings.appearance": { "ja": "外観", "en": "Appearance" },
   "settings.accentColor": { "ja": "アクセントカラー", "en": "Accent Color" },
   "settings.background": { "ja": "背景カラー", "en": "Background Color" },

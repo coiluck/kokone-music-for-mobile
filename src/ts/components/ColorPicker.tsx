@@ -33,10 +33,10 @@ export const ColorPicker = ({ color, onChange, label, presetColors }: Props) => 
         <div
           onClick={() => setOpen(v => !v)}
           style={{
-            width: 28, height: 28,
-            borderRadius: 4,
+            width: '1.5rem', height: '1.5rem',
+            borderRadius: '50%',
             background: color,
-            border: '2px solid #ccc',
+            border: '2px solid rgb(from var(--color-text) r g b / 0.25)',
             cursor: 'pointer',
           }}
         />
