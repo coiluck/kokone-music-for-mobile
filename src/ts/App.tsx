@@ -6,18 +6,19 @@ import { useMappedTranslations } from './lib/i18n'
 import '../css/default.css'
 import '../css/app.css'
 import { loadAndApplyTheme } from './lib/theme'
-import { Icon } from './components/Icon' 
+import { Icon } from './components/Icon'
 import { useSettingsStore } from './lib/settingsStore'
 
 export default function App() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
   const loadIconSettings = useSettingsStore(s => s.loadIconSettings)
+  const loadScanIgnoreSettings = useSettingsStore(s => s.loadScanIgnoreSettings)
 
   useEffect(() => {
     runStartupScan()
-    // 保存済みテーマを読み込んで CSS 変数へ適用する
     loadAndApplyTheme()
     loadIconSettings()
+    loadScanIgnoreSettings()
   }, [])
 
   const t = useMappedTranslations({

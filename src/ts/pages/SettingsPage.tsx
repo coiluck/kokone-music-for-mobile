@@ -6,6 +6,7 @@ import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore } from '../lib/settingsStore'
+import { Icon } from '../components/Icon'
 
 export interface SettingsStore {
   // 外観
@@ -15,10 +16,13 @@ export interface SettingsStore {
   textColor: string,
   iconStyle: 'fill' | 'outline',
   font: 'mamelon' | 'm-plus-rounded' | 'noto-sans-ja' | 'noto-serif'
+  // スキャンフォルダ
+  scanFolder: string[], // folder path
+  ignoreMode: boolean,
+  ignoreTime: number, // seconds
   // 音楽
   musicVolume: number, // 0 to 2
   fadeTime: number, // ms, 0 to 2
-  scanFolder: string[], // folder path
   isTrailingSilence: boolean,
   isNormalizeVolume: boolean,
 }
@@ -51,9 +55,13 @@ export default function SettingsPage() {
   const [bgMildColor, setBgMildColor] = useState('#2a2a36')
   const [textColor,   setTextColor]   = useState('#f0f0f0')
 
-  // iconStyle は zustand ストアで管理
-  const iconStyle = useSettingsStore(s => s.iconStyle)
-  const setIconStyle = useSettingsStore(s => s.setIconStyle)
+  // iconStyle・ignoreMode・ignoreTime は zustand ストアで管理
+  const iconStyle      = useSettingsStore(s => s.iconStyle)
+  const setIconStyle   = useSettingsStore(s => s.setIconStyle)
+  const ignoreMode     = useSettingsStore(s => s.ignoreMode)
+  const ignoreTime     = useSettingsStore(s => s.ignoreTime)
+  const setIgnoreMode  = useSettingsStore(s => s.setIgnoreMode)
+  const setIgnoreTime  = useSettingsStore(s => s.setIgnoreTime)
 
   useEffect(() => {
     getSetting('scan-folders', []).then(setFolders)
@@ -61,7 +69,7 @@ export default function SettingsPage() {
     getSetting('bgColor',     '#0a0f1e').then(setBgColor)
     getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
     getSetting('textColor',   '#f0f0f0').then(setTextColor)
-    // iconStyle の読み込みは App.tsx の loadSettings() が担うため不要
+    // icon / ignoreMode / ignoreTime は zustand ストアで管理
   }, [])
 
   const handleColorChange = async <K extends 'accentColor' | 'bgColor' | 'bgMildColor' | 'textColor'>(
@@ -85,6 +93,11 @@ export default function SettingsPage() {
     const updated = folders.filter(f => f !== path)
     await invoke('settings_set', { key: 'scan-folders', value: updated })
     setFolders(updated)
+  }
+
+  const getFolderName = (path: string) => {
+    const parts = path.replace(/[/\\]+$/, '').split(/[/\\]+/)
+    return parts[parts.length - 1] || path
   }
 
   return (
@@ -137,16 +150,57 @@ export default function SettingsPage() {
         <div className='settings-section'>
           <div className='settings-section-label'>スキャンフォルダ</div>
           <div className='settings-section-content'>
-            <ul>
+            <div className='settings-folder-add-container' onClick={handleAddFolder}>
+              <span className='settings-folder-add-text'>フォルダを追加</span>
+              <span className='settings-folder-add-icon'>
+                <Icon name="folder-plus" mode={iconStyle} size={24} folder='/images/SettingsPage/' />
+              </span>
+            </div>
+            <div className='settings-folder-container'>
               {folders.map(f => (
-                <li key={f}>
-                  {f}
-                  <button onClick={() => handleRemoveFolder(f)}>削除</button>
-                </li>
+                <div key={f} className="settings-folder-item">
+                  <div className="settings-folder-item-icon">
+                    <Icon name="folder" mode={iconStyle} size={24} folder='/images/SettingsPage/' />
+                  </div>
+                  <div className="settings-folder-item-info">
+                    <span className="settings-folder-name">{getFolderName(f)}</span>
+                    <span className="settings-folder-path">{f}</span>
+                  </div>
+                  <div onClick={() => handleRemoveFolder(f)}>
+                    <Icon name="remove" mode={iconStyle} size={24} folder='/images/SettingsPage/' />
+                  </div>
+                </div>
               ))}
-            </ul>
-            <div onClick={handleAddFolder}>＋ フォルダを追加</div>
-            <div onClick={runStartupScan}>今すぐ再スキャン</div>
+            </div>
+
+            {/* ignoreMode トグル */}
+            <div className='settings-section-content-item'>
+              <p>以下の秒数未満のファイルを無視</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={ignoreMode}
+                  onChange={e => setIgnoreMode(e.target.checked)}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            <div className='settings-section-content-item' style={{ opacity: ignoreMode ? 1 : 0.4 }}>
+              <input
+                className='settings-range-slider'
+                type="range"
+                min="0"
+                max="30"
+                step="5"
+                value={ignoreTime}
+                disabled={!ignoreMode}
+                onChange={e => setIgnoreTime(Number(e.target.value))}
+              />
+              <p className='settings-range-value'>{ignoreTime}秒</p>
+            </div>
+
+            <div className='settings-folder-scan' onClick={runStartupScan}>今すぐ再スキャン</div>
           </div>
         </div>
       </div>
