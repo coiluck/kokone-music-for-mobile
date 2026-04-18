@@ -219,3 +219,40 @@ input:checked + .slider:before {
   text-align: right;
   text-wrap: nowrap;
 }
+/* select */
+.settings-section-content-item select,
+.settings-section-content-item select::picker(select) {
+  appearance: base-select;
+}
+.settings-section-content-item select {
+  padding: .25rem .5rem;
+  border-radius: .5rem;
+  border: 1px solid var(--color-text);
+  cursor: pointer;
+}
+.settings-section-content-item select:hover {
+  background-color: rgb(from var(--color-accent) r g b / 0); /* transparent */
+}
+.settings-section-content-item select::picker(select) {
+  border-color: var(--color-accent);
+  border-radius: 8px;
+  margin: 8px 0;
+  box-shadow: 4px 4px rgb(from var(--color-accent) r g b / 0.8);
+  /* アニメーションも設定できる */
+  transition: scale 0.2s;
+}
+.settings-section-content-item select option {
+  padding: 1rem .5rem;
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.settings-section-content-item select option:hover {
+  background-color: rgb(from var(--color-accent) r g b / 0.15);
+}
+.settings-section-content-item select option:last-child {
+  border-bottom: none;
+}
+.settings-section-content-item select option:checked {
+  color: var(--color-accent);
+}

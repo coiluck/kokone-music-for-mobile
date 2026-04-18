@@ -1,9 +1,8 @@
 // i18n.ts
-import { invoke } from '@tauri-apps/api/core'
 import { useState, useEffect } from 'react';
+import { useSettingsStore, AVAILABLE_LANGS } from './settingsStore'
 
-const AVAILABLE_LANGS = ['ja', 'en'] as const;
-type Lang = typeof AVAILABLE_LANGS[number];
+type Lang = typeof AVAILABLE_LANGS[number]
 
 interface TranslationItem extends Record<Lang, string> {}
 interface TranslationData {
@@ -27,49 +26,38 @@ async function loadTranslationData(): Promise<TranslationData> {
   return fetchPromise;
 }
 
-const DEFAULT_LANG: Lang = AVAILABLE_LANGS[0]; // 'ja'
+const DEFAULT_LANG: Lang = AVAILABLE_LANGS[0]; // 'en'
 
-async function getLang(): Promise<Lang> {
-  const lang = await invoke<string>('settings_get', { key: 'lang' })
-  return (AVAILABLE_LANGS as readonly string[]).includes(lang)
-    ? (lang as Lang)
-    : DEFAULT_LANG;
-}
-
-async function getTranslatedText(key: string): Promise<string> {
-  const data = await loadTranslationData();
-  const item = data[key];
+async function getTranslatedText(key: string, lang: Lang): Promise<string> {
+  const data = await loadTranslationData()
+  const item = data[key]
   if (!item) {
-    console.warn(`Invalid translation key: ${key}`);
-    return '';
+    console.warn(`Invalid translation key: ${key}`)
+    return ''
   }
-  const lang = await getLang();
-  let text = item[lang] ?? item[DEFAULT_LANG];
-  return text;
+  return item[lang] ?? item[DEFAULT_LANG]
 }
 
 export function useMappedTranslations<T extends Record<string, string>>(
   mapping: T
 ): T {
-  const localKeys = Object.keys(mapping) as (keyof T)[];
-  const translationKeys = Object.values(mapping) as string[];
+  const localKeys = Object.keys(mapping) as (keyof T)[]
+  const translationKeys = Object.values(mapping) as string[]
+
+  // ストアの lang を購読 → 変化したら自動で再翻訳
+  const lang = useSettingsStore(s => s.lang)
 
   const [translations, setTranslations] = useState<T>(
     () => Object.fromEntries(localKeys.map(k => [k, ''])) as T
-  );
-
-  const [lang, setLang] = useState<string>('ja');
-  useEffect(() => {
-    invoke<string>('settings_get', { key: 'lang' }).then(setLang);
-  }, []);
+  )
 
   useEffect(() => {
-    Promise.all(translationKeys.map(key => getTranslatedText(key))).then(values => {
+    Promise.all(translationKeys.map(key => getTranslatedText(key, lang))).then(values => {
       setTranslations(
         Object.fromEntries(localKeys.map((k, i) => [k, values[i]])) as T
-      );
-    });
-  }, [lang]);
+      )
+    })
+  }, [lang])
 
-  return translations;
+  return translations
 }

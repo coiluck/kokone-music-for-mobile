@@ -13,12 +13,14 @@ export default function App() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
   const loadIconSettings = useSettingsStore(s => s.loadIconSettings)
   const loadScanIgnoreSettings = useSettingsStore(s => s.loadScanIgnoreSettings)
+  const loadLang = useSettingsStore(s => s.loadLang)
 
   useEffect(() => {
     runStartupScan()
     loadAndApplyTheme()
     loadIconSettings()
     loadScanIgnoreSettings()
+    loadLang()
   }, [])
 
   const t = useMappedTranslations({

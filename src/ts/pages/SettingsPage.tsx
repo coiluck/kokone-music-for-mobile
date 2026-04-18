@@ -5,7 +5,7 @@ import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
-import { useSettingsStore } from '../lib/settingsStore'
+import { useSettingsStore, AVAILABLE_LANGS } from '../lib/settingsStore'
 import { Icon } from '../components/Icon'
 
 export interface SettingsStore {
@@ -27,6 +27,8 @@ export interface SettingsStore {
   isNormalizeVolume: boolean,
 }
 
+type Lang = typeof AVAILABLE_LANGS[number]
+
 const backgroundColorsPreset = [
   '#fff3f1', '#cce6e5', '#ccccea', '#0a0f1e', '#1e1e1e'
 ]
@@ -42,11 +44,18 @@ async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export default function SettingsPage() {
   const t = useMappedTranslations({
+    app: 'settings.app',
+    language: 'settings.language',
     appearance: 'settings.appearance',
     accentColor: 'settings.accentColor',
-    background: 'settings.background',
-    icon: 'settings.icon',
-    font: 'settings.font',
+    background:     'settings.background',
+    icon:           'settings.icon',
+    font:           'settings.font',
+    scanFolder:     'settings.scanFolder',
+    addFolder:      'settings.addFolder',
+    ignoreMode:     'settings.ignoreMode',
+    ignoreTime:     'settings.ignoreTime',
+    scanNow:        'settings.scanNow',
   })
   const [folders, setFolders] = useState<string[]>([])
 
@@ -62,6 +71,8 @@ export default function SettingsPage() {
   const ignoreTime     = useSettingsStore(s => s.ignoreTime)
   const setIgnoreMode  = useSettingsStore(s => s.setIgnoreMode)
   const setIgnoreTime  = useSettingsStore(s => s.setIgnoreTime)
+  const lang           = useSettingsStore(s => s.lang)
+  const setLang        = useSettingsStore(s => s.setLang)
 
   useEffect(() => {
     getSetting('scan-folders', []).then(setFolders)
@@ -69,7 +80,7 @@ export default function SettingsPage() {
     getSetting('bgColor',     '#0a0f1e').then(setBgColor)
     getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
     getSetting('textColor',   '#f0f0f0').then(setTextColor)
-    // icon / ignoreMode / ignoreTime は zustand ストアで管理
+    // icon / ignore / lang などの他ページでも使う設定は zustand ストアで管理
   }, [])
 
   const handleColorChange = async <K extends 'accentColor' | 'bgColor' | 'bgMildColor' | 'textColor'>(
@@ -103,6 +114,19 @@ export default function SettingsPage() {
   return (
     <div className='page fade-in'>
       <div className='settings-container'>
+        <div className='settings-section'>
+          <div className='settings-section-label'>App</div>
+          <div className='settings-section-content'>
+            <div className='settings-section-content-item'>
+              <p>{t.language}</p>
+              <select value={lang} onChange={e => setLang(e.target.value as Lang)}>
+                <option value="ja">日本語 / Japanese</option>
+                <option value="en">英語 / English</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className='settings-section'>
           <div className='settings-section-label'>{t.appearance}</div>
           <div className='settings-section-content'>
@@ -148,10 +172,10 @@ export default function SettingsPage() {
         </div>
 
         <div className='settings-section'>
-          <div className='settings-section-label'>スキャンフォルダ</div>
+          <div className='settings-section-label'>{t.scanFolder}</div>
           <div className='settings-section-content'>
             <div className='settings-folder-add-container' onClick={handleAddFolder}>
-              <span className='settings-folder-add-text'>フォルダを追加</span>
+              <span className='settings-folder-add-text'>{t.addFolder}</span>
               <span className='settings-folder-add-icon'>
                 <Icon name="folder-plus" mode={iconStyle} size={24} folder='/images/SettingsPage/' />
               </span>
@@ -175,7 +199,7 @@ export default function SettingsPage() {
 
             {/* ignoreMode トグル */}
             <div className='settings-section-content-item'>
-              <p>以下の秒数未満のファイルを無視</p>
+              <p>{t.ignoreMode}</p>
               <label className="switch">
                 <input
                   type="checkbox"
@@ -197,10 +221,10 @@ export default function SettingsPage() {
                 disabled={!ignoreMode}
                 onChange={e => setIgnoreTime(Number(e.target.value))}
               />
-              <p className='settings-range-value'>{ignoreTime}秒</p>
+              <p className='settings-range-value'>{ignoreTime}{t.ignoreTime}</p>
             </div>
 
-            <div className='settings-folder-scan' onClick={runStartupScan}>今すぐ再スキャン</div>
+            <div className='settings-folder-scan' onClick={runStartupScan}>{t.scanNow}</div>
           </div>
         </div>
       </div>

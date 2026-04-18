@@ -4,9 +4,16 @@
   "page.artist.top": { "ja": "Artist", "en": "Artist" },
   "page.album": { "ja": "Album", "en": "Album" },
   "page.tags": { "ja": "Tags", "en": "Tags"},
+  "settings.app": { "ja": "アプリ", "en": "App" },
+  "settings.language": { "ja": "言語 / Language", "en": "Language" },
   "settings.appearance": { "ja": "外観", "en": "Appearance" },
   "settings.accentColor": { "ja": "アクセントカラー", "en": "Accent Color" },
   "settings.background": { "ja": "背景カラー", "en": "Background Color" },
   "settings.icon": { "ja": "アイコン", "en": "Icon" },
-  "settings.font": { "ja": "フォント", "en": "Font" }
+  "settings.font": { "ja": "フォント", "en": "Font" },
+  "settings.scanFolder": { "ja": "スキャンフォルダ", "en": "Scan Folder" },
+  "settings.addFolder": { "ja": "フォルダを追加", "en": "Add Folder" },
+  "settings.ignoreMode": { "ja": "以下の秒数未満のファイルを無視", "en": "Ignore files under this time" },
+  "settings.ignoreTime": { "ja": "秒", "en": " Seconds" },
+  "settings.scanNow": { "ja": "今すぐ再スキャン", "en": "Scan Now" }
 }
