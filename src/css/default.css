@@ -1,3 +1,28 @@
+@font-face {
+  font-family: 'Mamelon';
+  src: url('/fonts/Mamelon-3.5HiRegular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'M-PLUS-Rounded-1c';
+  src: url('/fonts/rounded-mplus-1c-regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Noto-Sans-JP';
+  src: url('/fonts/NotoSansJP-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Noto-Serif-JP';
+  src: url('/fonts/NotoSerifJP-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 *,
 *::before,
 *::after {
@@ -6,7 +31,7 @@
   padding: 0;
   color: var(--color-text);
   font-weight: normal;
-  font-family: var(--font);
+  font-family: var(--font-family);
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;

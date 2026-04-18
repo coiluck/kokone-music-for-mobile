@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { addScanFolder, runStartupScan } from '../lib/scanFolders'
 import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
-import { saveThemeKey, judgeBrightness, makeMildBg } from '../lib/theme'
+import { saveThemeKey, judgeBrightness, makeMildBg, ThemeSettings } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS } from '../lib/settingsStore'
 import { Icon } from '../components/Icon'
@@ -63,6 +63,7 @@ export default function SettingsPage() {
   const [bgColor,     setBgColor]     = useState('#0a0f1e')
   const [bgMildColor, setBgMildColor] = useState('#2a2a36')
   const [textColor,   setTextColor]   = useState('#f0f0f0')
+  const [font, setFont] = useState<ThemeSettings['font']>('noto-sans-ja')
 
   // iconStyle・ignoreMode・ignoreTime は zustand ストアで管理
   const iconStyle      = useSettingsStore(s => s.iconStyle)
@@ -80,6 +81,7 @@ export default function SettingsPage() {
     getSetting('bgColor',     '#0a0f1e').then(setBgColor)
     getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
     getSetting('textColor',   '#f0f0f0').then(setTextColor)
+    getSetting<ThemeSettings['font']>('font', 'noto-sans-ja').then(setFont)
     // icon / ignore / lang などの他ページでも使う設定は zustand ストアで管理
   }, [])
 
@@ -90,6 +92,10 @@ export default function SettingsPage() {
   ) => {
     setter(value)
     await saveThemeKey(key, value)
+  }
+  const handleFontChange = async (value: ThemeSettings['font']) => {
+    setFont(value)
+    await saveThemeKey('font', value)
   }
 
   const handleAddFolder = async () => {
@@ -121,7 +127,7 @@ export default function SettingsPage() {
               <p>{t.language}</p>
               <select value={lang} onChange={e => setLang(e.target.value as Lang)}>
                 <option value="ja">日本語 / Japanese</option>
-                <option value="en">英語 / English</option>
+                <option value="en">English</option>
               </select>
             </div>
           </div>
@@ -167,6 +173,39 @@ export default function SettingsPage() {
                   <div className="settings-icon fill" />
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className='settings-section'>
+          <div className='settings-section-label'>{t.font}</div>
+          <div className='settings-font-item-container'>
+            <div
+              className={`settings-font-item${font === 'mamelon' ? ' active' : ''}`}
+              onClick={() => handleFontChange('mamelon')}
+              style={{ borderBottom: '1px dashed rgb(from var(--color-text) r g b / 0.2)' }}
+            >
+              <span className='settings-font-item-text' style={{ fontFamily: 'Mamelon' }}>Mamelon</span>
+            </div>
+            <div
+              className={`settings-font-item${font === 'm-plus-rounded' ? ' active' : ''}`}
+              onClick={() => handleFontChange('m-plus-rounded')}
+              style={{ borderBottom: '1px dashed rgb(from var(--color-text) r g b / 0.2)' }}
+            >
+              <span className='settings-font-item-text' style={{ fontFamily: 'M-PLUS-Rounded-1c' }}>M PLUS Rounded 1c</span>
+            </div>
+            <div
+              className={`settings-font-item${font === 'noto-sans-ja' ? ' active' : ''}`}
+              onClick={() => handleFontChange('noto-sans-ja')}
+              style={{ borderBottom: '1px dashed rgb(from var(--color-text) r g b / 0.2)' }}
+            >
+              <span className='settings-font-item-text' style={{ fontFamily: 'Noto-Sans-JP' }}>Noto Sans JP</span>
+            </div>
+            <div
+              className={`settings-font-item${font === 'noto-serif' ? ' active' : ''}`}
+              onClick={() => handleFontChange('noto-serif')}
+            >
+              <span className='settings-font-item-text' style={{ fontFamily: 'Noto-Serif-JP' }}>Noto Serif JP</span>
             </div>
           </div>
         </div>

@@ -6,13 +6,22 @@ export interface ThemeSettings {
   bgColor: string
   bgMildColor: string
   textColor: string
+  font: 'mamelon' | 'm-plus-rounded' | 'noto-sans-ja' | 'noto-serif'
 }
 
-const DEFAULTS: ThemeSettings = {
+const fontFamilyMap: Record<ThemeSettings['font'], string> = {
+  'mamelon':        '"Mamelon", sans-serif',
+  'm-plus-rounded': '"M-PLUS-Rounded-1c", sans-serif',
+  'noto-sans-ja':   '"Noto-Sans-JP", sans-serif',
+  'noto-serif':     '"Noto-Serif-JP", serif',
+}
+
+export const DEFAULTS: ThemeSettings = {
   accentColor: '#ff7f7e',
   bgColor: '#0a0f1e',
   bgMildColor: '#2a2a36',
   textColor: '#f0f0f0',
+  font: 'mamelon',
 }
 
 /** CSS カスタムプロパティへ反映する */
@@ -23,13 +32,15 @@ export function applyTheme(settings: Partial<ThemeSettings>) {
   root.style.setProperty('--color-bg',       merged.bgColor)
   root.style.setProperty('--color-bg-mild',  merged.bgMildColor)
   root.style.setProperty('--color-text',     merged.textColor)
+  root.style.setProperty('--font-family',    fontFamilyMap[merged.font])
 }
 
 /** settings.json から読み込んで CSS へ適用する（起動時に呼ぶ） */
 export async function loadAndApplyTheme() {
-  const [accentColor, bgColor] = await Promise.all([
+  const [accentColor, bgColor, font] = await Promise.all([
     invoke<string | null>('settings_get', { key: 'accentColor' }),
     invoke<string | null>('settings_get', { key: 'bgColor' }),
+    invoke<ThemeSettings['font'] | null>('settings_get', { key: 'font' }),
   ])
   const bg = bgColor ?? DEFAULTS.bgColor
   applyTheme({
@@ -37,6 +48,7 @@ export async function loadAndApplyTheme() {
     bgColor: bg,
     bgMildColor: makeMildBg(bg, judgeBrightness(bg) ? 'darker' : 'lighter'),
     textColor: judgeBrightness(bg) ? '#000' : '#fff',
+    font: font ?? DEFAULTS.font,
   })
 }
 
@@ -52,8 +64,13 @@ export async function saveThemeKey<K extends keyof ThemeSettings>(
     bgColor:      '--color-bg',
     bgMildColor:  '--color-bg-mild',
     textColor:    '--color-text',
+    font:         '--font-family',
   }
-  document.documentElement.style.setProperty(propMap[key], value)
+  // font だけ値の変換が必要
+  const cssValue = key === 'font'
+    ? fontFamilyMap[value as ThemeSettings['font']]
+    : value as string
+  document.documentElement.style.setProperty(propMap[key], cssValue)
 }
 
 /** 明るさを判断 */
