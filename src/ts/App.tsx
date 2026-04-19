@@ -34,8 +34,13 @@ export default function App() {
   return (
     <div className="app-layout">
       <header className='app-header'>
-        <p>Music</p>
-        <NavLink to="/settings">設定</NavLink>
+        <p>Kokone Music</p>
+        <div className='app-header-button-container'>
+          <div className='app-header-button search' />
+          <NavLink to="/settings">
+            <Icon name="settings" size={24} mode={iconStyle} folder='/images/App/' className='app-header-button' />
+          </NavLink>
+        </div>
       </header>
 
       {/* 各ページのコンテンツ */}

@@ -1,13 +1,16 @@
 import SettingsPage from './pages/SettingsPage'
 import MiniPlayer from './components/MiniPlayer'
-import { NavLink } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 export default function SettingsLayout() {
+  const navigate = useNavigate()
+
   return (
     <div className="app-layout">
-      <header className="app-header">
-        <p>Music</p>
-        <NavLink to="/">← 戻る</NavLink>
+      <header className="app-header" style={{ justifyContent: 'flex-start', gap: '1rem' }}>
+        <button className='app-header-button back' onClick={() => navigate(-1)}>
+        </button>
+        <p>Settings</p>
       </header>
 
       <main className="app-content">

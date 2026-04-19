@@ -29,7 +29,7 @@ export default function LibraryPage() {
   }, [scanVersion, query, load])
 
   return (
-    <div className="library-page">
+    <div className="page fade-in">
       <div className="library-toolbar">
         <input
           className="library-search"

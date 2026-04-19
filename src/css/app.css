@@ -1,7 +1,34 @@
 .app-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh; 
+  height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+}
+.app-header-button-container {
+  display: flex;
+  gap: 1rem;
+}
+.app-header-button {
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-text);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  cursor: pointer;
+}
+.app-header-button.search {
+  mask-image: url('/images/App/search.svg');
+}
+.app-header-button.back {
+  mask-image: url('/images/App/back.svg');
 }
 
 .app-content {

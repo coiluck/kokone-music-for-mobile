@@ -47,6 +47,14 @@ button, select {
 a {
   text-decoration: none;
 }
+html {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 body {
   min-height: 100vh;
   background-color: var(--color-bg);
@@ -54,12 +62,6 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 
@@ -70,7 +72,7 @@ body {
   width: 100%;
   height: 100%;
   margin: 0 auto;
-  padding: 1rem 3rem 3rem;
+  padding: 1rem 2rem 2rem;
 }
 @media (min-width: 768px) {
   .page {
