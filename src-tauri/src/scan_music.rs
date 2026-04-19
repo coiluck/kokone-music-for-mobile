@@ -7,10 +7,21 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use walkdir::WalkDir;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "ogg", "m4a", "aac", "wav"];
+
+// フロントに送る進捗
+#[derive(Clone, serde::Serialize)]
+struct ScanProgress {
+    process_step: String, // "scanning" | "adding"
+    scan_current: u64,
+    scan_total: u64,
+    add_current: u64,
+    add_total: u64,
+    current_file: String,
+}
 
 #[tauri::command]
 pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u64, String> {
@@ -29,31 +40,73 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("music.db");
-    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
-    let mut added = 0u64;
+    // spawn_blocking に必要なものをすべてクローンして move
+    let app_for_emit = app.clone();
 
-    for folder in &paths {
-        for entry in WalkDir::new(folder).into_iter().filter_map(|e| e.ok()) {
-            if !entry.file_type().is_file() {
-                continue;
-            }
-            let path = entry.path();
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if !SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
-                continue;
-            }
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+        // --- 1. 対象ファイルを先に列挙 ---
+        let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+        for folder in &paths {
+            for entry in WalkDir::new(folder).into_iter().filter_map(|e| e.ok()) {
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+                let path = entry.into_path();
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
+                  candidates.push(path.clone());
+
+                  let _ = app_for_emit.emit("scan-progress", ScanProgress {
+                      process_step: "scanning".into(),
+                      scan_current: candidates.len() as u64,
+                      scan_total: 0, // 列挙中は総数未確定
+                      add_current: 0,
+                      add_total: 0,
+                      current_file: path
+                          .file_name()
+                          .and_then(|n| n.to_str())
+                          .unwrap_or("")
+                          .to_string(),
+                  });
+              }
+          }
+      }
+
+        let file_count = candidates.len() as u64;
+        let mut added = 0u64;
+        let mut processed = 0u64;
+
+        for path in candidates {
+            processed += 1;
+
             let path_str = match path.to_str() {
                 Some(s) => s,
                 None => continue,
             };
 
-            // すでにDBに同じパスのトラックがあればスキップ
-            let exists: bool = conn
+            // 進捗通知
+            let _ = app_for_emit.emit("scan-progress", ScanProgress {
+              process_step: "adding".into(),
+              scan_current: file_count,
+              scan_total: file_count,
+              add_current: processed,
+              add_total: file_count,
+              current_file: path
+                  .file_name()
+                  .and_then(|n| n.to_str())
+                  .unwrap_or("")
+                  .to_string(),
+            });
+
+            // --- 2. パス重複チェック ---
+            let path_exists: bool = conn
                 .query_row(
                     "SELECT COUNT(*) FROM tracks WHERE path = ?1",
                     params![path_str],
@@ -61,52 +114,29 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
                 )
                 .unwrap_or(0)
                 > 0;
-            if exists {
+            if path_exists {
                 continue;
             }
 
-            // メタデータ・再生時間を取得
-            let tagged = match Probe::open(path).and_then(|p| p.read()) {
-                Ok(t) => t,
-                Err(_) => continue,
-            };
-            let duration_ms = tagged.properties().duration().as_millis() as i64;
-
-            // ignoreMode: ignoreTime 秒未満はスキップ
-            if ignore_mode && (duration_ms as f64 / 1000.0) < ignore_time {
-                continue;
-            }
-
-            let primary_tag = tagged.primary_tag();
-            let title = primary_tag
-            .and_then(|t| t.title())
-            .map(|s| s.to_string())
-            .or_else(|| {
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
-            });
-            let artist = primary_tag
-                .and_then(|t| t.artist())
-                .map(|s| s.to_string());
-            let album = primary_tag
-                .and_then(|t| t.album())
-                .map(|s| s.to_string());
-
-            // SHA256 計算（MP3はID3タグを除いたオーディオ部分のみ）
+            // --- 3. ハッシュ計算 ---
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
             let hash = if ext == "mp3" {
-                match mp3_audio_hash(path) {
+                match mp3_audio_hash(&path) {
                     Ok(h) => h,
                     Err(_) => continue,
                 }
             } else {
-                match file_hash(path) {
+                match file_hash(&path) {
                     Ok(h) => h,
                     Err(_) => continue,
                 }
             };
 
-            // 同一ハッシュが既にDBにあればスキップ
+            // --- 4. ハッシュ重複チェック（ここで弾いてからメタデータ・解析へ）---
             let hash_exists: bool = conn
                 .query_row(
                     "SELECT COUNT(*) FROM tracks WHERE file_hash = ?1",
@@ -119,7 +149,30 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
                 continue;
             }
 
-            // オーディオ解析（LUFS・末尾無音）
+            // --- 5. メタデータ取得 ---
+            let tagged = match Probe::open(&path).and_then(|p| p.read()) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            let duration_ms = tagged.properties().duration().as_millis() as i64;
+
+            if ignore_mode && (duration_ms as f64 / 1000.0) < ignore_time {
+                continue;
+            }
+
+            let primary_tag = tagged.primary_tag();
+            let title = primary_tag
+                .and_then(|t| t.title())
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    path.file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_string())
+                });
+            let artist = primary_tag.and_then(|t| t.artist()).map(|s| s.to_string());
+            let album = primary_tag.and_then(|t| t.album()).map(|s| s.to_string());
+
+            // --- 6. オーディオ解析（重複除外済みのファイルのみ）---
             let analysis = analyze_audio(path_str).ok();
             let lufs = analysis.as_ref().map(|a| a.lufs);
             let trailing_silence_ms = analysis.as_ref().map(|a| a.trailing_silence_ms as i64);
@@ -133,29 +186,29 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
                 "INSERT INTO tracks \
                  (file_hash, path, title, artist, album, tags, duration_ms, lufs, trailing_silence_ms, scanned_at) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![
-                    hash,
-                    path_str,
-                    title,
-                    artist,
-                    album,
-                    "[]",
-                    duration_ms,
-                    lufs,
-                    trailing_silence_ms,
-                    now,
-                ],
+                params![hash, path_str, title, artist, album, "[]", duration_ms, lufs, trailing_silence_ms, now],
             ) {
                 Ok(_) => added += 1,
                 Err(e) => log::warn!("insert failed for {path_str}: {e}"),
             }
         }
-    }
 
-    Ok(added)
+        // 完了通知（total と processed が揃った状態で current を空に）
+        let _ = app_for_emit.emit("scan-progress", ScanProgress {
+          process_step: "adding".into(),
+          scan_current: file_count,
+          scan_total: file_count,
+          add_current: file_count,
+          add_total: file_count,
+          current_file: String::new(),
+        });
+
+        Ok(added)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-// MP3: ID3v2（先頭）と ID3v1（末尾128バイト）を除いたオーディオ部分をハッシュ
 fn mp3_audio_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let data = std::fs::read(path)?;
     let mut start = 0usize;
@@ -163,7 +216,6 @@ fn mp3_audio_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
 
     if data.len() >= 10 && &data[0..3] == b"ID3" {
         let flags = data[5];
-        // syncsafe integer (各バイト上位1ビットは0)
         let sz = ((data[6] as usize) << 21)
             | ((data[7] as usize) << 14)
             | ((data[8] as usize) << 7)
@@ -182,7 +234,6 @@ fn mp3_audio_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     Ok(format!("{:x}", h.finalize()))
 }
 
-// それ以外のフォーマット: ファイル全体をハッシュ
 fn file_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(path)?;
     let mut h = Sha256::new();

@@ -39,12 +39,13 @@ let _db: Database | null = null
 async function getDb(): Promise<Database> {
   if (!_db) {
     _db = await Database.load('sqlite:music.db')
-    await initDb(_db)
+    await initDb()
   }
   return _db
 }
 
-async function initDb(db: Database): Promise<void> {
+export async function initDb(): Promise<void> {
+  const db = await getDb()
   await db.execute(`
     CREATE TABLE IF NOT EXISTS tracks (
       id                  INTEGER PRIMARY KEY AUTOINCREMENT,

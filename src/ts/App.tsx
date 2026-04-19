@@ -2,7 +2,7 @@ import { Outlet, NavLink } from 'react-router-dom'
 import MiniPlayer from './components/MiniPlayer'
 import { useEffect } from 'react'
 import { runStartupScan } from './lib/scanFolders'
-import { getAllTracks } from './lib/db'
+import { initDb } from './lib/db'
 import { useMappedTranslations } from './lib/i18n'
 import '../css/default.css'
 import '../css/app.css'
@@ -17,7 +17,7 @@ export default function App() {
   const loadLang = useSettingsStore(s => s.loadLang)
 
   useEffect(() => {
-    getAllTracks().then(() => runStartupScan())
+    initDb().then(runStartupScan)
     loadAndApplyTheme()
     loadIconSettings()
     loadScanIgnoreSettings()
