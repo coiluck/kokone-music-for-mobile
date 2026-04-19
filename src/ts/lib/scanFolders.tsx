@@ -48,5 +48,5 @@ export async function runStartupScan(): Promise<void> {
   setScanningFlag(true)
   const added = await invoke<number>('music_scan_folders', { paths: folders })
   console.log(`スキャン完了: ${added}件追加`)
-  notifyScanCompleted() 
+  notifyScanCompleted()
 }

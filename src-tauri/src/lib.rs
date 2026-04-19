@@ -1,4 +1,6 @@
 mod settings;
+mod audio_analysis;
+mod scan_music;
 mod get_lang;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -11,6 +13,7 @@ pub fn run() {
             settings::settings_get,
             settings::settings_set,
             get_lang::get_system_lang,
+            scan_music::music_scan_folders,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

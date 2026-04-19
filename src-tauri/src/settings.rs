@@ -13,7 +13,7 @@ fn settings_path(app: &AppHandle) -> PathBuf {
 }
 
 // ── JSON 全体を読む（ファイルがなければ空オブジェクト） ──
-fn read_all(app: &AppHandle) -> Value {
+pub fn read_all(app: &AppHandle) -> Value {
     let path = settings_path(app);
     if !path.exists() {
         return json!({});
