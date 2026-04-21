@@ -38,7 +38,7 @@ import { listen } from '@tauri-apps/api/event'
 
 export async function runStartupScan(): Promise<void> {
   const folders = await getScanFolders()
-  if (folders.length === 0) return
+  // if (folders.length === 0) return
 
   const { setScanningFlag, setScanProgress, notifyScanCompleted } = useScanStore.getState()
   setScanningFlag(true)

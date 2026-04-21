@@ -13,7 +13,7 @@ export interface ScanProgressPayload {
 interface ScanStore {
   scanVersion: number
   scanning: boolean
-  processStep: 'scanning' | 'adding' | ''
+  processStep: 'scanning' | 'deleting' | 'adding' | 'analyzing' | ''
   scanCurrent: number
   scanTotal: number
   addCurrent: number

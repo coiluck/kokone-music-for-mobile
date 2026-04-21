@@ -9,6 +9,7 @@ import '../css/app.css'
 import { loadAndApplyTheme } from './lib/theme'
 import { Icon } from './components/Icon'
 import { useSettingsStore } from './lib/settingsStore'
+import { ScanMessage } from './components/ScanMessage'
 
 export default function App() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
@@ -83,6 +84,9 @@ export default function App() {
           </div>
         </NavLink>
       </nav>
+
+      {/* スキャン中のメッセージ */}
+      <ScanMessage />
     </div>
   )
 }

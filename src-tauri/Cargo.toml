@@ -38,4 +38,6 @@ log         = "0.4"
 symphonia = { version = "0.5", features = ["mp3", "aac", "ogg", "wav", "flac"] }
 ebur128 = "0.1"
 sha2 = "0.10"
+rayon = "1"
+num_cpus = "1"
 
