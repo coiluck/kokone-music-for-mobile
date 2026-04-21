@@ -16,5 +16,10 @@
   "settings.addFolder": { "ja": "フォルダを追加", "en": "Add Folder" },
   "settings.ignoreMode": { "ja": "以下の秒数未満のファイルを無視", "en": "Ignore files under this time" },
   "settings.ignoreTime": { "ja": "秒", "en": " Seconds" },
-  "settings.scanNow": { "ja": "今すぐ再スキャン", "en": "Scan Now" }
+  "settings.scanNow": { "ja": "今すぐ再スキャン", "en": "Scan Now" },
+  "scan.step.scanning": { "ja": "スキャン中", "en": "Scanning" },
+  "scan.step.deleting": { "ja": "削除中", "en": "Deleting" },
+  "scan.step.adding": { "ja": "追加中", "en": "Adding" },
+  "scan.step.analyzing": { "ja": "解析中", "en": "Analyzing" },
+  "scan.unit.files": { "ja": "ファイル", "en": "files" }
 }

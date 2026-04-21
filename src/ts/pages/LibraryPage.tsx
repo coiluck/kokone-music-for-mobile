@@ -16,13 +16,6 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const scanVersion = useScanStore(s => s.scanVersion)
 
-  const scanning     = useScanStore(s => s.scanning)
-  const processStep  = useScanStore(s => s.processStep)
-  const scanCurrent  = useScanStore(s => s.scanCurrent)
-  const addCurrent   = useScanStore(s => s.addCurrent)
-  const addTotal     = useScanStore(s => s.addTotal)
-  const currentFile  = useScanStore(s => s.currentFile)
-
   const load = useCallback(async (q: string) => {
     setLoading(true)
     const result = q.trim() ? await searchTracks(q) : await getAllTracks()
@@ -44,20 +37,7 @@ export default function LibraryPage() {
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        <span className="library-count">
-          {scanning ? (
-            <span className="scan-status">
-              <span className="scan-count">
-                {processStep === 'scanning'
-                  ? `スキャン中... ${scanCurrent} ファイル`
-                  : `追加中... ${addCurrent}/${addTotal}`}
-              </span>
-              {currentFile && (
-                <span className="scan-current" title={currentFile}>{currentFile}</span>
-              )}
-            </span>
-          ) : `${tracks.length} 曲`}
-        </span>
+        <span className="library-count">{tracks.length} 曲</span>
       </div>
 
       {loading ? (
