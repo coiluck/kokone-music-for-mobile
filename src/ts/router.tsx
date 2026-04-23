@@ -5,6 +5,7 @@ import PlaylistsPage from './pages/PlaylistsPage'
 import ArtistlistsPage from './pages/ArtistlistsPage'
 import ArtistPage from './pages/ArtistPage'
 import QueuePage from './pages/sub/QueuePage'
+import SearchPage from './pages/sub/SearchPage'
 import SettingsLayout from './SettingsLayout'
 
 export const router = createBrowserRouter([
@@ -16,7 +17,9 @@ export const router = createBrowserRouter([
       { path: 'playlists',     element: <PlaylistsPage /> },
       { path: 'artist/',       element: <ArtistlistsPage /> },
       { path: 'artist/:name',  element: <ArtistPage /> },
+      // subのページ
       { path: 'queue',         element: <QueuePage /> },
+      { path: 'search',        element: <SearchPage /> },
     ]
   },
   {
