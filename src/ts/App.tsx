@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import MiniPlayer from './components/MiniPlayer'
 import { useEffect } from 'react'
 import { runStartupScan } from './lib/scanFolders'
@@ -33,13 +33,29 @@ export default function App() {
     tags: 'page.tags'
   })
 
+  const location = useLocation()
+
+  useEffect(() => {
+    const scrollTop = location.state?.restoreScrollTop
+    if (scrollTop != null) {
+      const pageEl = document.querySelector('.page')
+      if (pageEl) pageEl.scrollTop = scrollTop
+      
+      // 一度復元したら消しておく
+      window.history.replaceState(
+        { ...window.history.state, usr: null },
+        ''
+      )
+    }
+  }, [location])
+
   return (
     <div className="app-layout">
       <header className='app-header'>
         <p>Kokone Music</p>
         <div className='app-header-button-container'>
           <div className='app-header-button search' />
-          <NavLink to="/settings">
+          <NavLink to="/settings" state={{ from: location.pathname }}>
             <Icon name="settings" size={24} mode={iconStyle} folder='/images/App/' className='app-header-button' />
           </NavLink>
         </div>

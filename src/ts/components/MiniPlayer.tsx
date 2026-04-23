@@ -1,3 +1,4 @@
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useRef, useCallback } from 'react'
 import { usePlayerStore } from '../lib/playerStore'
 import { musicPlayer } from '../lib/music'
@@ -13,6 +14,9 @@ function formatTime(ms: number): string {
 }
 
 export default function MiniPlayer() {
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const currentTrack = usePlayerStore(s => s.currentTrack)
   const isPlaying    = usePlayerStore(s => s.isPlaying)
   const positionMs   = usePlayerStore(s => s.positionMs)
@@ -22,7 +26,6 @@ export default function MiniPlayer() {
 
   // ドラッグ中だけ使うローカル state。null のときは store の値を表示する。
   const [draggingMs, setDraggingMs] = useState<number | null>(null)
-  const [isOpenList, setIsOpenList] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
 
   // clientX → ms に変換
@@ -37,7 +40,6 @@ export default function MiniPlayer() {
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (durationMs == null) return
     const max = durationMs
-    // 以降のイベントをこの要素で受け取り続ける（指/カーソルが外れてもOK）
     e.currentTarget.setPointerCapture(e.pointerId)
 
     const ms = clientXToMs(e.clientX, max)
@@ -55,6 +57,15 @@ export default function MiniPlayer() {
     e.currentTarget.releasePointerCapture(e.pointerId)
     musicPlayer.seek(draggingMs)
     setDraggingMs(null)
+  }
+
+  const handleOpenQueue = () => {
+    if (location.pathname === '/queue') return
+    const pageEl = document.querySelector('.page')
+    const scrollTop = pageEl?.scrollTop ?? 0
+    navigate('/queue', {
+      state: { from: location.pathname, scrollTop },
+    })
   }
 
   if (!currentTrack) {
@@ -109,7 +120,7 @@ export default function MiniPlayer() {
 
           <div 
             className='player-component-list-button'
-            onClick={() => setIsOpenList(true)}
+            onClick={handleOpenQueue}
           >
             <Icon name='list-order' mode={iconStyle} folder='/images/MiniPlayer/' />
           </div>
