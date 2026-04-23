@@ -6,36 +6,47 @@ import { usePlayerStore } from './playerStore'
 // ---------------------------------------------------
 // 設定（後で設定画面から読むようにする）
 // ---------------------------------------------------
-const CROSS_SETTINGS = 'cross_fade' // 'normal' | 'cross_fade'
+const CROSS_SETTINGS: 'normal' | 'cross_fade' = 'cross_fade'
 const DEFAULT_VOLUME = 1.0
 const CROSSFADE_DURATION_MS = 3000
 const DEFAULT_FADEOUT_MS = 500
-const FADE_TICK_MS = 20
+
+// ラウドネス正規化のターゲット (LUFS)
+const TARGET_LUFS = -14.0
+// setTargetAtTime の時定数。LUFS が切り替わる際にプチっと鳴らないよう緩やかに追従させる
+const NORM_TIME_CONSTANT_SEC = 0.05
 
 /**
- * 2つの HTMLAudioElement を交互に使い回すことで
- * クロスフェードを実現する音楽プレイヤー。
+ * 2つの Audio デッキを交互に使い回すことでクロスフェードを実現する音楽プレイヤー。
  *
- * - active : いま鳴っている Audio
- * - standby: 次の曲を先読みしておく Audio（クロスフェード用）
+ *   source → normGain → fadeGain → masterGain → destination
  *
- * UI に見せる状態（currentTrack / positionMs / queue 等）は
- * usePlayerStore にミラーする。コンポーネントはそちらを購読する。
+ * - normGain : Track の LUFS を見て -14 LUFS にそろえる音量補正 (>1 もありうる)
+ * - fadeGain : クロスフェード / フェードアウト用の 0〜1 のエンベロープ
+ * - masterGain: ユーザー音量 (0〜1)
+ *
+ * active / standby の 2 デッキを交互に使う。
+ * UI に見せる状態は usePlayerStore にミラーする。
+ *
+ * queue は「これから流れる曲」、history は「これまでに流れた曲」。
+ * next() は queue の先頭を取り出し、現曲を history に積む。
+ * prev() は history から戻り、現曲を queue の先頭に戻す。
  */
 export class MusicPlayer {
-  private audioA: HTMLAudioElement
-  private audioB: HTMLAudioElement
-  private active: HTMLAudioElement
-  private standby: HTMLAudioElement
+  private ctx: AudioContext
+  private masterGain: GainNode
+
+  private deckA: Deck
+  private deckB: Deck
+  private active: Deck
+  private standby: Deck
 
   private volume: number = DEFAULT_VOLUME
   private currentTrack: Track | null = null
   private queue: Track[] = []
+  private history: Track[] = []
 
-  // 実行中の fade interval を管理して、重複実行時にキャンセルできるようにする
-  private fadeTimers: Map<HTMLAudioElement, number> = new Map()
-
-  // active に付けているイベントハンドラ群。差し替え時に remove するために保持
+  // active 側の audio 要素に付けているリスナー。swap 時に付け替える
   private activeListeners: {
     ended: () => void
     timeupdate: () => void
@@ -45,15 +56,16 @@ export class MusicPlayer {
   } | null = null
 
   constructor() {
-    this.audioA = new Audio()
-    this.audioB = new Audio()
-    this.audioA.preload = 'auto'
-    this.audioB.preload = 'auto'
-    this.audioA.volume = this.volume
-    this.audioB.volume = this.volume
+    this.ctx = new AudioContext()
+    this.masterGain = this.ctx.createGain()
+    this.masterGain.gain.value = this.volume
+    this.masterGain.connect(this.ctx.destination)
 
-    this.active = this.audioA
-    this.standby = this.audioB
+    this.deckA = this.createDeck()
+    this.deckB = this.createDeck()
+
+    this.active = this.deckA
+    this.standby = this.deckB
 
     this.attachActiveListeners()
   }
@@ -64,56 +76,120 @@ export class MusicPlayer {
 
   /**
    * 指定された曲を再生する。
-   * 再生中の場合は CROSS_SETTINGS に応じて挙動が変わる。
-   *   - 'cross_fade' : クロスフェードしつつ新しい曲に切り替える
-   *   - 'normal'     : 現在の曲を即止めて新しい曲を頭から再生する
+   *   - 既に同じ曲が再生中なら何もしない（早期 return）
+   *   - 何か再生中 + cross_fade 設定ならクロスフェード
+   *   - それ以外は即座に切り替え
    */
   async play(track: Track): Promise<void> {
-    const isPlaying = !this.active.paused && !this.active.ended && this.active.src !== ''
+    // 同じ曲を連打された場合は何もしない
+    if (
+      this.currentTrack?.id === track.id &&
+      !this.active.audio.paused &&
+      !this.active.audio.ended
+    ) {
+      return
+    }
+
+    const isPlaying =
+      !this.active.audio.paused &&
+      !this.active.audio.ended &&
+      this.active.audio.src !== ''
 
     if (isPlaying && CROSS_SETTINGS === 'cross_fade') {
       await this.crossfadeTo(track, CROSSFADE_DURATION_MS)
     } else {
       this.cancelFade(this.active)
       this.cancelFade(this.standby)
-      await this.loadInto(this.active, track)
-      this.active.volume = this.volume
-      await this.active.play()
+      try {
+        await this.loadInto(this.active, track)
+      } catch (e) {
+        console.error('[MusicPlayer] loadInto failed:', e)
+        return
+      }
+      this.applyLufsGain(this.active, track.lufs ?? null)
+      this.active.fadeGain.gain.cancelScheduledValues(this.ctx.currentTime)
+      this.active.fadeGain.gain.setValueAtTime(1, this.ctx.currentTime)
+      try {
+        await this.active.audio.play()
+      } catch (e) {
+        console.error('[MusicPlayer] audio.play() failed:', e)
+        return
+      }
       this.setCurrentTrack(track)
     }
   }
 
   /**
    * フェードアウトしつつ停止する。
-   * @param duration フェードアウトにかける時間（ミリ秒）
    */
   async stop(duration: number = DEFAULT_FADEOUT_MS): Promise<void> {
     await this.fadeOut(this.active, duration)
-    this.active.pause()
-    this.active.currentTime = 0
+    this.active.audio.pause()
+    this.active.audio.currentTime = 0
     this.setCurrentTrack(null)
   }
 
-  /**
-   * 一時停止 / 再開。停止とは違い、fade はかけない。
-   */
+  // 一時停止 / 再開。fade はかけない
   async togglePause(): Promise<void> {
-    if (this.active.paused) {
-      await this.active.play()
+    if (this.active.audio.paused) {
+      try {
+        await this.active.audio.play()
+      } catch (e) {
+        console.error('[MusicPlayer] audio.play() failed:', e)
+      }
     } else {
-      this.active.pause()
+      this.active.audio.pause()
     }
   }
 
-  /**
-   * 指定した位置にシークする。
-   * @param ms ミリ秒
-   */
+  // 指定した位置にシークする
   seek(ms: number): void {
-    if (!this.active.duration || isNaN(this.active.duration)) return
-    const clamped = Math.max(0, Math.min(this.active.duration * 1000, ms))
-    this.active.currentTime = clamped / 1000
+    const dur = this.active.audio.duration
+    if (!dur || isNaN(dur)) return
+    const clamped = Math.max(0, Math.min(dur * 1000, ms))
+    this.active.audio.currentTime = clamped / 1000
     usePlayerStore.getState()._setPosition(clamped)
+  }
+
+  /**
+   * 前の曲に戻る。
+   * - 現曲の再生位置が 3 秒以上なら、まず曲頭に戻す
+   * - それ未満なら history から一つ戻す
+   * - history が空なら曲頭に戻すだけ
+   */
+  async prev(): Promise<void> {
+    if (this.active.audio.currentTime > 3) {
+      this.seek(0)
+      return
+    }
+    const prevTrack = this.history.pop()
+    if (!prevTrack) {
+      this.seek(0)
+      return
+    }
+    // 現曲を queue の先頭に戻す（next() で取り出せるように）
+    if (this.currentTrack) {
+      this.queue.unshift(this.currentTrack)
+      this.syncQueue()
+    }
+    await this.play(prevTrack)
+  }
+
+  /**
+   * 次の曲に進む。
+   * - queue が空ならフェードアウトして停止
+   */
+  async next(): Promise<void> {
+    const nextTrack = this.queue.shift()
+    this.syncQueue()
+    if (!nextTrack) {
+      await this.stop()
+      return
+    }
+    if (this.currentTrack) {
+      this.history.push(this.currentTrack)
+    }
+    await this.play(nextTrack)
   }
 
   // ---------------------------------------------------
@@ -122,10 +198,11 @@ export class MusicPlayer {
 
   setVolume(v: number): void {
     this.volume = Math.max(0, Math.min(1, v))
-    // フェード中でなければ即座に反映
-    if (!this.fadeTimers.has(this.active)) {
-      this.active.volume = this.volume
-    }
+    this.masterGain.gain.setTargetAtTime(
+      this.volume,
+      this.ctx.currentTime,
+      NORM_TIME_CONSTANT_SEC
+    )
     usePlayerStore.getState()._setVolume(this.volume)
   }
 
@@ -133,7 +210,6 @@ export class MusicPlayer {
   // キュー操作
   //
   // store.queue は常にこのメソッド経由で更新する。
-  // 直接 store を書き換えないこと（class の currentTrack と整合しなくなる）。
   // ---------------------------------------------------
 
   setQueue(tracks: Track[]): void {
@@ -188,6 +264,27 @@ export class MusicPlayer {
   // 内部処理
   // ---------------------------------------------------
 
+  /**
+   * 新しいデッキを1つ作る。audio 要素と Web Audio のノードをつないで返す。
+   */
+  private createDeck(): Deck {
+    const audio = new Audio()
+    audio.preload = 'auto'
+    audio.crossOrigin = 'anonymous'
+
+    const source = this.ctx.createMediaElementSource(audio)
+    const normGain = this.ctx.createGain()
+    const fadeGain = this.ctx.createGain()
+    normGain.gain.value = 1.0
+    fadeGain.gain.value = 0.0
+
+    source.connect(normGain)
+    normGain.connect(fadeGain)
+    fadeGain.connect(this.masterGain)
+
+    return { audio, source, normGain, fadeGain }
+  }
+
   private syncQueue(): void {
     usePlayerStore.getState()._setQueue([...this.queue])
   }
@@ -204,18 +301,18 @@ export class MusicPlayer {
   }
 
   /**
-   * active に付けるイベントハンドラをまとめて登録する。
-   * swap 時に detach してから新しい active に付け直す。
+   * active の audio 要素にイベントハンドラを付ける。swap 時に detach してから付け直す。
    */
   private attachActiveListeners(): void {
+    const audio = this.active.audio
     const ended = () => {
-      this.playNextFromQueue()
+      this.onActiveEnded()
     }
     const timeupdate = () => {
-      usePlayerStore.getState()._setPosition(this.active.currentTime * 1000)
+      usePlayerStore.getState()._setPosition(audio.currentTime * 1000)
     }
     const loadedmetadata = () => {
-      const d = this.active.duration
+      const d = audio.duration
       usePlayerStore.getState()._setDuration(
         isNaN(d) || !isFinite(d) ? null : d * 1000
       )
@@ -227,122 +324,167 @@ export class MusicPlayer {
       usePlayerStore.getState()._setIsPlaying(false)
     }
 
-    this.active.addEventListener('ended', ended)
-    this.active.addEventListener('timeupdate', timeupdate)
-    this.active.addEventListener('loadedmetadata', loadedmetadata)
-    this.active.addEventListener('play', onPlay)
-    this.active.addEventListener('pause', onPause)
+    audio.addEventListener('ended', ended)
+    audio.addEventListener('timeupdate', timeupdate)
+    audio.addEventListener('loadedmetadata', loadedmetadata)
+    audio.addEventListener('play', onPlay)
+    audio.addEventListener('pause', onPause)
 
-    this.activeListeners = { ended, timeupdate, loadedmetadata, play: onPlay, pause: onPause }
+    this.activeListeners = {
+      ended,
+      timeupdate,
+      loadedmetadata,
+      play: onPlay,
+      pause: onPause,
+    }
   }
 
   private detachActiveListeners(): void {
     if (!this.activeListeners) return
-    const { ended, timeupdate, loadedmetadata, play, pause } = this.activeListeners
-    this.active.removeEventListener('ended', ended)
-    this.active.removeEventListener('timeupdate', timeupdate)
-    this.active.removeEventListener('loadedmetadata', loadedmetadata)
-    this.active.removeEventListener('play', play)
-    this.active.removeEventListener('pause', pause)
+    const audio = this.active.audio
+    const { ended, timeupdate, loadedmetadata, play, pause } =
+      this.activeListeners
+    audio.removeEventListener('ended', ended)
+    audio.removeEventListener('timeupdate', timeupdate)
+    audio.removeEventListener('loadedmetadata', loadedmetadata)
+    audio.removeEventListener('play', play)
+    audio.removeEventListener('pause', pause)
     this.activeListeners = null
   }
 
-  private async playNextFromQueue(): Promise<void> {
-    const next = this.queue.shift()
+  /**
+   * active の曲が自然に終端に達したときの処理。history に積んで次の曲へ。
+   */
+  private async onActiveEnded(): Promise<void> {
+    if (this.currentTrack) {
+      this.history.push(this.currentTrack)
+    }
+    const nextTrack = this.queue.shift()
     this.syncQueue()
-    if (!next) {
+    if (!nextTrack) {
       this.setCurrentTrack(null)
       return
     }
     this.cancelFade(this.active)
-    await this.loadInto(this.active, next)
-    this.active.volume = this.volume
-    await this.active.play()
-    this.setCurrentTrack(next)
+    try {
+      await this.loadInto(this.active, nextTrack)
+    } catch (e) {
+      console.error('[MusicPlayer] loadInto failed:', e)
+      return
+    }
+    this.applyLufsGain(this.active, nextTrack.lufs ?? null)
+    this.active.fadeGain.gain.cancelScheduledValues(this.ctx.currentTime)
+    this.active.fadeGain.gain.setValueAtTime(1, this.ctx.currentTime)
+    try {
+      await this.active.audio.play()
+    } catch (e) {
+      console.error('[MusicPlayer] audio.play() failed:', e)
+      return
+    }
+    this.setCurrentTrack(nextTrack)
   }
 
   /**
-   * standby 側に次の曲をロードし、active と standby の音量を
-   * 少しずつ入れ替える形でクロスフェードする。
+   * standby 側に次の曲をロードし、active と standby の fadeGain を
+   * linearRampToValueAtTime でクロスフェードする。
    * 終わったら active / standby の役割を交換する。
    */
-  private async crossfadeTo(track: Track, duration: number): Promise<void> {
+  private async crossfadeTo(track: Track, durationMs: number): Promise<void> {
     this.cancelFade(this.active)
     this.cancelFade(this.standby)
 
-    await this.loadInto(this.standby, track)
-    this.standby.volume = 0
-    await this.standby.play()
+    try {
+      await this.loadInto(this.standby, track)
+    } catch (e) {
+      console.error('[MusicPlayer] loadInto failed:', e)
+      return
+    }
+    this.applyLufsGain(this.standby, track.lufs ?? null)
 
-    const target = this.volume
-    const steps = Math.max(1, Math.floor(duration / FADE_TICK_MS))
-    const stepDelta = target / steps
+    const now = this.ctx.currentTime
+    const dur = durationMs / 1000
 
-    const fadingOut = this.active
-    const fadingIn = this.standby
+    // standby は 0 から鳴らし始める
+    this.standby.fadeGain.gain.cancelScheduledValues(now)
+    this.standby.fadeGain.gain.setValueAtTime(0, now)
+    try {
+      await this.standby.audio.play()
+    } catch (e) {
+      console.error('[MusicPlayer] audio.play() failed:', e)
+      return
+    }
 
-    await new Promise<void>(resolve => {
-      let i = 0
-      const id = window.setInterval(() => {
-        i++
-        const nextOut = Math.max(0, target - stepDelta * i)
-        const nextIn = Math.min(target, stepDelta * i)
-        fadingOut.volume = nextOut
-        fadingIn.volume = nextIn
-        if (i >= steps) {
-          window.clearInterval(id)
-          this.fadeTimers.delete(fadingOut)
-          this.fadeTimers.delete(fadingIn)
-          resolve()
-        }
-      }, FADE_TICK_MS)
-      this.fadeTimers.set(fadingOut, id)
-      this.fadeTimers.set(fadingIn, id)
-    })
+    // ランプをスケジュール
+    const outG = this.active.fadeGain.gain
+    const inG = this.standby.fadeGain.gain
+    outG.cancelScheduledValues(now)
+    outG.setValueAtTime(outG.value, now)
+    outG.linearRampToValueAtTime(0, now + dur)
 
-    // 旧 active を停止し、役割を交換
-    fadingOut.pause()
-    fadingOut.currentTime = 0
+    inG.setValueAtTime(0, now)
+    inG.linearRampToValueAtTime(1, now + dur)
+
+    // 自然終端と同じ扱いにするため history に積む
+    if (this.currentTrack) {
+      this.history.push(this.currentTrack)
+    }
+
+    // ランプ終了を待つ
+    await new Promise<void>(resolve => setTimeout(resolve, durationMs))
+
+    // 旧 active を止めて、役割を交換
+    const oldActive = this.active
+    oldActive.audio.pause()
+    oldActive.audio.currentTime = 0
     this.swapActive()
     this.setCurrentTrack(track)
   }
 
-  private async fadeOut(el: HTMLAudioElement, duration: number): Promise<void> {
-    this.cancelFade(el)
-    if (el.paused) return
+  /**
+   * 指定したデッキをフェードアウトして止める（停止は呼び出し側の責任）
+   */
+  private async fadeOut(deck: Deck, durationMs: number): Promise<void> {
+    this.cancelFade(deck)
+    if (deck.audio.paused) return
 
-    const start = el.volume
-    if (start <= 0) return
+    const now = this.ctx.currentTime
+    const dur = durationMs / 1000
+    const g = deck.fadeGain.gain
+    g.cancelScheduledValues(now)
+    g.setValueAtTime(g.value, now)
+    g.linearRampToValueAtTime(0, now + dur)
 
-    const steps = Math.max(1, Math.floor(duration / FADE_TICK_MS))
-    const stepDelta = start / steps
-
-    await new Promise<void>(resolve => {
-      let i = 0
-      const id = window.setInterval(() => {
-        i++
-        el.volume = Math.max(0, start - stepDelta * i)
-        if (i >= steps) {
-          window.clearInterval(id)
-          this.fadeTimers.delete(el)
-          resolve()
-        }
-      }, FADE_TICK_MS)
-      this.fadeTimers.set(el, id)
-    })
-  }
-
-  private cancelFade(el: HTMLAudioElement): void {
-    const id = this.fadeTimers.get(el)
-    if (id !== undefined) {
-      window.clearInterval(id)
-      this.fadeTimers.delete(el)
-    }
+    await new Promise<void>(resolve => setTimeout(resolve, durationMs))
   }
 
   /**
-   * active と standby の指している Audio を入れ替え、
-   * イベントハンドラを新しい active に付け替える。
+   * 予約済みの fadeGain のランプをキャンセルして現在値で固定する。
+   */
+  private cancelFade(deck: Deck): void {
+    const now = this.ctx.currentTime
+    const g = deck.fadeGain.gain
+    const current = g.value
+    g.cancelScheduledValues(now)
+    g.setValueAtTime(current, now)
+  }
+
+  /**
+   * トラックの LUFS から正規化 gain を計算し、normGain に反映する。
+   */
+  private applyLufsGain(deck: Deck, trackLufs: number | null): void {
+    const gain =
+      trackLufs != null && isFinite(trackLufs)
+        ? Math.pow(10, (TARGET_LUFS - trackLufs) / 20)
+        : 1.0
+    deck.normGain.gain.setTargetAtTime(
+      gain,
+      this.ctx.currentTime,
+      NORM_TIME_CONSTANT_SEC
+    )
+  }
+
+  /**
+   * active と standby のデッキを入れ替え、リスナーを新しい active に付け替える。
    */
   private swapActive(): void {
     this.detachActiveListeners()
@@ -353,27 +495,44 @@ export class MusicPlayer {
   }
 
   /**
-   * HTMLAudioElement に Track のローカルパスをセットし、
-   * 再生可能になるまで待つ。
+   * Track のローカルパスをデッキの audio にセットし、再生可能になるまで待つ。
+   * 連続呼び出しでリスナーがリークしないよう once で付ける。
    */
-  private loadInto(el: HTMLAudioElement, track: Track): Promise<void> {
+  private loadInto(deck: Deck, track: Track): Promise<void> {
+    const el = deck.audio
     return new Promise((resolve, reject) => {
-      const onCanPlay = () => {
+      const cleanup = () => {
         el.removeEventListener('canplay', onCanPlay)
         el.removeEventListener('error', onError)
+      }
+      const onCanPlay = () => {
+        cleanup()
         resolve()
       }
       const onError = () => {
-        el.removeEventListener('canplay', onCanPlay)
-        el.removeEventListener('error', onError)
-        reject(new Error(`Failed to load: ${track.path}`))
+        cleanup()
+        reject(
+          new Error(
+            `Failed to load: ${track.path} (code: ${el.error?.code ?? 'unknown'})`
+          )
+        )
       }
-      el.addEventListener('canplay', onCanPlay)
-      el.addEventListener('error', onError)
+      el.addEventListener('canplay', onCanPlay, { once: true })
+      el.addEventListener('error', onError, { once: true })
       el.src = convertFileSrc(track.path)
       el.load()
     })
   }
+}
+
+/**
+ * 1 曲分の再生経路をまとめた構造体。
+ */
+interface Deck {
+  audio: HTMLAudioElement
+  source: MediaElementAudioSourceNode
+  normGain: GainNode
+  fadeGain: GainNode
 }
 
 // アプリ全体で共有する singleton
