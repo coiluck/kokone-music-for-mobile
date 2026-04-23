@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getAllTracks, searchTracks, type Track } from '../lib/db'
 import { useScanStore } from '../lib/scanStore'
+import { musicPlayer } from '../lib/music'
 
 function formatDuration(ms: number | null): string {
   if (ms == null) return '—'
@@ -55,7 +56,7 @@ export default function LibraryPage() {
           </thead>
           <tbody>
             {tracks.map((track, i) => (
-              <tr key={track.id} className="track-row" onDoubleClick={() => {}}>
+              <tr key={track.id} className="track-row" onDoubleClick={() => {musicPlayer.play(track)}}>
                 <td className="track-index">{i + 1}</td>
                 <td className="track-title">{track.title ?? track.path.split('/').pop()}</td>
                 <td className="track-artist">{track.artist ?? '—'}</td>

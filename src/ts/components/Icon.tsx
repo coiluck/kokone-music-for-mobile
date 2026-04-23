@@ -1,4 +1,4 @@
-type IconMode = 'outline' | 'fill';
+type IconMode = 'outline' | 'fill' | null;
 
 interface IconProps {
   name: string;
@@ -10,7 +10,9 @@ interface IconProps {
 }
 
 export const Icon = ({ name, mode, size = 24, color = 'currentColor', className, folder }: IconProps) => {
-  const src = `${folder}${name}-${mode}.svg`;
+  const src = mode
+    ? `${folder}${name}-${mode}.svg`
+    : `${folder}${name}.svg`;
 
   return (
     <div
@@ -24,6 +26,7 @@ export const Icon = ({ name, mode, size = 24, color = 'currentColor', className,
         maskSize: 'contain',
         maskRepeat: 'no-repeat',
         maskPosition: 'center',
+        cursor: 'pointer'
       }}
     />
   );

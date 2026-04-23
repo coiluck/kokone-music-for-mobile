@@ -39,8 +39,10 @@
 .app-sidebar {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  position: relative;
   width: 100%;
   background-color: var(--color-bg-mild);
+  z-index: 2; /* MiniPlayer より大きい */
 }
 .app-sidebar-item {
   padding: .5rem 0; /* 上下はいらん */
