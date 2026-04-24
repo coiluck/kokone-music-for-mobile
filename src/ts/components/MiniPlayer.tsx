@@ -100,6 +100,7 @@ export default function MiniPlayer() {
           <div className="player-component-control-button-container">
             <button
               className='player-component-control-button'
+              onClick={() => void musicPlayer.prev()}
             >
               <Icon name='prev_text' mode={null} folder='/images/MiniPlayer/' color='rgb(from var(--color-text) r g b / 0.7)' />
             </button>
@@ -113,6 +114,7 @@ export default function MiniPlayer() {
             </button>
             <button
               className='player-component-control-button'
+              onClick={() => void musicPlayer.next()}
             >
               <Icon name='next_text' mode={null} folder='/images/MiniPlayer/' color='rgb(from var(--color-text) r g b / 0.7)' />
             </button>

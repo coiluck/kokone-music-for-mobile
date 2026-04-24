@@ -20,18 +20,20 @@ export default function LibraryPage() {
     load()
   }, [scanVersion, load])
 
-  const handlePlay = useCallback(
-    (track: Track) => {
-      const i = tracks.findIndex(t => t.id === track.id)
-      if (i === -1) {
-        void musicPlayer.play(track)
-        return
-      }
-      musicPlayer.setQueue(tracks.slice(i + 1))
+const handlePlay = useCallback(
+  (track: Track) => {
+    const i = tracks.findIndex(t => t.id === track.id)
+    if (i === -1) {
       void musicPlayer.play(track)
-    },
-    [tracks]
-  )
+      return
+    }
+    // クリック曲の後ろ → 先頭からクリック曲の一個前まで、で一周分
+    const queue = [...tracks.slice(i + 1), ...tracks.slice(0, i)]
+    musicPlayer.setQueue(queue)
+    void musicPlayer.play(track)
+  },
+  [tracks]
+)
 
   return (
     <div className="page fade-in">
