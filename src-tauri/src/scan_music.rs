@@ -386,7 +386,8 @@ fn add_new_tracks(
                 path.file_stem()
                     .and_then(|s| s.to_str())
                     .map(|s| s.to_string())
-            });
+            })
+            .unwrap_or_else(|| "Unknown".to_string());
         let artist = primary_tag.and_then(|t| t.artist()).map(|s| s.to_string());
         let album = primary_tag.and_then(|t| t.album()).map(|s| s.to_string());
 

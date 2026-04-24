@@ -2,14 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { getAllTracks, type Track } from '../lib/db'
 import { useScanStore } from '../lib/scanStore'
 import { musicPlayer } from '../lib/music'
-
-function formatDuration(ms: number | null): string {
-  if (ms == null) return '—'
-  const totalSec = Math.floor(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
+import MusicItem from '../components/MusicItem'
 
 export default function LibraryPage() {
   const [tracks, setTracks] = useState<Track[]>([])
@@ -27,6 +20,19 @@ export default function LibraryPage() {
     load()
   }, [scanVersion, load])
 
+  const handlePlay = useCallback(
+    (track: Track) => {
+      const i = tracks.findIndex(t => t.id === track.id)
+      if (i === -1) {
+        void musicPlayer.play(track)
+        return
+      }
+      musicPlayer.setQueue(tracks.slice(i + 1))
+      void musicPlayer.play(track)
+    },
+    [tracks]
+  )
+
   return (
     <div className="page fade-in">
       <div className="library-toolbar">
@@ -40,24 +46,15 @@ export default function LibraryPage() {
           まだ曲がありません。設定からフォルダを追加してください。
         </p>
       ) : (
-        <table className="track-table">
-          <thead>
-            <tr>
-              <th>#</th><th>曲名</th><th>アーティスト</th><th>アルバム</th><th>時間</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tracks.map((track, i) => (
-              <tr key={track.id} className="track-row" onDoubleClick={() => { musicPlayer.play(track) }}>
-                <td className="track-index">{i + 1}</td>
-                <td className="track-title">{track.title ?? track.path.split('/').pop()}</td>
-                <td className="track-artist">{track.artist ?? '—'}</td>
-                <td className="track-album">{track.album ?? '—'}</td>
-                <td className="track-duration">{formatDuration(track.duration_ms)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="music-list">
+          {tracks.map(track => (
+            <MusicItem
+              key={track.id}
+              track={track}
+              onPlay={handlePlay}
+            />
+          ))}
+        </div>
       )}
     </div>
   )

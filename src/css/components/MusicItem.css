@@ -1,0 +1,62 @@
+.mi-component-container {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: .5rem;
+  border-radius: .5rem;
+  transition: all 0.3s ease;
+}
+.mi-component-container:hover {
+  background-color: rgb(from var(--color-text) r g b / 0.15);;
+}
+
+.mi-component-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: .3rem;
+  border-radius: .3rem;
+  background-color: rgb(from var(--color-text) r g b / 0.15);;
+  opacity: .5;
+}
+
+.mi-component-icon-container {
+  display: flex;
+  flex-direction: column;
+  text-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  gap: 2px;
+}
+
+.mi-component-title {
+  font-size: 1rem;
+}
+.mi-component-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: .7rem;
+  font-size: .7rem;
+}
+.mi-component-info-left {
+  opacity: .8;
+}
+
+.mi-component-tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+}
+.mi-component-tag-item {
+  padding: 2px 6px;
+  font-size:.7rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  background-color: rgb(from var(--color-accent) r g b / 0.15);;
+}

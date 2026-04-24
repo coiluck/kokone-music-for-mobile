@@ -6,7 +6,7 @@ import { Icon } from './Icon'
 import { useSettingsStore } from '../lib/settingsStore'
 import '../../css/components/MiniPlayer.css'
 
-function formatTime(ms: number): string {
+export function formatTime(ms: number): string {
   const totalSec = Math.floor(ms / 1000)
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60

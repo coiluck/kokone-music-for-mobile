@@ -4,7 +4,7 @@ export interface Track {
   id: number
   file_hash: string // sha256
   path: string
-  title: string | null
+  title: string
   artist: string | null
   album: string | null
   tags: string[]
@@ -34,6 +34,12 @@ export interface history {
   played_at: number
 }
 
+// DB 上は tags が TEXT (JSON文字列) で入っているので、
+// SELECT の戻り値はそのまま Track にキャストできない
+interface TrackRow extends Omit<Track, 'tags'> {
+  tags: string
+}
+
 let _db: Database | null = null
 
 async function getDb(): Promise<Database> {
@@ -51,7 +57,7 @@ export async function initDb(): Promise<void> {
       id                  INTEGER PRIMARY KEY AUTOINCREMENT,
       file_hash           TEXT    NOT NULL UNIQUE,
       path                TEXT    NOT NULL UNIQUE,
-      title               TEXT,
+      title               TEXT    NOT NULL,
       artist              TEXT,
       album               TEXT,
       tags                TEXT    NOT NULL DEFAULT '[]',
@@ -86,20 +92,36 @@ export async function initDb(): Promise<void> {
   `)
 }
 
+// dbのtagsをstringに変換
+function rowToTrack(row: TrackRow): Track {
+  let tags: string[] = []
+  try {
+    const parsed = JSON.parse(row.tags)
+    if (Array.isArray(parsed)) {
+      tags = parsed.filter((t): t is string => typeof t === 'string')
+    }
+  } catch {
+    // デフォルトの空配列のままだからいい
+  }
+  return { ...row, tags }
+}
+
 export async function getAllTracks(): Promise<Track[]> {
   const db = await getDb()
-  return db.select<Track[]>(
+  const rows = await db.select<TrackRow[]>(
     'SELECT * FROM tracks ORDER BY artist NULLS LAST, album NULLS LAST, title NULLS LAST'
   )
+  return rows.map(rowToTrack)
 }
 
 export async function searchTracks(query: string): Promise<Track[]> {
   const db = await getDb()
   const q = `%${query}%`
-  return db.select<Track[]>(
+  const rows = await db.select<TrackRow[]>(
     `SELECT * FROM tracks
      WHERE title LIKE $1 OR artist LIKE $1 OR album LIKE $1
      ORDER BY artist NULLS LAST, title NULLS LAST`,
     [q]
   )
+  return rows.map(rowToTrack)
 }
