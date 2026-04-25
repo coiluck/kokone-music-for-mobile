@@ -1,0 +1,71 @@
+.library-main-container {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.library-music-item-container {
+  height: 100%;
+  padding-right: 2rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* スクロール用のボタン */
+.library-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  transform: translateX(50%);
+  bottom: 0;
+  width: 2rem;
+}
+
+.library-indicator-line {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(from var(--color-text) r g b / 0.2) 25%,
+    rgb(from var(--color-text) r g b / 0.2) 75%,
+    transparent
+  );
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.library-indicator-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 20px;
+  background: none;
+  border: none;
+  color: rgb(from var(--color-text) r g b / 0.5);
+  font-size: .625rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all .2s ease-in-out;
+}
+.library-indicator-item:hover {
+  color: var(--color-accent);
+}
+.library-indicator-item.is-active {
+  color: var(--color-accent);
+  font-weight: 700;
+  transform: scale(1.5);
+}
