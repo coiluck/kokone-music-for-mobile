@@ -1,12 +1,18 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { getAllTracks, type Track } from '../lib/db'
 import { useScanStore } from '../lib/scanStore'
 import { musicPlayer } from '../lib/music'
 import { usePlayerStore } from '../lib/playerStore'
 import MusicItem from '../components/MusicItem'
+import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/LibraryPage.css'
 
 const INDICATOR_ITEM_HEIGHT = 20
+const ESTIMATED_ITEM_HEIGHT = 56
+const SCROLL_OFFSET = 8
+// MiniPlayer の高さ（CSS の calc(24px + .8rem + 20px + .5rem) と一致させる）
+const MINI_PLAYER_HEIGHT_CSS = 'calc(24px + .8rem + 20px + .5rem)'
 
 function getFirstChar(title: string): string {
   if (!title) return '#' // titleは!nullだけど
@@ -19,27 +25,47 @@ function sortByTitle(tracks: Track[]): Track[] {
   )
 }
 
+// CSS calc 値を実ピクセルに解決する（paddingEnd に数値で渡すため）
+function resolveMiniPlayerHeightPx(): number {
+  // 一時要素を生成して計算済み高さを取り出す
+  const probe = document.createElement('div')
+  probe.style.position = 'absolute'
+  probe.style.visibility = 'hidden'
+  probe.style.height = MINI_PLAYER_HEIGHT_CSS
+  document.body.appendChild(probe)
+  const h = probe.getBoundingClientRect().height
+  document.body.removeChild(probe)
+  return h
+}
+
 export default function LibraryPage() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
   const [activeChar, setActiveChar] = useState<string | null>(null)
   const [currentChar, setCurrentChar] = useState<string | null>(null)
   const [visibleChars, setVisibleChars] = useState<string[]>([])
+  const [miniPlayerHeightPx, setMiniPlayerHeightPx] = useState(0)
   const scanVersion = useScanStore(s => s.scanVersion)
 
-  const isMiniPlayerVisible    = usePlayerStore(s => s.currentTrack)
+  const t = useMappedTranslations({
+    count: 'library.count',
+    empty: 'library.empty',
+    loading: 'library.loading',
+  })
+
+  const isMiniPlayerVisible = usePlayerStore(s => s.currentTrack)
 
   const listRef = useRef<HTMLDivElement | null>(null)
   const indicatorRef = useRef<HTMLDivElement | null>(null)
-  const trackRefs = useRef<Record<string | number, HTMLDivElement | null>>({})
-  // 現在 intersect しているトラックIDの集合
-  const intersectingIdsRef = useRef<Set<string | number>>(new Set())
+  const lastDraggedCharRef = useRef<string | null>(null)
+  const isDraggingRef = useRef(false)
+  const activeCharTimerRef = useRef<number | null>(null)
+  // pointer 経由でジャンプを処理した直後の onClick を抑止するフラグ
+  const pointerHandledRef = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     const result = await getAllTracks()
-    trackRefs.current = {}
-    intersectingIdsRef.current = new Set()
     setTracks(sortByTitle(result))
     setLoading(false)
   }, [])
@@ -48,17 +74,24 @@ export default function LibraryPage() {
     load()
   }, [scanVersion, load])
 
-  // 頭文字 -> その文字が最初に登場するトラックID
-  const charToFirstTrackId = useMemo(() => {
-    const acc: Record<string, Track['id']> = {}
-    for (const t of tracks) {
-      const ch = getFirstChar(t.title)
-      if (!(ch in acc)) acc[ch] = t.id
+  // MiniPlayer の表示状態に応じて、末尾余白の実ピクセル値を更新
+  useEffect(() => {
+    if (isMiniPlayerVisible) {
+      setMiniPlayerHeightPx(resolveMiniPlayerHeightPx())
+    } else {
+      setMiniPlayerHeightPx(0)
     }
+  }, [isMiniPlayerVisible])
+
+  const charToFirstIndex = useMemo(() => {
+    const acc: Record<string, number> = {}
+    tracks.forEach((t, i) => {
+      const ch = getFirstChar(t.title)
+      if (!(ch in acc)) acc[ch] = i
+    })
     return acc
   }, [tracks])
 
-  // 登場順でユニークな頭文字リスト
   const allChars = useMemo(() => {
     const seen = new Set<string>()
     const result: string[] = []
@@ -72,7 +105,19 @@ export default function LibraryPage() {
     return result
   }, [tracks])
 
-  // インジケーター高さに応じて表示文字数を間引く
+  const virtualizer = useVirtualizer({
+    count: tracks.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => ESTIMATED_ITEM_HEIGHT,
+    overscan: 8,
+    paddingStart: SCROLL_OFFSET,
+    // MiniPlayer の裏に最後の曲が隠れないよう、末尾に余白を確保
+    paddingEnd: miniPlayerHeightPx,
+    getItemKey: i => tracks[i]?.id ?? i,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+
   const recalc = useCallback(() => {
     if (!indicatorRef.current) return
     const h = indicatorRef.current.clientHeight
@@ -104,89 +149,148 @@ export default function LibraryPage() {
     return () => ro.disconnect()
   }, [recalc])
 
-  // tracks の id -> index を引くマップ（intersect 中の最上要素を求める用）
-  const trackIndexById = useMemo(() => {
-    const m = new Map<string | number, number>()
-    tracks.forEach((t, i) => m.set(t.id, i))
-    return m
-  }, [tracks])
-
-  // IntersectionObserver でスクロール追従
   useEffect(() => {
+    if (tracks.length === 0 || virtualItems.length === 0) return
+    if (isDraggingRef.current) return
     const listEl = listRef.current
-    if (!listEl || tracks.length === 0) return
+    if (!listEl) return
 
-    const intersecting = intersectingIdsRef.current
+    const probe = listEl.scrollTop + SCROLL_OFFSET
 
-    const updateCurrent = () => {
-      if (intersecting.size === 0) return
-      // intersect 中のうちリスト内で最も上（index が最小）の要素を採用
-      let topIndex = Infinity
-      for (const id of intersecting) {
-        const idx = trackIndexById.get(id)
-        if (idx != null && idx < topIndex) {
-          topIndex = idx
-        }
+    let topIndex = virtualItems[0].index
+    for (const vi of virtualItems) {
+      if (vi.start <= probe) {
+        topIndex = vi.index
+      } else {
+        break
       }
-      if (topIndex === Infinity) return
-      const t = tracks[topIndex]
-      if (!t) return
-      const ch = getFirstChar(t.title)
-      setCurrentChar(prev => (prev === ch ? prev : ch))
     }
 
-    const io = new IntersectionObserver(
-      entries => {
-        for (const entry of entries) {
-          const raw = (entry.target as HTMLElement).dataset.trackId
-          if (raw == null) continue
-          // ref のキーが数値の場合もあるので両方試す
-          const numId = Number(raw)
-          const key: string | number = Number.isNaN(numId) ? raw : numId
-          if (entry.isIntersecting) {
-            intersecting.add(key)
-          } else {
-            intersecting.delete(key)
-          }
-        }
-        updateCurrent()
-      },
-      {
-        root: listEl,
-        // リスト上端付近のみを判定領域にする。
-        // 下側を大きくマイナスにすることで、上端をまたいだ要素だけが intersecting になる。
-        rootMargin: '-8px 0px -100% 0px',
-        threshold: 0,
-      }
-    )
+    const t = tracks[topIndex]
+    if (!t) return
+    const ch = getFirstChar(t.title)
+    setCurrentChar(prev => (prev === ch ? prev : ch))
+  }, [virtualItems, tracks])
 
-    for (const t of tracks) {
-      const el = trackRefs.current[t.id]
-      if (el) io.observe(el)
-    }
-
-    return () => {
-      io.disconnect()
-      intersecting.clear()
-    }
-  }, [tracks, trackIndexById])
-
-  const scrollToChar = useCallback(
-    (ch: string) => {
-      setActiveChar(ch)
-      const trackId = charToFirstTrackId[ch]
-      const el = trackId != null ? trackRefs.current[trackId] : null
-      const listEl = listRef.current
-      if (el && listEl) {
-        const listTop = listEl.getBoundingClientRect().top
-        const elTop = el.getBoundingClientRect().top
-        const target = listEl.scrollTop + (elTop - listTop) - 8
-        listEl.scrollTo({ top: target, behavior: 'smooth' })
-      }
-      window.setTimeout(() => setActiveChar(null), 800)
+  const jumpToChar = useCallback(
+    (ch: string, smooth: boolean) => {
+      const idx = charToFirstIndex[ch]
+      if (idx == null) return
+      virtualizer.scrollToIndex(idx, {
+        align: 'start',
+        behavior: smooth ? 'smooth' : 'auto',
+      })
     },
-    [charToFirstTrackId]
+    [charToFirstIndex, virtualizer]
   )
+
+  const handleIndicatorClick = useCallback(
+    (ch: string) => {
+      // pointer 経由で既にジャンプ済みなら何もしない（クリック発火を抑止）
+      if (pointerHandledRef.current) {
+        pointerHandledRef.current = false
+        return
+      }
+      setActiveChar(ch)
+      jumpToChar(ch, true)
+      if (activeCharTimerRef.current != null) {
+        window.clearTimeout(activeCharTimerRef.current)
+      }
+      activeCharTimerRef.current = window.setTimeout(() => {
+        setActiveChar(null)
+        activeCharTimerRef.current = null
+      }, 800)
+    },
+    [jumpToChar]
+  )
+
+  const getCharAtY = useCallback((clientY: number): string | null => {
+    const indicatorEl = indicatorRef.current
+    if (!indicatorEl) return null
+    const buttons = indicatorEl.querySelectorAll<HTMLButtonElement>('.library-indicator-item')
+    if (buttons.length === 0) return null
+
+    const indicatorRect = indicatorEl.getBoundingClientRect()
+    const clampedY = Math.max(indicatorRect.top, Math.min(indicatorRect.bottom, clientY))
+
+    let bestCh: string | null = null
+    let bestDist = Infinity
+    for (const btn of Array.from(buttons)) {
+      const r = btn.getBoundingClientRect()
+      const center = (r.top + r.bottom) / 2
+      const dist = Math.abs(center - clampedY)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestCh = btn.textContent
+      }
+    }
+    return bestCh
+  }, [])
+
+  const handleIndicatorPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const ch = getCharAtY(e.clientY)
+      if (ch == null) return
+
+      // この後に発火する onClick を 1 回だけ抑止する
+      pointerHandledRef.current = true
+
+      isDraggingRef.current = true
+      lastDraggedCharRef.current = ch
+      if (activeCharTimerRef.current != null) {
+        window.clearTimeout(activeCharTimerRef.current)
+        activeCharTimerRef.current = null
+      }
+      setActiveChar(ch)
+      jumpToChar(ch, false)
+
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        // noop
+      }
+    },
+    [getCharAtY, jumpToChar]
+  )
+
+  const handleIndicatorPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDraggingRef.current) return
+      const ch = getCharAtY(e.clientY)
+      if (ch == null) return
+      if (ch === lastDraggedCharRef.current) return
+      lastDraggedCharRef.current = ch
+      setActiveChar(ch)
+      jumpToChar(ch, false)
+    },
+    [getCharAtY, jumpToChar]
+  )
+
+  const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    lastDraggedCharRef.current = null
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      // noop
+    }
+    if (activeCharTimerRef.current != null) {
+      window.clearTimeout(activeCharTimerRef.current)
+    }
+    activeCharTimerRef.current = window.setTimeout(() => {
+      setActiveChar(null)
+      activeCharTimerRef.current = null
+    }, 400)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (activeCharTimerRef.current != null) {
+        window.clearTimeout(activeCharTimerRef.current)
+      }
+    }
+  }, [])
 
   const handlePlay = useCallback(
     (track: Track) => {
@@ -203,45 +307,71 @@ export default function LibraryPage() {
     [tracks]
   )
 
+  const totalSize = virtualizer.getTotalSize()
+
   return (
     <div className="page fade-in" style={{ paddingRight: 0, paddingBottom: 0 }}>
       <div className="library-toolbar">
-        <span className="library-count">{tracks.length} 曲</span>
+        <span className="library-count">{tracks.length} {t.count}</span>
       </div>
 
       {loading ? (
-        <p className="library-empty">読み込み中...</p>
+        <p className="library-empty">{t.loading}</p>
       ) : tracks.length === 0 ? (
         <p className="library-empty">
-          まだ曲がありません。設定からフォルダを追加してください。
+          {t.empty}
         </p>
       ) : (
-        <div
-          className="library-main-container"
-          style={{ marginBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }} /* MiniPlayerの高さ */
-        >
+        <div className="library-main-container">
           <div ref={listRef} className="library-music-item-container">
-            {tracks.map(track => (
-              <div
-                key={track.id}
-                data-track-id={track.id}
-                ref={el => {
-                  trackRefs.current[track.id] = el
-                }}
-              >
-                <MusicItem track={track} onPlay={handlePlay} />
-              </div>
-            ))}
+            <div
+              style={{
+                height: totalSize,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualItems.map(vi => {
+                const track = tracks[vi.index]
+                if (!track) return null
+                return (
+                  <div
+                    key={vi.key}
+                    data-index={vi.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${vi.start}px)`,
+                    }}
+                  >
+                    <MusicItem track={track} onPlay={handlePlay} />
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* スクロールインジケーター */}
-          <div ref={indicatorRef} className="library-indicator">
+          <div
+            ref={indicatorRef}
+            className="library-indicator"
+            style={{
+              bottom: isMiniPlayerVisible ? MINI_PLAYER_HEIGHT_CSS : 0,
+            }}
+            onPointerDown={handleIndicatorPointerDown}
+            onPointerMove={handleIndicatorPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
             <div className="library-indicator-line" />
             {visibleChars.map(ch => (
               <button
                 key={ch}
                 type="button"
-                onClick={() => scrollToChar(ch)}
+                onClick={() => handleIndicatorClick(ch)}
                 className={
                   'library-indicator-item' +
                   (activeChar === ch || (activeChar === null && currentChar === ch)

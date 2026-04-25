@@ -32,5 +32,8 @@
   "scan.step.deleting": { "ja": "削除中", "en": "Deleting" },
   "scan.step.adding": { "ja": "追加中", "en": "Adding" },
   "scan.step.analyzing": { "ja": "解析中", "en": "Analyzing" },
-  "scan.unit.files": { "ja": "ファイル", "en": "files" }
+  "scan.unit.files": { "ja": "ファイル", "en": "files" },
+  "library.count": { "ja": "曲", "en": "tracks" },
+  "library.empty": { "ja": "まだ曲がありません。設定からフォルダを追加してください。", "en": "No tracks yet. Please add folders in settings." },
+  "library.loading": { "ja": "読み込み中...", "en": "Loading..." }
 }

@@ -59,6 +59,7 @@
   font-size: .625rem;
   line-height: 1;
   cursor: pointer;
+  touch-action: none;
   transition: all .2s ease-in-out;
 }
 .library-indicator-item:hover {
