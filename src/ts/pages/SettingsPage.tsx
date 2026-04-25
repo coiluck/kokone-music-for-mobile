@@ -64,7 +64,10 @@ export default function SettingsPage() {
     crossNomal:     'settings.crossSettings.nomal',
     crossCross:     'settings.crossSettings.crossFade',
     fadeTime:       'settings.fadeTime',
-    isTrailingSilence: 'settings.isTrailingSilence'
+    isTrailingSilence: 'settings.isTrailingSilence',
+    other:          'settings.other',
+    version:        'settings.version',
+    github:         'settings.github',
   })
   const [folders, setFolders] = useState<string[]>([])
 
@@ -288,21 +291,24 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        
+
         <div className='settings-section'>
           <div className='settings-section-label'>{t.play}</div>
           <div className='settings-section-content'>
             <div className='settings-section-content-item'>
               <p>{t.masterVolume}</p>
-              <input
-                className='settings-range-slider settings-range-container'
-                type="range"
-                min="0"
-                max="2"
-                step="0.1"
-                value={masterVolume}
-                onChange={e => setMasterVolume(Number(e.target.value))}
-              />
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <input
+                  className='settings-range-slider settings-range-container'
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={masterVolume}
+                  onChange={e => setMasterVolume(Number(e.target.value))}
+                />
+                <span className='settings-range-value'>{masterVolume.toFixed(1)}</span>
+              </div>
             </div>
             <div className='settings-section-content-item'>
               <p>{t.isNormalizeVolume}</p>
@@ -327,15 +333,18 @@ export default function SettingsPage() {
             </div>
             <div className='settings-section-content-item'>
               <p>{t.fadeTime}</p>
-              <input
-                className='settings-range-slider settings-range-container'
-                type="range"
-                min="0"
-                max="2000"
-                step="100"
-                value={fadeoutMs}
-                onChange={e => setFadeoutMs(Number(e.target.value))}
-              />
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <input
+                  className='settings-range-slider settings-range-container'
+                  type="range"
+                  min="0"
+                   max="2000"
+                  step="100"
+                  value={fadeoutMs}
+                  onChange={e => setFadeoutMs(Number(e.target.value))}
+                />
+              <span className='settings-range-value'>{fadeoutMs}ms</span>
+              </div>
             </div>
             <div className='settings-section-content-item'>
               <p>{t.isTrailingSilence}</p>
@@ -347,6 +356,25 @@ export default function SettingsPage() {
                 />
                 <span className="slider"></span>
               </label>
+            </div>
+          </div>
+        </div>
+
+        <div className='settings-section'>
+          <div className='settings-section-label'>{t.other}</div>
+          <div className='settings-section-content'>
+            <div className='settings-section-content-item'>
+              <p>{t.version}</p>
+              <span className='settings-range-value'>{__APP_VERSION__}</span>
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.github}</p>
+              <span className='settings-range-value'>
+                <a href='https://github.com/coiluck/kokone-music-for-mobile' target='_blank' rel='noopener noreferrer' style={{ display: 'flex', flexDirection: 'row', gap: 5, alignItems: 'center' }}>
+                  kokone-music-for-mobile
+                  <Icon name="external" mode={null} size={10} folder='/images/SettingsPage/' />
+                </a>
+              </span>
             </div>
           </div>
         </div>
