@@ -23,6 +23,7 @@ export default function LibraryPage() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
   const [activeChar, setActiveChar] = useState<string | null>(null)
+  const [currentChar, setCurrentChar] = useState<string | null>(null)
   const [visibleChars, setVisibleChars] = useState<string[]>([])
   const scanVersion = useScanStore(s => s.scanVersion)
 
@@ -31,11 +32,14 @@ export default function LibraryPage() {
   const listRef = useRef<HTMLDivElement | null>(null)
   const indicatorRef = useRef<HTMLDivElement | null>(null)
   const trackRefs = useRef<Record<string | number, HTMLDivElement | null>>({})
+  // 現在 intersect しているトラックIDの集合
+  const intersectingIdsRef = useRef<Set<string | number>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
     const result = await getAllTracks()
     trackRefs.current = {}
+    intersectingIdsRef.current = new Set()
     setTracks(sortByTitle(result))
     setLoading(false)
   }, [])
@@ -100,6 +104,73 @@ export default function LibraryPage() {
     return () => ro.disconnect()
   }, [recalc])
 
+  // tracks の id -> index を引くマップ（intersect 中の最上要素を求める用）
+  const trackIndexById = useMemo(() => {
+    const m = new Map<string | number, number>()
+    tracks.forEach((t, i) => m.set(t.id, i))
+    return m
+  }, [tracks])
+
+  // IntersectionObserver でスクロール追従
+  useEffect(() => {
+    const listEl = listRef.current
+    if (!listEl || tracks.length === 0) return
+
+    const intersecting = intersectingIdsRef.current
+
+    const updateCurrent = () => {
+      if (intersecting.size === 0) return
+      // intersect 中のうちリスト内で最も上（index が最小）の要素を採用
+      let topIndex = Infinity
+      for (const id of intersecting) {
+        const idx = trackIndexById.get(id)
+        if (idx != null && idx < topIndex) {
+          topIndex = idx
+        }
+      }
+      if (topIndex === Infinity) return
+      const t = tracks[topIndex]
+      if (!t) return
+      const ch = getFirstChar(t.title)
+      setCurrentChar(prev => (prev === ch ? prev : ch))
+    }
+
+    const io = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          const raw = (entry.target as HTMLElement).dataset.trackId
+          if (raw == null) continue
+          // ref のキーが数値の場合もあるので両方試す
+          const numId = Number(raw)
+          const key: string | number = Number.isNaN(numId) ? raw : numId
+          if (entry.isIntersecting) {
+            intersecting.add(key)
+          } else {
+            intersecting.delete(key)
+          }
+        }
+        updateCurrent()
+      },
+      {
+        root: listEl,
+        // リスト上端付近のみを判定領域にする。
+        // 下側を大きくマイナスにすることで、上端をまたいだ要素だけが intersecting になる。
+        rootMargin: '-8px 0px -100% 0px',
+        threshold: 0,
+      }
+    )
+
+    for (const t of tracks) {
+      const el = trackRefs.current[t.id]
+      if (el) io.observe(el)
+    }
+
+    return () => {
+      io.disconnect()
+      intersecting.clear()
+    }
+  }, [tracks, trackIndexById])
+
   const scrollToChar = useCallback(
     (ch: string) => {
       setActiveChar(ch)
@@ -153,6 +224,7 @@ export default function LibraryPage() {
             {tracks.map(track => (
               <div
                 key={track.id}
+                data-track-id={track.id}
                 ref={el => {
                   trackRefs.current[track.id] = el
                 }}
@@ -172,7 +244,9 @@ export default function LibraryPage() {
                 onClick={() => scrollToChar(ch)}
                 className={
                   'library-indicator-item' +
-                  (activeChar === ch ? ' is-active' : '')
+                  (activeChar === ch || (activeChar === null && currentChar === ch)
+                    ? ' is-active'
+                    : '')
                 }
               >
                 {ch}
