@@ -16,6 +16,7 @@ export default function App() {
   const loadIconSettings = useSettingsStore(s => s.loadIconSettings)
   const loadScanIgnoreSettings = useSettingsStore(s => s.loadScanIgnoreSettings)
   const loadLang = useSettingsStore(s => s.loadLang)
+  const loadPlaySettings = useSettingsStore(s => s.loadPlaySettings)
 
   useEffect(() => {
     initDb().then(runStartupScan)
@@ -23,6 +24,7 @@ export default function App() {
     loadIconSettings()
     loadScanIgnoreSettings()
     loadLang()
+    loadPlaySettings() 
   }, [])
 
   const t = useMappedTranslations({

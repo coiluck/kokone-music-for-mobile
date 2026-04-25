@@ -2,18 +2,10 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { Track } from './db'
 import { usePlayerStore } from './playerStore'
+import { useSettingsStore } from './settingsStore'
 
-// ---------------------------------------------------
-// 設定（後で設定画面から読むようにする）
-// ---------------------------------------------------
-const CROSS_SETTINGS: 'normal' | 'cross_fade' = 'cross_fade'
-const DEFAULT_VOLUME = 1.0
-const CROSSFADE_DURATION_MS = 3000
-const DEFAULT_FADEOUT_MS = 500
-
-// ラウドネス正規化のターゲット (LUFS)
+const CROSSFADE_DURATION_MS = 1500
 const TARGET_LUFS = -14.0
-// setTargetAtTime の時定数。LUFS が切り替わる際にプチっと鳴らないよう緩やかに追従させる
 const NORM_TIME_CONSTANT_SEC = 0.05
 
 /**
@@ -41,10 +33,17 @@ export class MusicPlayer {
   private active: Deck
   private standby: Deck
 
-  private volume: number = DEFAULT_VOLUME
   private currentTrack: Track | null = null
   private queue: Track[] = []
   private history: Track[] = []
+
+	// useSettingsStore から購読した再生設定
+  private masterVolume: number
+  private isNormalizeVolume: boolean
+  private crossfadeMode: 'normal' | 'cross_fade'
+  private fadeoutMs: number
+  private isTrailingSilence: boolean
+  private unsubscribeSettings: () => void
 
   // active 側の audio 要素に付けているリスナー。swap 時に付け替える
   private activeListeners: {
@@ -58,7 +57,15 @@ export class MusicPlayer {
   constructor() {
     this.ctx = new AudioContext()
     this.masterGain = this.ctx.createGain()
-    this.masterGain.gain.value = this.volume
+    // 設定の初期スナップショットを取得
+    const s = useSettingsStore.getState()
+    this.masterVolume = s.masterVolume
+    this.isNormalizeVolume = s.isNormalizeVolume
+    this.crossfadeMode = s.crossfadeMode
+    this.fadeoutMs = s.fadeoutMs
+    this.isTrailingSilence = s.isTrailingSilence
+    
+    this.masterGain.gain.value = this.masterVolume
     this.masterGain.connect(this.ctx.destination)
 
     this.deckA = this.createDeck()
@@ -68,6 +75,37 @@ export class MusicPlayer {
     this.standby = this.deckB
 
     this.attachActiveListeners()
+    this.unsubscribeSettings = useSettingsStore.subscribe((state, prev) => {
+      if (state.masterVolume !== prev.masterVolume) {
+        this.masterVolume = state.masterVolume
+        this.masterGain.gain.setTargetAtTime(
+          this.masterVolume,
+          this.ctx.currentTime,
+          NORM_TIME_CONSTANT_SEC
+        )
+      }
+      if (state.isNormalizeVolume !== prev.isNormalizeVolume) {
+        this.isNormalizeVolume = state.isNormalizeVolume
+        // 現行デッキの normGain を新しい設定で引き直す
+        this.applyLufsGain(this.active, this.currentTrack?.lufs ?? null)
+      }
+      if (state.crossfadeMode !== prev.crossfadeMode) {
+        this.crossfadeMode = state.crossfadeMode
+      }
+      if (state.fadeoutMs !== prev.fadeoutMs) {
+        this.fadeoutMs = state.fadeoutMs
+      }
+      if (state.isTrailingSilence !== prev.isTrailingSilence) {
+        this.isTrailingSilence = state.isTrailingSilence
+      }
+    })
+  }
+ 
+  /**
+   * 破棄時に設定購読を解除する。
+   */
+  dispose(): void {
+    this.unsubscribeSettings()
   }
 
   // ---------------------------------------------------
@@ -95,7 +133,7 @@ export class MusicPlayer {
       !this.active.audio.ended &&
       this.active.audio.src !== ''
 
-    if (isPlaying && CROSS_SETTINGS === 'cross_fade') {
+    if (isPlaying && this.crossfadeMode === 'cross_fade') {
       await this.crossfadeTo(track, CROSSFADE_DURATION_MS)
     } else {
       this.cancelFade(this.active)
@@ -122,8 +160,8 @@ export class MusicPlayer {
   /**
    * フェードアウトしつつ停止する。
    */
-  async stop(duration: number = DEFAULT_FADEOUT_MS): Promise<void> {
-    await this.fadeOut(this.active, duration)
+  async stop(duration?: number): Promise<void> {
+    await this.fadeOut(this.active, duration ?? this.fadeoutMs)
     this.active.audio.pause()
     this.active.audio.currentTime = 0
     this.setCurrentTrack(null)
@@ -191,21 +229,7 @@ export class MusicPlayer {
     }
     await this.play(nextTrack)
   }
-
-  // ---------------------------------------------------
-  // 音量
-  // ---------------------------------------------------
-
-  setVolume(v: number): void {
-    this.volume = Math.max(0, Math.min(1, v))
-    this.masterGain.gain.setTargetAtTime(
-      this.volume,
-      this.ctx.currentTime,
-      NORM_TIME_CONSTANT_SEC
-    )
-    usePlayerStore.getState()._setVolume(this.volume)
-  }
-
+  
   // ---------------------------------------------------
   // キュー操作
   //
@@ -472,8 +496,9 @@ export class MusicPlayer {
    * トラックの LUFS から正規化 gain を計算し、normGain に反映する。
    */
   private applyLufsGain(deck: Deck, trackLufs: number | null): void {
-    const gain =
-      trackLufs != null && isFinite(trackLufs)
+    const gain = !this.isNormalizeVolume
+      ? 1.0 
+      : trackLufs != null && isFinite(trackLufs)
         ? Math.pow(10, (TARGET_LUFS - trackLufs) / 20)
         : 1.0
     deck.normGain.gain.setTargetAtTime(

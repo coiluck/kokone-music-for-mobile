@@ -21,10 +21,11 @@ export interface SettingsStore {
   ignoreMode: boolean,
   ignoreTime: number, // seconds
   // 音楽
-  musicVolume: number, // 0 to 2
+  masterVolume: number, // 0 to 2
+  isNormalizeVolume: boolean,
+  crossSettings: 'normal' | 'cross_fade',
   fadeTime: number, // ms, 0 to 2
   isTrailingSilence: boolean,
-  isNormalizeVolume: boolean,
 }
 
 type Lang = typeof AVAILABLE_LANGS[number]
@@ -56,6 +57,14 @@ export default function SettingsPage() {
     ignoreMode:     'settings.ignoreMode',
     ignoreTime:     'settings.ignoreTime',
     scanNow:        'settings.scanNow',
+    play:           'settings.play',
+    masterVolume:   'settings.masterVolume',
+    isNormalizeVolume: 'settings.isNormalizeVolume',
+    crossSettings:  'settings.crossSettings',
+    crossNomal:     'settings.crossSettings.nomal',
+    crossCross:     'settings.crossSettings.crossFade',
+    fadeTime:       'settings.fadeTime',
+    isTrailingSilence: 'settings.isTrailingSilence'
   })
   const [folders, setFolders] = useState<string[]>([])
 
@@ -74,6 +83,18 @@ export default function SettingsPage() {
   const setIgnoreTime  = useSettingsStore(s => s.setIgnoreTime)
   const lang           = useSettingsStore(s => s.lang)
   const setLang        = useSettingsStore(s => s.setLang)
+
+  // 再生設定
+  const masterVolume         = useSettingsStore(s => s.masterVolume)
+  const setMasterVolume      = useSettingsStore(s => s.setMasterVolume)
+  const isNormalizeVolume    = useSettingsStore(s => s.isNormalizeVolume)
+  const setIsNormalizeVolume = useSettingsStore(s => s.setIsNormalizeVolume)
+  const crossfadeMode        = useSettingsStore(s => s.crossfadeMode)
+  const setCrossfadeMode     = useSettingsStore(s => s.setCrossfadeMode)
+  const fadeoutMs            = useSettingsStore(s => s.fadeoutMs)
+  const setFadeoutMs         = useSettingsStore(s => s.setFadeoutMs)
+  const isTrailingSilence    = useSettingsStore(s => s.isTrailingSilence)
+  const setIsTrailingSilence = useSettingsStore(s => s.setIsTrailingSilence)
 
   useEffect(() => {
     getSetting('scan-folders', []).then(setFolders)
@@ -266,7 +287,77 @@ export default function SettingsPage() {
             <div className='settings-folder-scan' onClick={runStartupScan}>{t.scanNow}</div>
           </div>
         </div>
+
+        
+        <div className='settings-section'>
+          <div className='settings-section-label'>{t.play}</div>
+          <div className='settings-section-content'>
+            <div className='settings-section-content-item'>
+              <p>{t.masterVolume}</p>
+              <input
+                className='settings-range-slider settings-range-container'
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={masterVolume}
+                onChange={e => setMasterVolume(Number(e.target.value))}
+              />
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.isNormalizeVolume}</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={isNormalizeVolume}
+                  onChange={e => setIsNormalizeVolume(e.target.checked)}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.crossSettings}</p>
+              <select
+                value={crossfadeMode}
+                onChange={e => setCrossfadeMode(e.target.value as 'normal' | 'cross_fade')}
+              >
+                <option value="normal">{t.crossNomal}</option>
+                <option value="cross_fade">{t.crossCross}</option>
+              </select>
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.fadeTime}</p>
+              <input
+                className='settings-range-slider settings-range-container'
+                type="range"
+                min="0"
+                max="2000"
+                step="100"
+                value={fadeoutMs}
+                onChange={e => setFadeoutMs(Number(e.target.value))}
+              />
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.isTrailingSilence}</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={isTrailingSilence}
+                  onChange={e => setIsTrailingSilence(e.target.checked)}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
       </div>
+
+      <p
+        style={{marginTop: 15, fontSize: '.7rem', textAlign: 'center'}}
+      >
+        Developed by KOKONE Project
+      </p>
     </div>
   )
 }

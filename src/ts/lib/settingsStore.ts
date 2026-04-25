@@ -20,6 +20,19 @@ interface SettingsState {
   lang: Lang
   setLang: (lang: Lang) => Promise<void>
   loadLang: () => Promise<void>
+
+  // 再生設定
+  masterVolume: number,
+  isNormalizeVolume: boolean,
+  crossfadeMode: 'normal' | 'cross_fade',
+  fadeoutMs: number,
+  isTrailingSilence: boolean,
+  setMasterVolume: (value: number) => Promise<void>
+  setIsNormalizeVolume: (value: boolean) => Promise<void>
+  setCrossfadeMode: (value: 'normal' | 'cross_fade') => Promise<void>
+  setFadeoutMs: (value: number) => Promise<void>
+  setIsTrailingSilence: (value: boolean) => Promise<void>
+  loadPlaySettings: () => Promise<void>
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -78,5 +91,53 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         : DEFAULT_LANG
       set({ lang })
     }
+  },
+
+  masterVolume: 1,
+  isNormalizeVolume: true,
+  crossfadeMode: 'normal',
+  fadeoutMs: 500,
+  isTrailingSilence: true,
+
+  setMasterVolume: async (value) => {
+    set({ masterVolume: value })
+    await invoke('settings_set', { key: 'masterVolume', value })
+  },
+
+  setIsNormalizeVolume: async (value) => {
+    set({ isNormalizeVolume: value })
+    await invoke('settings_set', { key: 'isNormalizeVolume', value })
+  },
+
+  setCrossfadeMode: async (value) => {
+    set({ crossfadeMode: value })
+    await invoke('settings_set', { key: 'crossfadeMode', value })
+  },
+
+  setFadeoutMs: async (value) => {
+    set({ fadeoutMs: value })
+    await invoke('settings_set', { key: 'fadeoutMs', value })
+  },
+
+  setIsTrailingSilence: async (value) => {
+    set({ isTrailingSilence: value })
+    await invoke('settings_set', { key: 'isTrailingSilence', value })
+  },
+
+  loadPlaySettings: async () => {
+    const [masterVolume, isNormalizeVolume, crossfadeMode, fadeoutMs, isTrailingSilence] = await Promise.all([
+      invoke<number | null>('settings_get', { key: 'masterVolume' }),
+      invoke<boolean | null>('settings_get', { key: 'isNormalizeVolume' }),
+      invoke<'normal' | 'cross_fade' | null>('settings_get', { key: 'crossfadeMode' }),
+      invoke<number | null>('settings_get', { key: 'fadeoutMs' }),
+      invoke<boolean | null>('settings_get', { key: 'isTrailingSilence' }),
+    ])
+    set({
+      masterVolume: masterVolume ?? 1,
+      isNormalizeVolume: isNormalizeVolume ?? true,
+      crossfadeMode: crossfadeMode ?? 'normal',
+      fadeoutMs: fadeoutMs ?? 500,
+      isTrailingSilence: isTrailingSilence ?? true,
+    })
   },
 }))
