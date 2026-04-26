@@ -49,11 +49,11 @@ export default function MusicItem({ track, onPlay }: Props) {
           )}
         </div>
       </div>
-      <div 
+      <div
         className="mi-component-actions"
         onClick={e => { e.stopPropagation(); handleEditMeta(); }}
       >
-        <Icon name="ellipsis" mode={null} folder="images/MusicItem/" />
+        <Icon name="ellipsis" mode={null} folder="/images/MusicItem/" />
       </div>
     </div>
   )

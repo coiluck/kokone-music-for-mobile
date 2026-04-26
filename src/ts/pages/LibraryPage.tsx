@@ -9,7 +9,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/LibraryPage.css'
 
 const INDICATOR_ITEM_HEIGHT = 20
-const ESTIMATED_ITEM_HEIGHT = 56
+const ESTIMATED_ITEM_HEIGHT = 61.78
 const SCROLL_OFFSET = 8
 // MiniPlayer の高さ（CSS の calc(24px + .8rem + 20px + .5rem) と一致させる）
 const MINI_PLAYER_HEIGHT_CSS = 'calc(24px + .8rem + 20px + .5rem)'

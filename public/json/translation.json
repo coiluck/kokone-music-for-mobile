@@ -35,5 +35,9 @@
   "scan.unit.files": { "ja": "ファイル", "en": "files" },
   "library.count": { "ja": "曲", "en": "tracks" },
   "library.empty": { "ja": "まだ曲がありません。設定からフォルダを追加してください。", "en": "No tracks yet. Please add folders in settings." },
-  "library.loading": { "ja": "読み込み中...", "en": "Loading..." }
+  "library.loading": { "ja": "読み込み中...", "en": "Loading..." },
+  "artist.item.tracksNumber": { "ja": "曲", "en": "tracks" },
+  "artist.list.count": { "ja": "アーティスト", "en": "artists" },
+  "artist.list.empty": { "ja": "まだアーティストがありません。", "en": "No artists yet." },
+  "artist.list.loading": { "ja": "読み込み中...", "en": "Loading..." }
 }

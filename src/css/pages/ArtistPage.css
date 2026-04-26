@@ -1,0 +1,25 @@
+.artist-page-topbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem .5rem; /* 左右はMusicItemと合わせる */
+}
+
+.artist-page-topbar-icon-container {
+  padding: 1rem;
+  border-radius: 50%;
+  background-color: rgb(from var(--color-text) r g b / 0.15);
+  opacity: .5;
+}
+.artist-page-topbar-text {
+  flex: 1;
+}
+
+.artist-page-topbar-text-title {
+  font-size: 1.5rem;
+}
+.artist-page-topbar-text-meta {
+  font-size: .8rem;
+  opacity: .8;
+}

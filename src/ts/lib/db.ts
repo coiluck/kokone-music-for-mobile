@@ -2,10 +2,10 @@ import Database from '@tauri-apps/plugin-sql'
 
 export interface Track {
   id: number
-  file_hash: string // sha256
+  file_hash: string
   path: string
   title: string
-  artist: string | null
+  artist: string
   album: string | null
   tags: string[]
   duration_ms: number | null
@@ -58,7 +58,7 @@ export async function initDb(): Promise<void> {
       file_hash           TEXT    NOT NULL UNIQUE,
       path                TEXT    NOT NULL UNIQUE,
       title               TEXT    NOT NULL,
-      artist              TEXT,
+      artist              TEXT    NOT NULL DEFAULT 'Unknown',
       album               TEXT,
       tags                TEXT    NOT NULL DEFAULT '[]',
       duration_ms         INTEGER,
@@ -109,7 +109,7 @@ function rowToTrack(row: TrackRow): Track {
 export async function getAllTracks(): Promise<Track[]> {
   const db = await getDb()
   const rows = await db.select<TrackRow[]>(
-    'SELECT * FROM tracks ORDER BY artist NULLS LAST, album NULLS LAST, title NULLS LAST'
+    'SELECT * FROM tracks ORDER BY artist, album NULLS LAST, title'
   )
   return rows.map(rowToTrack)
 }
@@ -120,7 +120,7 @@ export async function searchTracks(query: string): Promise<Track[]> {
   const rows = await db.select<TrackRow[]>(
     `SELECT * FROM tracks
      WHERE title LIKE $1 OR artist LIKE $1 OR album LIKE $1
-     ORDER BY artist NULLS LAST, title NULLS LAST`,
+     ORDER BY artist, title`,
     [q]
   )
   return rows.map(rowToTrack)
