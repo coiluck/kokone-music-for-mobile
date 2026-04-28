@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
+#[cfg(not(target_os = "android"))]
 use walkdir::WalkDir;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "ogg", "m4a", "aac", "wav"];
@@ -168,7 +169,11 @@ fn open_db(db_path: &Path) -> Result<Connection, String> {
 
 // ---------------------------------------------------------------------------
 // 1. scan : 対象ファイル列挙
+//
+// プラットフォームごとに列挙方法が違うが、戻り値は同じ「絶対パスの Vec」。
+// scan-folder は常に「フォルダパス文字列」として扱う。
 // ---------------------------------------------------------------------------
+#[cfg(not(target_os = "android"))]
 fn enumerate_candidates(
     paths: &[String],
     app: &AppHandle,
@@ -211,6 +216,65 @@ fn enumerate_candidates(
                 );
                 *last_emit = Instant::now();
             }
+        }
+    }
+    candidates
+}
+
+// Android では filesystem を直接スキャンせず、MediaStore に登録済みの音楽を取得して
+// scan_folders で指定されたフォルダ配下にあるものだけ拾う。
+// 「scan-folder = フォルダパス」というセマンティクスは desktop と統一。
+#[cfg(target_os = "android")]
+fn enumerate_candidates(
+    paths: &[String],
+    app: &AppHandle,
+    last_emit: &mut Instant,
+) -> Vec<PathBuf> {
+    let all_audio = match crate::android_media::query_audio_files() {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("MediaStore query failed: {e}");
+            return Vec::new();
+        }
+    };
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for path_str in all_audio {
+        let in_scan_folder = paths.iter().any(|f| path_str.starts_with(f));
+        if !in_scan_folder {
+            continue;
+        }
+
+        let path = PathBuf::from(&path_str);
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if !SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
+        candidates.push(path.clone());
+
+        if last_emit.elapsed() >= EMIT_INTERVAL {
+            let _ = app.emit(
+                "scan-progress",
+                ScanProgress {
+                    process_step: "scanning".into(),
+                    scan_current: candidates.len() as u64,
+                    scan_total: 0,
+                    add_current: 0,
+                    add_total: 0,
+                    analyze_current: 0,
+                    analyze_total: 0,
+                    current_file: path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_string(),
+                },
+            );
+            *last_emit = Instant::now();
         }
     }
     candidates

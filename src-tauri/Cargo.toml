@@ -41,3 +41,8 @@ sha2 = "0.10"
 rayon = "1"
 num_cpus = "1"
 
+# Android 専用: MediaStore を Kotlin 経由で叩くための JNI ブリッジ
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk-context = "0.1"
+

@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { addScanFolder, runStartupScan } from '../lib/scanFolders'
+import {
+  addScanFolder,
+  addScanFolderByPath,
+  hasAudioPermission,
+  isAndroid,
+  listAndroidAudioFolders,
+  requestAudioPermission,
+  runStartupScan,
+} from '../lib/scanFolders'
 import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg, ThemeSettings } from '../lib/theme'
@@ -71,6 +79,13 @@ export default function SettingsPage() {
   })
   const [folders, setFolders] = useState<string[]>([])
 
+  // Android 用フォルダ選択モーダル
+  const onAndroid = isAndroid()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerFolders, setPickerFolders] = useState<string[]>([])
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerNeedsPermission, setPickerNeedsPermission] = useState(false)
+
   const [accentColor, setAccentColor] = useState('#ff7f7e')
   const [bgColor,     setBgColor]     = useState('#0a0f1e')
   const [bgMildColor, setBgMildColor] = useState('#2a2a36')
@@ -123,7 +138,61 @@ export default function SettingsPage() {
   }
 
   const handleAddFolder = async () => {
+    if (onAndroid) {
+      await openAndroidPicker()
+      return
+    }
     const added = await addScanFolder()
+    if (added) {
+      setFolders(prev => [...prev, added])
+      await runStartupScan()
+    }
+  }
+
+  // Android: モーダルを開いて MediaStore のフォルダ一覧を読み込む。
+  // 権限がなければプロンプトを出し、ユーザー操作後に再ロードできるようにする。
+  const openAndroidPicker = async () => {
+    setPickerOpen(true)
+    setPickerLoading(true)
+    setPickerNeedsPermission(false)
+    try {
+      const granted = await hasAudioPermission()
+      if (!granted) {
+        await requestAudioPermission()
+        const grantedNow = await hasAudioPermission()
+        if (!grantedNow) {
+          setPickerNeedsPermission(true)
+          setPickerFolders([])
+          return
+        }
+      }
+      const list = await listAndroidAudioFolders()
+      setPickerFolders(list)
+    } finally {
+      setPickerLoading(false)
+    }
+  }
+
+  const reloadAndroidPicker = async () => {
+    setPickerLoading(true)
+    setPickerNeedsPermission(false)
+    try {
+      const granted = await hasAudioPermission()
+      if (!granted) {
+        setPickerNeedsPermission(true)
+        setPickerFolders([])
+        return
+      }
+      const list = await listAndroidAudioFolders()
+      setPickerFolders(list)
+    } finally {
+      setPickerLoading(false)
+    }
+  }
+
+  const handlePickAndroidFolder = async (path: string) => {
+    const added = await addScanFolderByPath(path)
+    setPickerOpen(false)
     if (added) {
       setFolders(prev => [...prev, added])
       await runStartupScan()
@@ -386,6 +455,74 @@ export default function SettingsPage() {
       >
         Developed by KOKONE Project
       </p>
+
+      {pickerOpen && (
+        <div className='settings-folder-picker-overlay' onClick={() => setPickerOpen(false)}>
+          <div className='settings-folder-picker' onClick={e => e.stopPropagation()}>
+            <div className='settings-folder-picker-header'>
+              <span>{t.addFolder}</span>
+              <span
+                className='settings-folder-picker-close'
+                onClick={() => setPickerOpen(false)}
+              >
+                ×
+              </span>
+            </div>
+
+            <div className='settings-folder-picker-body'>
+              {pickerLoading && (
+                <p style={{ opacity: 0.7 }}>{lang === 'ja' ? '読み込み中...' : 'Loading...'}</p>
+              )}
+
+              {!pickerLoading && pickerNeedsPermission && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <p>{lang === 'ja'
+                    ? '音楽ファイルへのアクセス権限が必要です。許可後にもう一度押してください。'
+                    : 'Audio access permission is required. Tap again after granting it.'}</p>
+                  <div
+                    className='settings-folder-scan'
+                    onClick={async () => {
+                      await requestAudioPermission()
+                      await reloadAndroidPicker()
+                    }}
+                  >
+                    {lang === 'ja' ? 'アクセスを許可 / 再読込' : 'Grant access / Reload'}
+                  </div>
+                </div>
+              )}
+
+              {!pickerLoading && !pickerNeedsPermission && pickerFolders.length === 0 && (
+                <p style={{ opacity: 0.7 }}>
+                  {lang === 'ja' ? 'フォルダが見つかりませんでした。' : 'No folders found.'}
+                </p>
+              )}
+
+              {!pickerLoading && !pickerNeedsPermission && pickerFolders.length > 0 && (
+                <div className='settings-folder-picker-list'>
+                  {pickerFolders.map(p => {
+                    const already = folders.includes(p)
+                    return (
+                      <div
+                        key={p}
+                        className={`settings-folder-picker-item${already ? ' disabled' : ''}`}
+                        onClick={() => { if (!already) handlePickAndroidFolder(p) }}
+                      >
+                        <div className='settings-folder-picker-item-icon'>
+                          <Icon name="folder" mode={iconStyle} size={20} folder='/images/SettingsPage/' />
+                        </div>
+                        <div className='settings-folder-picker-item-info'>
+                          <span className='settings-folder-name'>{getFolderName(p)}</span>
+                          <span className='settings-folder-path'>{p}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
