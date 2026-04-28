@@ -39,5 +39,11 @@
   "artist.item.tracksNumber": { "ja": "曲", "en": "tracks" },
   "artist.list.count": { "ja": "アーティスト", "en": "artists" },
   "artist.list.empty": { "ja": "まだアーティストがありません。", "en": "No artists yet." },
-  "artist.list.loading": { "ja": "読み込み中...", "en": "Loading..." }
+  "artist.list.loading": { "ja": "読み込み中...", "en": "Loading..." },
+  "search.input.placeholder": { "ja": "検索", "en": "Search" },
+  "search.cancel": { "ja": "キャンセル", "en": "Cancel" },
+  "search.loading": { "ja": "読み込み中", "en": "Loading..." },
+  "search.noItem": { "ja": "該当する曲が見つかりませんでした", "en": "No tracks found." },
+  "search.noWord": { "ja": "キーワードを入力してください", "en": "Enter a keyword to search." },
+  "search.count": { "ja": "曲", "en": "tracks" }
 }
