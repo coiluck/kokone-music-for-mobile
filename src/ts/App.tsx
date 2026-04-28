@@ -19,7 +19,7 @@ export default function App() {
   const loadPlaySettings = useSettingsStore(s => s.loadPlaySettings)
 
   useEffect(() => {
-    // initDb().then(runStartupScan)
+    initDb().then(runStartupScan)
     loadAndApplyTheme()
     loadIconSettings()
     loadScanIgnoreSettings()
