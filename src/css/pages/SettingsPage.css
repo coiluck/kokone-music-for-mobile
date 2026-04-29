@@ -285,3 +285,87 @@ input:checked + .slider:before {
 .settings-section-content-item select option:checked {
   color: var(--color-accent);
 }
+/* ===========================================================
+   Android: フォルダピッカーモーダル
+   =========================================================== */
+.settings-folder-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.settings-folder-picker {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.settings-folder-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  font-size: 1.1rem;
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.15);
+}
+.settings-folder-picker-close {
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0 .25rem;
+}
+.settings-folder-picker-body {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.settings-folder-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.settings-folder-picker-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .6rem .5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.settings-folder-picker-item:hover {
+  background-color: rgb(from var(--color-accent) r g b / 0.15);
+}
+.settings-folder-picker-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.settings-folder-picker-item.disabled:hover {
+  background-color: transparent;
+}
+.settings-folder-picker-item-icon {
+  flex-shrink: 0;
+}
+.settings-folder-picker-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.settings-folder-picker-item-info .settings-folder-path {
+  font-size: .75rem;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

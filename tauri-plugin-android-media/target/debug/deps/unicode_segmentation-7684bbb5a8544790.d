@@ -1,0 +1,9 @@
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\unicode_segmentation-7684bbb5a8544790.d: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\grapheme.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\sentence.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\word.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\tables.rs
+
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\libunicode_segmentation-7684bbb5a8544790.rmeta: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\grapheme.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\sentence.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\word.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\tables.rs
+
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\lib.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\grapheme.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\sentence.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\word.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\unicode-segmentation-1.13.2\src\tables.rs:

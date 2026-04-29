@@ -1,0 +1,2 @@
+cargo:rustc-link-search=native=C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\build\webview2-com-sys-8ca04879e7ec93b0\out\x64
+cargo:rustc-link-lib=advapi32

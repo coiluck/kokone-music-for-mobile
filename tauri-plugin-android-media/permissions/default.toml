@@ -1,0 +1,10 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver."
+permissions = [
+    "allow-has-audio-permission",
+    "allow-request-audio-permission",
+    "allow-query-audio-metadata",
+    "allow-audio-hash",
+]

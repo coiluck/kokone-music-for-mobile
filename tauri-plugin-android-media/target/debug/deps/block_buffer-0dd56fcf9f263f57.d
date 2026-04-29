@@ -1,0 +1,8 @@
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\block_buffer-0dd56fcf9f263f57.d: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\sealed.rs
+
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\libblock_buffer-0dd56fcf9f263f57.rlib: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\sealed.rs
+
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\libblock_buffer-0dd56fcf9f263f57.rmeta: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\sealed.rs
+
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\lib.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\block-buffer-0.10.4\src\sealed.rs:

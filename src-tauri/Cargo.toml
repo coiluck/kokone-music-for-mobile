@@ -41,3 +41,6 @@ sha2 = "0.10"
 rayon = "1"
 num_cpus = "1"
 
+# Android 専用: MediaStore を Kotlin プラグイン経由で叩く
+tauri-plugin-android-media = { path = "../tauri-plugin-android-media" }
+

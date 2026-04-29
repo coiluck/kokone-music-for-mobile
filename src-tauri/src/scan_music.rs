@@ -1,17 +1,26 @@
+#[cfg(not(target_os = "android"))]
 use crate::audio_analysis::analyze_audio;
 use crate::settings;
+#[cfg(not(target_os = "android"))]
 use lofty::prelude::*;
+#[cfg(not(target_os = "android"))]
 use lofty::probe::Probe;
+#[cfg(not(target_os = "android"))]
 use rayon::prelude::*;
 use rusqlite::{params, Connection};
+#[cfg(not(target_os = "android"))]
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+#[cfg(not(target_os = "android"))]
 use std::io::Read;
 use std::path::{Path, PathBuf};
+#[cfg(not(target_os = "android"))]
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(not(target_os = "android"))]
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
+#[cfg(not(target_os = "android"))]
 use walkdir::WalkDir;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["mp3", "flac", "ogg", "m4a", "aac", "wav"];
@@ -87,28 +96,53 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
             .checked_sub(EMIT_INTERVAL)
             .unwrap_or_else(Instant::now);
 
-        // ===== 1. scan : 対象ファイルを列挙 =====
-        let candidates =
-            enumerate_candidates(&scan_paths, &app_for_emit, &mut last_emit);
+        // ===== 1. scan + 3. add =====
+        // Android では scoped storage によりファイル直接 open ができない場合があるため、
+        // MediaStore からメタデータをまとめて取得し、ハッシュも Kotlin 側で計算する
+        // 専用フローを使う。desktop は従来通り walkdir + lofty + sha2。
+        #[cfg(target_os = "android")]
+        let (file_count, added) = {
+            let metas = enumerate_android_candidates(&scan_paths, &app_for_emit, &mut last_emit);
 
-        // ===== 2. detect delete : 設定に適合しないトラックをDBから削除 =====
-        let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
-        delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time)
-            .map_err(|e| e.to_string())?;
+            // ===== 2. detect delete =====
+            let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
+            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
+                .map_err(|e| e.to_string())?;
 
-        // ===== 3. add : 新規ファイルを LUFS=NULL で INSERT =====
-        let added = add_new_tracks(
-            &mut conn,
-            &candidates,
-            ignore_mode,
-            ignore_time,
-            &app_for_emit,
-            &mut last_emit,
-        )?;
+            let added = add_new_tracks_android(
+                &mut conn,
+                &metas,
+                ignore_mode,
+                ignore_time,
+                &app_for_emit,
+                &mut last_emit,
+            )?;
+            (metas.len() as u64, added)
+        };
+
+        #[cfg(not(target_os = "android"))]
+        let (file_count, added) = {
+            let candidates =
+                enumerate_candidates(&scan_paths, &app_for_emit, &mut last_emit);
+
+            // ===== 2. detect delete =====
+            let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
+            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
+                .map_err(|e| e.to_string())?;
+
+            let added = add_new_tracks(
+                &mut conn,
+                &candidates,
+                ignore_mode,
+                ignore_time,
+                &app_for_emit,
+                &mut last_emit,
+            )?;
+            (candidates.len() as u64, added)
+        };
 
         // add 完了時点でフロントに完了通知を送る。
         // ここで scanVersion を上げて画面を一旦更新する想定。
-        let file_count = candidates.len() as u64;
         let _ = app_for_emit.emit(
             "scan-progress",
             ScanProgress {
@@ -168,7 +202,11 @@ fn open_db(db_path: &Path) -> Result<Connection, String> {
 
 // ---------------------------------------------------------------------------
 // 1. scan : 対象ファイル列挙
+//
+// プラットフォームごとに列挙方法が違うが、戻り値は同じ「絶対パスの Vec」。
+// scan-folder は常に「フォルダパス文字列」として扱う。
 // ---------------------------------------------------------------------------
+#[cfg(not(target_os = "android"))]
 fn enumerate_candidates(
     paths: &[String],
     app: &AppHandle,
@@ -216,6 +254,66 @@ fn enumerate_candidates(
     candidates
 }
 
+// Android では filesystem を直接スキャンせず、MediaStore に登録済みの音楽を
+// メタデータ込みで取得して、scan_folders で指定されたフォルダ配下にあるものだけ拾う。
+// 「scan-folder = フォルダパス」というセマンティクスは desktop と統一。
+//
+// scoped storage 環境では Rust から /storage/emulated/0/... を直接 fopen できないので、
+// Rust 側ではファイル本体を一切触らず、Kotlin から得たメタデータと audio_id で
+// add_new_tracks_android が処理する。
+#[cfg(target_os = "android")]
+fn enumerate_android_candidates(
+    paths: &[String],
+    app: &AppHandle,
+    last_emit: &mut Instant,
+) -> Vec<crate::android_media::AndroidAudioMeta> {
+    let all_audio = match crate::android_media::query_audio_metadata(app) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("MediaStore query failed: {e}");
+            return Vec::new();
+        }
+    };
+
+    let mut candidates: Vec<crate::android_media::AndroidAudioMeta> = Vec::new();
+    for meta in all_audio {
+        let in_scan_folder = paths.iter().any(|f| meta.display_path.starts_with(f));
+        if !in_scan_folder {
+            continue;
+        }
+
+        let ext = std::path::Path::new(&meta.display_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if !SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
+
+        let display_name = meta.display_name.clone();
+        candidates.push(meta);
+
+        if last_emit.elapsed() >= EMIT_INTERVAL {
+            let _ = app.emit(
+                "scan-progress",
+                ScanProgress {
+                    process_step: "scanning".into(),
+                    scan_current: candidates.len() as u64,
+                    scan_total: 0,
+                    add_current: 0,
+                    add_total: 0,
+                    analyze_current: 0,
+                    analyze_total: 0,
+                    current_file: display_name,
+                },
+            );
+            *last_emit = Instant::now();
+        }
+    }
+    candidates
+}
+
 // ---------------------------------------------------------------------------
 // 2. detect delete : 設定に適合しないトラックを DB から削除
 //
@@ -223,12 +321,30 @@ fn enumerate_candidates(
 //     （フォルダがリストから外された、またはファイル自体が移動/削除された）
 //   - ignoreMode が ON で、duration_ms が基準秒数未満のトラック
 // ---------------------------------------------------------------------------
+#[cfg_attr(not(target_os = "android"), allow(unused_variables))]
 fn delete_unmatched_tracks(
     conn: &Connection,
     scan_folders: &[String],
     ignore_mode: bool,
     ignore_time: f64,
+    app: &AppHandle,
 ) -> Result<u64, rusqlite::Error> {
+    // Android では Rust 側からファイル存在確認 (is_file) ができない
+    // (scoped storage により EACCES が返り、is_file は false 扱いになるので
+    // 全トラックが「不存在」と誤判定されて全削除される)。
+    // 代わりに MediaStore に現在登録されているパスの集合を取って、
+    // それに含まれないものを「削除済み」とみなす。
+    // クエリ自体に失敗した場合は誤削除を避けるため「全部存在する」とみなす。
+    #[cfg(target_os = "android")]
+    let (media_paths, media_query_ok): (std::collections::HashSet<String>, bool) =
+        match crate::android_media::query_audio_metadata(app) {
+            Ok(metas) => (metas.into_iter().map(|m| m.display_path).collect(), true),
+            Err(e) => {
+                log::warn!("MediaStore query failed in delete_unmatched_tracks: {e}");
+                (std::collections::HashSet::new(), false)
+            }
+        };
+
     // 全トラックの (id, path, duration_ms) を取得
     let mut stmt = conn.prepare("SELECT id, path, duration_ms FROM tracks")?;
     let rows = stmt.query_map([], |row| {
@@ -248,7 +364,17 @@ fn delete_unmatched_tracks(
 
         // (a) スキャンフォルダ外 or 実ファイルが存在しない
         let in_scan_folder = scan_folders.iter().any(|f| path.starts_with(f));
+
+        #[cfg(not(target_os = "android"))]
         let exists = Path::new(&path).is_file();
+        #[cfg(target_os = "android")]
+        let exists = if media_query_ok {
+            media_paths.contains(&path)
+        } else {
+            // MediaStore 取得に失敗した場合は誤削除を避けるため「存在する」とみなす。
+            true
+        };
+
         if !in_scan_folder || !exists {
             to_delete.push(id);
             continue;
@@ -288,7 +414,10 @@ fn delete_unmatched_tracks(
 // 重複チェックは事前に HashSet にロードしてオンメモリで判定する。
 // 旧実装はループ内で `SELECT COUNT(*) WHERE path=?` を毎回叩いていたため
 // 数千〜数万曲規模で N+1 になっていた。
+//
+// desktop 専用。Android は add_new_tracks_android を使う。
 // ---------------------------------------------------------------------------
+#[cfg(not(target_os = "android"))]
 fn add_new_tracks(
     conn: &mut Connection,
     candidates: &[PathBuf],
@@ -419,6 +548,133 @@ fn add_new_tracks(
     Ok(added)
 }
 
+// ---------------------------------------------------------------------------
+// 3. add : Android 版
+//
+// scoped storage により Rust 側からファイルを直接 fopen できないため、
+//   - メタデータは MediaStore のものをそのまま使う
+//   - ハッシュは Kotlin 側で ContentResolver.openFileDescriptor 経由で計算
+// ---------------------------------------------------------------------------
+#[cfg(target_os = "android")]
+fn add_new_tracks_android(
+    conn: &mut Connection,
+    metas: &[crate::android_media::AndroidAudioMeta],
+    ignore_mode: bool,
+    ignore_time: f64,
+    app: &AppHandle,
+    last_emit: &mut Instant,
+) -> Result<u64, String> {
+    let (mut existing_paths, mut existing_hashes) =
+        load_existing_keys(conn).map_err(|e| e.to_string())?;
+
+    let file_count = metas.len() as u64;
+    let mut added = 0u64;
+    let mut processed = 0u64;
+
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    for meta in metas {
+        processed += 1;
+
+        // 進捗通知 (スロットル)
+        if last_emit.elapsed() >= EMIT_INTERVAL {
+            let _ = app.emit(
+                "scan-progress",
+                ScanProgress {
+                    process_step: "adding".into(),
+                    scan_current: file_count,
+                    scan_total: file_count,
+                    add_current: processed,
+                    add_total: file_count,
+                    analyze_current: 0,
+                    analyze_total: 0,
+                    current_file: meta.display_name.clone(),
+                },
+            );
+            *last_emit = Instant::now();
+        }
+
+        // パス重複チェック
+        if existing_paths.contains(&meta.display_path) {
+            continue;
+        }
+
+        // ignoreMode フィルタ
+        let duration_ms = meta.duration_ms;
+        if ignore_mode && (duration_ms as f64 / 1000.0) < ignore_time {
+            continue;
+        }
+
+        // ハッシュ計算 (Kotlin 側に委譲)
+        let ext = std::path::Path::new(&meta.display_path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let is_mp3 = ext == "mp3";
+        let hash = match crate::android_media::audio_hash(app, meta.id, is_mp3) {
+            Ok(h) if !h.is_empty() => h,
+            Ok(_) => {
+                log::warn!("audio_hash returned empty for id={}", meta.id);
+                continue;
+            }
+            Err(e) => {
+                log::warn!("audio_hash failed for id={}: {e}", meta.id);
+                continue;
+            }
+        };
+
+        if existing_hashes.contains(&hash) {
+            continue;
+        }
+
+        // タグ値 (MediaStore から取得済み)。
+        // タイトルが空ならファイル名から、それも無ければ "Unknown"。
+        let title = if !meta.title.is_empty() {
+            meta.title.clone()
+        } else {
+            std::path::Path::new(&meta.display_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "Unknown".to_string())
+        };
+        let artist = if meta.artist.is_empty() {
+            None
+        } else {
+            Some(meta.artist.clone())
+        };
+        let album = if meta.album.is_empty() {
+            None
+        } else {
+            Some(meta.album.clone())
+        };
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        match tx.execute(
+            "INSERT INTO tracks \
+             (file_hash, path, title, artist, album, tags, duration_ms, lufs, trailing_silence_ms, scanned_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, NULL, ?8)",
+            params![hash, meta.display_path, title, artist, album, "[]", duration_ms, now],
+        ) {
+            Ok(_) => {
+                added += 1;
+                existing_paths.insert(meta.display_path.clone());
+                existing_hashes.insert(hash);
+            }
+            Err(e) => log::warn!("insert failed for {}: {e}", meta.display_path),
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(added)
+}
+
+
 /// 既存トラックの path と file_hash を HashSet に一括ロードする。
 /// `add_new_tracks` のループでオンメモリ重複チェックに使う。
 fn load_existing_keys(
@@ -445,14 +701,37 @@ fn load_existing_keys(
 // 並列度 = max(論理CPU数 / 2, 4)。rayon の thread pool を使う。
 // LUFS が NULL のトラックを全件拾って解析し、UPDATE する。
 // ---------------------------------------------------------------------------
+// Android では scoped storage により Rust 側から直接 fopen できないため、
+// 現状 LUFS 解析はスキップする (将来的には Kotlin 側で fd を取得して
+// 解析する仕組みに置き換える予定)。即座に「完了」イベントだけ発火する。
+#[cfg(target_os = "android")]
+fn spawn_lufs_analysis(app: AppHandle, _db_path: PathBuf) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = app.emit("scan-analyze-completed", ());
+    });
+}
+
+#[cfg(not(target_os = "android"))]
 fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf) {
     tauri::async_runtime::spawn_blocking(move || {
-        if let Err(e) = run_lufs_analysis(app, db_path) {
-            log::warn!("LUFS analysis failed: {e}");
+        // analyze_audio は内部で std::fs::File::open を使うため、
+        // 何らかの理由で panic した場合にプロセスを巻き込まないよう catch_unwind で守る。
+        let app_for_recover = app.clone();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_lufs_analysis(app, db_path)
+        }));
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => log::warn!("LUFS analysis failed: {e}"),
+            Err(_) => {
+                log::error!("LUFS analysis panicked");
+                let _ = app_for_recover.emit("scan-analyze-completed", ());
+            }
         }
     });
 }
 
+#[cfg(not(target_os = "android"))]
 fn run_lufs_analysis(app: AppHandle, db_path: PathBuf) -> Result<(), String> {
     // 解析対象（LUFS が NULL のトラック）を取得
     let pending: Vec<(i64, String)> = {
@@ -576,8 +855,10 @@ fn run_lufs_analysis(app: AppHandle, db_path: PathBuf) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
-// ハッシュ計算（変更なし）
+// ハッシュ計算 (desktop 専用)
+// Android では Kotlin 側の MediaStoreHelper.audioHash を使う。
 // ---------------------------------------------------------------------------
+#[cfg(not(target_os = "android"))]
 fn mp3_audio_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     use std::io::{Read, Seek, SeekFrom};
 
@@ -631,6 +912,7 @@ fn mp3_audio_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     Ok(format!("{:x}", h.finalize()))
 }
 
+#[cfg(not(target_os = "android"))]
 fn file_hash(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(path)?;
     let mut h = Sha256::new();

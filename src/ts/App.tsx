@@ -24,7 +24,7 @@ export default function App() {
     loadIconSettings()
     loadScanIgnoreSettings()
     loadLang()
-    loadPlaySettings() 
+    loadPlaySettings()
   }, [])
 
   const t = useMappedTranslations({

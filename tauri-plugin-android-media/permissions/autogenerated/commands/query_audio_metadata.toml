@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-query-audio-metadata"
+description = "Enables the query_audio_metadata command without any pre-configured scope."
+commands.allow = ["query_audio_metadata"]
+
+[[permission]]
+identifier = "deny-query-audio-metadata"
+description = "Denies the query_audio_metadata command without any pre-configured scope."
+commands.deny = ["query_audio_metadata"]

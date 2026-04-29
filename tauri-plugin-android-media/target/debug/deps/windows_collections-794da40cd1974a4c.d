@@ -1,0 +1,7 @@
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\windows_collections-794da40cd1974a4c.d: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
+
+C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\deps\libwindows_collections-794da40cd1974a4c.rmeta: C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
+
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs:
+C:\Users\Voytec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md:
