@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cargo check *)",
-      "Bash(npm install *)",
-      "Bash(npx tsc *)"
-    ]
-  }
-}

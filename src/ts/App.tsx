@@ -71,7 +71,7 @@ export default function App() {
   return (
     <div className="app-layout">
       <header className='app-header'>
-        <p>Kokone Music</p>
+        <p>SymPony Music</p>
         <div className='app-header-button-container'>
           <button
             className='app-header-button search'
