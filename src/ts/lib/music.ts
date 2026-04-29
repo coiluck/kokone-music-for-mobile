@@ -1,6 +1,6 @@
 // ts/lib/music.ts
 import { convertFileSrc } from '@tauri-apps/api/core'
-import type { Track } from './db'
+import { type Track, musicPlay } from './db'
 import { usePlayerStore } from './playerStore'
 import { useSettingsStore } from './settingsStore'
 
@@ -126,6 +126,10 @@ export class MusicPlayer {
       !this.active.audio.ended
     ) {
       return
+    }
+    
+    if (this.ctx.state !== 'running') {
+      await this.ctx.resume()
     }
 
     const isPlaying =
@@ -321,6 +325,8 @@ export class MusicPlayer {
       store._setIsPlaying(false)
       store._setPosition(0)
       store._setDuration(null)
+    } else {
+      musicPlay(track.id).catch(e => console.error('[MusicPlayer] musicPlay failed:', e))
     }
   }
 

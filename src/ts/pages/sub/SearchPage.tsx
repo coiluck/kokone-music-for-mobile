@@ -5,7 +5,6 @@ import { useScanStore } from '../../lib/scanStore'
 import { musicPlayer } from '../../lib/music'
 import { usePlayerStore } from '../../lib/playerStore'
 import { useMappedTranslations } from '../../lib/i18n'
-import { formatTime } from '../../components/MiniPlayer'
 import MusicItem from '../../components/MusicItem'
 import '../../../css/pages/sub/SearchPage.css'
 
@@ -101,7 +100,7 @@ export default function SearchPage() {
           style={{ paddingBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }} /* MiniPlayerの高さ */
         >
           {tracks.map((track, i) => (
-            <MusicItem track={track} onPlay={() => void musicPlayer.play(track)} />
+            <MusicItem key={track.id ?? i} track={track} onPlay={() => void musicPlayer.play(track)} />
           ))}
         </div>
       )}
