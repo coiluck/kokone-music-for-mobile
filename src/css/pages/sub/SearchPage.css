@@ -1,0 +1,79 @@
+.search-page-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+}
+
+.search-page-input-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-page-input-container::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: .8rem;
+  transform: translateY(-50%);
+  width: .8rem;
+  height: .8rem;
+  background-color: var(--color-text);
+  mask-image: url("/images/App/search.svg");
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+.search-page-header-input {
+  position: relative;
+  width: 100%;
+  padding: .4rem .8rem .4rem 2rem;
+  outline: none;
+  border: 1px solid rgb(from var(--color-accent) r g b / 0);
+  border-radius: .4rem;
+  background: var(--color-bg-mild);
+  transition: all .2s ease-in-out;
+}
+.search-page-header-input:focus {
+  border: 1px solid var(--color-accent);
+}
+
+.search-page-header-back {
+  border: none;
+  background: none;
+}
+
+.search-page-input-clear {
+  position: absolute;
+  top: 50%;
+  right: .8rem;
+  transform: translateY(-50%);
+  width: .8rem;
+  height: .8rem;
+  padding: .4rem;
+  background-color: var(--color-text);
+  mask-image: url("/images/SearchPage/xmark.svg");
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.search-page-music-count {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.search-page-music-item-container {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

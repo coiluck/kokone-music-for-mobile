@@ -3,18 +3,24 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getAllTracks, searchTracks, type Track } from '../../lib/db'
 import { useScanStore } from '../../lib/scanStore'
 import { musicPlayer } from '../../lib/music'
-
-function formatDuration(ms: number | null): string {
-  if (ms == null) return '—'
-  const totalSec = Math.floor(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
+import { usePlayerStore } from '../../lib/playerStore'
+import { useMappedTranslations } from '../../lib/i18n'
+import MusicItem from '../../components/MusicItem'
+import '../../../css/pages/sub/SearchPage.css'
 
 export default function SearchPage() {
   const navigate = useNavigate()
   const location = useLocation()
+
+  const t = useMappedTranslations({
+    placeholder: 'search.input.placeholder',
+    cancel: 'search.cancel',
+    loading: 'search.loading',
+    noItem: 'search.noItem',
+    noWord: 'search.noWord',
+    count: 'search.count',
+  })
+
 
   const from = (location.state?.from as string | undefined) ?? '/'
   const scrollTop = (location.state?.scrollTop as number | undefined) ?? 0
@@ -24,6 +30,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false)
   const scanVersion = useScanStore(s => s.scanVersion)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isMiniPlayerVisible    = usePlayerStore(s => s.currentTrack)
 
   const load = useCallback(async (q: string) => {
     setLoading(true)
@@ -41,6 +48,10 @@ export default function SearchPage() {
     inputRef.current?.select()
   }, [location.key])
 
+  const handleClear = () => {
+    setQuery('')
+  }
+
   const handleBack = () => {
     navigate(from, {
       replace: true,
@@ -49,53 +60,49 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="page fade-in search-page">
-      <div className="search-toolbar">
+    <div className="page fade-in" style={{ paddingBottom: 0 }}>
+      <div className="search-page-header">
+        <div className="search-page-input-container">
+          <input
+            ref={inputRef}
+            className="search-page-header-input"
+            type="text"
+            placeholder={t.placeholder}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          <div 
+            className="search-page-input-clear"
+            onClick={handleClear}
+          />
+        </div>
         <button
-          className="search-back-button"
+          className="search-page-header-back"
           onClick={handleBack}
           aria-label="back"
-        />
-        <input
-          ref={inputRef}
-          className="library-search"
-          type="search"
-          placeholder="曲名・アーティストで検索..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-        <span className="library-count">{tracks.length} 曲</span>
+        >
+          {t.cancel}
+        </button>
       </div>
 
+      
+      <span className="search-page-music-count">{tracks.length} {t.count}</span>
+
       {loading ? (
-        <p className="library-empty">読み込み中...</p>
+        <p className="library-empty">{t.loading}</p>
       ) : tracks.length === 0 ? (
         <p className="library-empty">
-          {query ? '該当する曲が見つかりませんでした' : 'キーワードを入力してください'}
+          {query ? t.noItem : t.noWord}
         </p>
       ) : (
-        <table className="track-table">
-          <thead>
-            <tr>
-              <th>#</th><th>曲名</th><th>アーティスト</th><th>アルバム</th><th>時間</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tracks.map((track, i) => (
-              <tr
-                key={track.id}
-                className="track-row"
-                onDoubleClick={() => { musicPlayer.play(track) }}
-              >
-                <td className="track-index">{i + 1}</td>
-                <td className="track-title">{track.title ?? track.path.split('/').pop()}</td>
-                <td className="track-artist">{track.artist ?? '—'}</td>
-                <td className="track-album">{track.album ?? '—'}</td>
-                <td className="track-duration">{formatDuration(track.duration_ms)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div 
+          className="search-page-music-item-container"
+          style={{ paddingBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }} /* MiniPlayerの高さ */
+        >
+          {tracks.map((track, i) => (
+            <MusicItem key={track.id ?? i} track={track} onPlay={() => void musicPlayer.play(track)} />
+          ))}
+        </div>
       )}
     </div>
   )
