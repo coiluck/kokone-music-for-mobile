@@ -106,7 +106,7 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
 
             // ===== 2. detect delete =====
             let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
-            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time)
+            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
                 .map_err(|e| e.to_string())?;
 
             let added = add_new_tracks_android(
@@ -127,7 +127,7 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
 
             // ===== 2. detect delete =====
             let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
-            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time)
+            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
                 .map_err(|e| e.to_string())?;
 
             let added = add_new_tracks(
@@ -267,7 +267,7 @@ fn enumerate_android_candidates(
     app: &AppHandle,
     last_emit: &mut Instant,
 ) -> Vec<crate::android_media::AndroidAudioMeta> {
-    let all_audio = match crate::android_media::query_audio_metadata() {
+    let all_audio = match crate::android_media::query_audio_metadata(app) {
         Ok(v) => v,
         Err(e) => {
             log::warn!("MediaStore query failed: {e}");
@@ -321,11 +321,13 @@ fn enumerate_android_candidates(
 //     （フォルダがリストから外された、またはファイル自体が移動/削除された）
 //   - ignoreMode が ON で、duration_ms が基準秒数未満のトラック
 // ---------------------------------------------------------------------------
+#[cfg_attr(not(target_os = "android"), allow(unused_variables))]
 fn delete_unmatched_tracks(
     conn: &Connection,
     scan_folders: &[String],
     ignore_mode: bool,
     ignore_time: f64,
+    app: &AppHandle,
 ) -> Result<u64, rusqlite::Error> {
     // Android では Rust 側からファイル存在確認 (is_file) ができない
     // (scoped storage により EACCES が返り、is_file は false 扱いになるので
@@ -335,7 +337,7 @@ fn delete_unmatched_tracks(
     // クエリ自体に失敗した場合は誤削除を避けるため「全部存在する」とみなす。
     #[cfg(target_os = "android")]
     let (media_paths, media_query_ok): (std::collections::HashSet<String>, bool) =
-        match crate::android_media::query_audio_metadata() {
+        match crate::android_media::query_audio_metadata(app) {
             Ok(metas) => (metas.into_iter().map(|m| m.display_path).collect(), true),
             Err(e) => {
                 log::warn!("MediaStore query failed in delete_unmatched_tracks: {e}");
@@ -610,7 +612,7 @@ fn add_new_tracks_android(
             .unwrap_or("")
             .to_lowercase();
         let is_mp3 = ext == "mp3";
-        let hash = match crate::android_media::audio_hash(meta.id, is_mp3) {
+        let hash = match crate::android_media::audio_hash(app, meta.id, is_mp3) {
             Ok(h) if !h.is_empty() => h,
             Ok(_) => {
                 log::warn!("audio_hash returned empty for id={}", meta.id);

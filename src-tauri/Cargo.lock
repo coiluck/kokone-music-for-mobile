@@ -2260,10 +2260,8 @@ name = "kokone-music"
 version = "0.1.0"
 dependencies = [
  "ebur128",
- "jni",
  "lofty",
  "log",
- "ndk-context",
  "num_cpus",
  "rayon",
  "rusqlite",
@@ -2274,6 +2272,7 @@ dependencies = [
  "sys-locale",
  "tauri",
  "tauri-build",
+ "tauri-plugin-android-media",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-sql",
@@ -4933,6 +4932,18 @@ dependencies = [
  "tauri-utils",
  "toml 0.9.12+spec-1.1.0",
  "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-android-media"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

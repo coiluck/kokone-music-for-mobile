@@ -1,5 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import {
+  hasAudioPermission as pluginHasAudioPermission,
+  requestAudioPermission as pluginRequestAudioPermission,
+  queryAudioMetadata,
+} from 'tauri-plugin-android-media-api'
 import { useScanStore, type ScanProgressPayload } from './scanStore'
 
 // ---------------------------------------------------
@@ -68,18 +73,24 @@ export async function addScanFolderByPath(path: string): Promise<string | null> 
 // ---------------------------------------------------
 export async function hasAudioPermission(): Promise<boolean> {
   try {
-    return await invoke<boolean>('android_has_audio_permission')
+    return await pluginHasAudioPermission()
   } catch (e) {
-    console.error('android_has_audio_permission failed:', e)
+    console.error('hasAudioPermission failed:', e)
     return false
   }
 }
 
-export async function requestAudioPermission(): Promise<void> {
+/**
+ * 権限ダイアログを出して、ユーザーの選択結果が返るまで待つ。
+ * Tauri プラグインの onRequestPermissionsResult 経由で resolve するため、
+ * フロント側でのポーリングは不要。許可なら true、拒否なら false を返す。
+ */
+export async function requestAudioPermission(): Promise<boolean> {
   try {
-    await invoke('android_request_audio_permission')
+    return await pluginRequestAudioPermission()
   } catch (e) {
-    console.error('android_request_audio_permission failed:', e)
+    console.error('requestAudioPermission failed:', e)
+    return false
   }
 }
 
@@ -95,6 +106,10 @@ export async function listAndroidAudioFolders(): Promise<string[]> {
     return []
   }
 }
+
+// queryAudioMetadata はプラグイン経由で曲一覧を取れるので、フォルダ集合の
+// フロント側生成にも使えるよう re-export しておく。
+export { queryAudioMetadata }
 
 // ---------------------------------------------------
 // 設定済みフォルダを全スキャン（起動時 & 手動更新時）

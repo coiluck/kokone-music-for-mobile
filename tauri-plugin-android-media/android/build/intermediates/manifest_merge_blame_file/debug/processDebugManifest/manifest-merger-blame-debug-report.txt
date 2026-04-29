@@ -1,0 +1,17 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="moe.coiluck.kokone_music.androidmedia" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+7-->C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\android\src\main\AndroidManifest.xml:3:5-75
+7-->C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\android\src\main\AndroidManifest.xml:3:22-72
+8    <uses-permission
+8-->C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\android\src\main\AndroidManifest.xml:4:5-6:38
+9        android:name="android.permission.READ_EXTERNAL_STORAGE"
+9-->C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\android\src\main\AndroidManifest.xml:5:9-64
+10        android:maxSdkVersion="32" />
+10-->C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\android\src\main\AndroidManifest.xml:6:9-35
+11
+12</manifest>
