@@ -1,41 +1,40 @@
-// 再生用にトラックのファイルパスを「再生可能な形」で返す。
+// 再生用にトラックのファイル全体を Vec<u8> として読み出す。
 //
-// desktop: 既にローカルファイルなので、DB の path をそのまま返す。
+// desktop: DB の path をそのまま fs::read で読む。
 //
-// Android: MediaStore の content:// URI を WebView の HTTP 配信経由で
-//   HTMLAudioElement に食わせると Range リクエストが正しく動かず 30 秒前後で
-//   停止するため、Kotlin 側で cacheDir にコピーしてからそのパスを返す。
+// Android: MediaStore の content:// URI は直接開けないため、
+//   Kotlin 側で cacheDir にコピーしてから (prepare_audio)、
+//   コピー済みのパスを fs::read で読む。
 //   キャッシュは LRU で 10 ファイル / 200MB に制限される (Kotlin 側で管理)。
 //
-// フロントは music_read_file でこのパスを Vec<u8> として読み出し、
-// AudioContext.decodeAudioData() でデコードして再生する。
+// フロント側はこの Vec<u8> を Blob にし、URL.createObjectURL で
+// Blob URL を作って <audio>.src にセットする。Tauri 〜 WebView 間の
+// HTTP プロキシを経由しないため、Android Range request バグ
+// (tauri-apps/tauri#12019) の影響を受けない。
 
 use rusqlite::Connection;
-use std::path::Path;
-use tauri::{AppHandle, Manager};
+use tauri::{ipc::Response, AppHandle, Manager};
 
+#[cfg(target_os = "android")]
+use std::path::Path;
 #[cfg(target_os = "android")]
 use tauri_plugin_android_media::{AndroidMediaExt, PrepareAudioRequest};
 
-#[tauri::command]
-pub async fn music_prepare_track(app: AppHandle, track_id: i64) -> Result<String, String> {
+fn resolve_playable_path(app: &AppHandle, track_id: i64) -> Result<String, String> {
     let db_path = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("music.db");
 
-    // DB から path を引く
-    let (path, _audio_id_unused): (String, ()) = {
+    let path: String = {
         let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
-        let path: String = conn
-            .query_row(
-                "SELECT path FROM tracks WHERE id = ?1",
-                [track_id],
-                |row| row.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        (path, ())
+        conn.query_row(
+            "SELECT path FROM tracks WHERE id = ?1",
+            [track_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?
     };
 
     #[cfg(not(target_os = "android"))]
@@ -47,7 +46,7 @@ pub async fn music_prepare_track(app: AppHandle, track_id: i64) -> Result<String
     {
         // MediaStore から audio_id を引き直す。
         // DB には MediaStore の id を直接は持っていないので、display_path 一致で探す。
-        let metas = crate::android_media::query_audio_metadata(&app)?;
+        let metas = crate::android_media::query_audio_metadata(app)?;
         let meta = metas
             .into_iter()
             .find(|m| m.display_path == path)
@@ -74,9 +73,9 @@ pub async fn music_prepare_track(app: AppHandle, track_id: i64) -> Result<String
     }
 }
 
-// 指定された絶対パスのファイル全体を読み出して返す。
-// フロントの AudioContext.decodeAudioData() に直接食わせる用途。
 #[tauri::command]
-pub async fn music_read_file(path: String) -> Result<Vec<u8>, String> {
-    std::fs::read(&path).map_err(|e| format!("read failed for {path}: {e}"))
+pub async fn music_read_file(app: AppHandle, track_id: i64) -> Result<Response, String> {
+    let path = resolve_playable_path(&app, track_id)?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("read failed for {path}: {e}"))?;
+    Ok(Response::new(bytes))
 }

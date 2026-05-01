@@ -18,7 +18,6 @@ pub fn run() {
             get_lang::get_system_lang,
             scan_music::music_scan_folders,
             android_media::android_list_audio_folders,
-            music_playback::music_prepare_track,
             music_playback::music_read_file,
         ])
         .run(tauri::generate_context!())

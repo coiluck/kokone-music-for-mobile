@@ -4,30 +4,47 @@ import { type Track, musicPlay } from './db'
 import { usePlayerStore } from './playerStore'
 import { useSettingsStore } from './settingsStore'
 
-const CROSSFADE_DURATION_MS = 1500
 const TARGET_LUFS = -14.0
 const NORM_TIME_CONSTANT_SEC = 0.05
 const POSITION_POLL_MS = 200
 
+const MIME_BY_EXT: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  flac: 'audio/flac',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+}
+
+function mimeForPath(path: string): string {
+  const dot = path.lastIndexOf('.')
+  if (dot < 0) return 'application/octet-stream'
+  const ext = path.slice(dot + 1).toLowerCase()
+  return MIME_BY_EXT[ext] ?? 'application/octet-stream'
+}
+
 /**
- * 2つのデッキを交互に使い回すことでクロスフェードを実現する音楽プレイヤー。
+ * HTMLAudioElement を Blob URL 経由で駆動する音楽プレイヤー。
  *
- *   AudioBufferSourceNode → normGain → fadeGain → masterGain → destination
+ *   MediaElementSource → normGain → fadeGain → masterGain → destination
  *
  * - normGain : Track の LUFS を見て -14 LUFS にそろえる音量補正 (>1 もありうる)
- * - fadeGain : クロスフェード / フェードアウト用の 0〜1 のエンベロープ
+ * - fadeGain : 停止フェード用の 0〜1 のエンベロープ
  * - masterGain: ユーザー音量 (0〜1)
  *
  * Tauri Android の WebView 〜 Tauri 間 Range 通信バグ (issue #12019) のせいで
- * HTMLAudioElement / asset protocol / 自前 custom protocol いずれを使っても
+ * convertFileSrc / asset protocol / 自前 custom protocol いずれを使っても
  * 30 秒前後で再生が停止する。回避のため、Rust 側で Vec<u8> として読み出した
- * ファイル全体を AudioContext.decodeAudioData() でデコードし、
- * WebView の HTTP 配信を一切経由しない Web Audio オンリーの経路で再生する。
+ * ファイル全体を Blob にして URL.createObjectURL で Blob URL を作り、
+ * audio.src にセットする。Blob URL は WebView 内部で完結するので
+ * Tauri の HTTP プロキシを経由せず、Range バグの影響を受けない。
  *
- * トレードオフ:
- *   - 1 曲分の PCM をメモリに展開するので数十MB消費する (クロスフェード時は2曲分)
- *   - ロード時に 1〜3 秒程度の decode 時間がかかる
- *   - HTMLAudioElement の timeupdate / ended が使えないので自前管理する
+ * MediaElementAudioSourceNode は同じ audio 要素に対して 1 回しか作れない
+ * 制約のため、audio 要素 / source ノード / デッキは全て使い回す。
+ *
+ * クロスフェードは廃止 (常に即切り替え)。
  *
  * UI に見せる状態は usePlayerStore にミラーする。
  *
@@ -39,19 +56,16 @@ export class MusicPlayer {
   private ctx: AudioContext
   private masterGain: GainNode
 
-  private deckA: Deck
-  private deckB: Deck
   private active: Deck
-  private standby: Deck
 
   private currentTrack: Track | null = null
   private queue: Track[] = []
   private history: Track[] = []
+  private currentBlobUrl: string | null = null
 
   // useSettingsStore から購読した再生設定
   private masterVolume: number
   private isNormalizeVolume: boolean
-  private crossfadeMode: 'normal' | 'cross_fade'
   private fadeoutMs: number
   private isTrailingSilence: boolean
   private unsubscribeSettings: () => void
@@ -65,18 +79,13 @@ export class MusicPlayer {
     const s = useSettingsStore.getState()
     this.masterVolume = s.masterVolume
     this.isNormalizeVolume = s.isNormalizeVolume
-    this.crossfadeMode = s.crossfadeMode
     this.fadeoutMs = s.fadeoutMs
     this.isTrailingSilence = s.isTrailingSilence
 
     this.masterGain.gain.value = this.masterVolume
     this.masterGain.connect(this.ctx.destination)
 
-    this.deckA = this.createDeck()
-    this.deckB = this.createDeck()
-
-    this.active = this.deckA
-    this.standby = this.deckB
+    this.active = this.createDeck()
 
     this.startPositionPoll()
 
@@ -93,9 +102,6 @@ export class MusicPlayer {
         this.isNormalizeVolume = state.isNormalizeVolume
         this.applyLufsGain(this.active, this.currentTrack?.lufs ?? null)
       }
-      if (state.crossfadeMode !== prev.crossfadeMode) {
-        this.crossfadeMode = state.crossfadeMode
-      }
       if (state.fadeoutMs !== prev.fadeoutMs) {
         this.fadeoutMs = state.fadeoutMs
       }
@@ -111,10 +117,13 @@ export class MusicPlayer {
   dispose(): void {
     this.unsubscribeSettings()
     this.stopPositionPoll()
-    this.stopSource(this.active)
-    this.stopSource(this.standby)
-    this.releaseBuffer(this.active)
-    this.releaseBuffer(this.standby)
+    try { this.active.audio.pause() } catch { /* ignore */ }
+    this.active.audio.removeAttribute('src')
+    this.active.audio.load()
+    if (this.currentBlobUrl) {
+      URL.revokeObjectURL(this.currentBlobUrl)
+      this.currentBlobUrl = null
+    }
   }
 
   // ---------------------------------------------------
@@ -124,11 +133,10 @@ export class MusicPlayer {
   /**
    * 指定された曲を再生する。
    *   - 既に同じ曲が再生中なら何もしない（早期 return）
-   *   - 何か再生中 + cross_fade 設定ならクロスフェード
    *   - それ以外は即座に切り替え
    */
   async play(track: Track): Promise<void> {
-    if (this.currentTrack?.id === track.id && this.active.isPlaying) {
+    if (this.currentTrack?.id === track.id && !this.active.audio.paused) {
       return
     }
 
@@ -136,24 +144,23 @@ export class MusicPlayer {
       await this.ctx.resume()
     }
 
-    if (this.active.isPlaying && this.crossfadeMode === 'cross_fade') {
-      await this.crossfadeTo(track, CROSSFADE_DURATION_MS)
-    } else {
-      this.cancelFade(this.active)
-      this.cancelFade(this.standby)
-      this.stopSource(this.active)
-      try {
-        await this.loadInto(this.active, track)
-      } catch (e) {
-        console.error('[MusicPlayer] loadInto failed:', e)
-        return
-      }
-      this.applyLufsGain(this.active, track.lufs ?? null)
-      this.active.fadeGain.gain.cancelScheduledValues(this.ctx.currentTime)
-      this.active.fadeGain.gain.setValueAtTime(1, this.ctx.currentTime)
-      this.startSource(this.active, 0)
-      this.setCurrentTrack(track)
+    this.cancelFade(this.active)
+    try {
+      await this.loadInto(this.active, track)
+    } catch (e) {
+      console.error('[MusicPlayer] loadInto failed:', e)
+      return
     }
+    this.applyLufsGain(this.active, track.lufs ?? null)
+    this.active.fadeGain.gain.cancelScheduledValues(this.ctx.currentTime)
+    this.active.fadeGain.gain.setValueAtTime(1, this.ctx.currentTime)
+    try {
+      await this.active.audio.play()
+    } catch (e) {
+      console.error('[MusicPlayer] audio.play failed:', e)
+      return
+    }
+    this.setCurrentTrack(track)
   }
 
   /**
@@ -161,41 +168,35 @@ export class MusicPlayer {
    */
   async stop(duration?: number): Promise<void> {
     await this.fadeOut(this.active, duration ?? this.fadeoutMs)
-    this.stopSource(this.active)
-    this.releaseBuffer(this.active)
+    this.active.audio.pause()
     this.setCurrentTrack(null)
   }
 
   // 一時停止 / 再開。fade はかけない
   async togglePause(): Promise<void> {
-    if (!this.active.buffer) return
-    if (this.active.isPlaying) {
-      const elapsed = this.ctx.currentTime - this.active.startedAtCtxTime
-      this.active.pausedAtSec = Math.max(
-        0,
-        Math.min(this.active.durationSec, elapsed)
-      )
-      this.stopSource(this.active)
-      usePlayerStore.getState()._setIsPlaying(false)
-    } else {
+    if (!this.currentTrack) return
+    if (this.active.audio.paused) {
       if (this.ctx.state !== 'running') {
         await this.ctx.resume()
       }
-      this.startSource(this.active, this.active.pausedAtSec)
+      try {
+        await this.active.audio.play()
+      } catch (e) {
+        console.error('[MusicPlayer] audio.play failed:', e)
+        return
+      }
       usePlayerStore.getState()._setIsPlaying(true)
+    } else {
+      this.active.audio.pause()
+      usePlayerStore.getState()._setIsPlaying(false)
     }
   }
 
   // 指定した位置にシークする
   seek(ms: number): void {
-    if (!this.active.buffer) return
-    const dur = this.active.durationSec
-    const sec = Math.max(0, Math.min(dur, ms / 1000))
-    if (this.active.isPlaying) {
-      this.startSource(this.active, sec)
-    } else {
-      this.active.pausedAtSec = sec
-    }
+    if (!this.active.durationSec) return
+    const sec = Math.max(0, Math.min(this.active.durationSec, ms / 1000))
+    this.active.audio.currentTime = sec
     usePlayerStore.getState()._setPosition(sec * 1000)
   }
 
@@ -298,29 +299,39 @@ export class MusicPlayer {
   // ---------------------------------------------------
 
   /**
-   * 新しいデッキを1つ作る。BufferSource は再生のたびに作り直すので
-   * ここでは normGain と fadeGain だけ用意する。
+   * デッキを 1 つ作る。MediaElementSource は同じ audio 要素に対して
+   * 一度しか作れないため、このメソッドは MusicPlayer のライフタイム中に
+   * 1 度しか呼ばれず、生成された audio / source / gain ノードは使い回す。
    */
   private createDeck(): Deck {
+    const audio = new Audio()
+    audio.preload = 'auto'
+
+    const source = this.ctx.createMediaElementSource(audio)
     const normGain = this.ctx.createGain()
     const fadeGain = this.ctx.createGain()
     normGain.gain.value = 1.0
-    fadeGain.gain.value = 0.0
+    fadeGain.gain.value = 1.0
 
+    source.connect(normGain)
     normGain.connect(fadeGain)
     fadeGain.connect(this.masterGain)
 
-    return {
-      source: null,
-      buffer: null,
+    const deck: Deck = {
+      audio,
+      source,
       normGain,
       fadeGain,
-      startedAtCtxTime: 0,
-      pausedAtSec: 0,
-      isPlaying: false,
       durationSec: 0,
-      endedHandled: false,
     }
+
+    audio.addEventListener('ended', () => {
+      this.onActiveEnded().catch(e => {
+        console.error('[MusicPlayer] onActiveEnded failed:', e)
+      })
+    })
+
+    return deck
   }
 
   private syncQueue(): void {
@@ -344,18 +355,14 @@ export class MusicPlayer {
   }
 
   private getActivePositionSec(): number {
-    if (this.active.isPlaying) {
-      const sec = this.ctx.currentTime - this.active.startedAtCtxTime
-      return Math.max(0, Math.min(this.active.durationSec, sec))
-    }
-    return this.active.pausedAtSec
+    return this.active.audio.currentTime
   }
 
   private startPositionPoll(): void {
     if (this.positionPollId !== null) return
     this.positionPollId = setInterval(() => {
-      if (!this.active.isPlaying) return
-      const sec = this.ctx.currentTime - this.active.startedAtCtxTime
+      if (this.active.audio.paused) return
+      const sec = this.active.audio.currentTime
       const clamped = Math.max(0, Math.min(this.active.durationSec, sec))
       usePlayerStore.getState()._setPosition(clamped * 1000)
     }, POSITION_POLL_MS)
@@ -369,61 +376,6 @@ export class MusicPlayer {
   }
 
   /**
-   * 新しい BufferSource を作って指定 offset から再生開始する。
-   * 既存の source があれば破棄する。
-   * AudioBufferSourceNode は一度 stop すると再利用不可なので、
-   * 再生 / シーク / pause→resume のたびにこれを呼ぶ。
-   */
-  private startSource(deck: Deck, offsetSec: number): void {
-    if (!deck.buffer) return
-
-    if (deck.source) {
-      this.stopSource(deck)
-    }
-
-    const src = this.ctx.createBufferSource()
-    src.buffer = deck.buffer
-    src.connect(deck.normGain)
-
-    deck.endedHandled = false
-    src.onended = () => {
-      // stop() で意図的に止めたとき or 既に新しい source に置き換わったときは無視
-      if (deck.source !== src) return
-      if (deck.endedHandled) return
-      deck.isPlaying = false
-      deck.pausedAtSec = deck.durationSec
-      if (deck === this.active) {
-        this.onActiveEnded().catch(e => {
-          console.error('[MusicPlayer] onActiveEnded failed:', e)
-        })
-      }
-    }
-
-    src.start(0, offsetSec)
-    deck.source = src
-    deck.startedAtCtxTime = this.ctx.currentTime - offsetSec
-    deck.isPlaying = true
-  }
-
-  /**
-   * 走っている source を意図的に止める。onended の自然終端ハンドラは走らない。
-   */
-  private stopSource(deck: Deck): void {
-    if (!deck.source) return
-    deck.endedHandled = true
-    try { deck.source.stop() } catch { /* already stopped */ }
-    try { deck.source.disconnect() } catch { /* already disconnected */ }
-    deck.source = null
-    deck.isPlaying = false
-  }
-
-  private releaseBuffer(deck: Deck): void {
-    deck.buffer = null
-    deck.durationSec = 0
-    deck.pausedAtSec = 0
-  }
-
-  /**
    * active の曲が自然に終端に達したときの処理。history に積んで次の曲へ。
    */
   private async onActiveEnded(): Promise<void> {
@@ -434,7 +386,6 @@ export class MusicPlayer {
     const nextTrack = this.queue.shift()
     this.syncQueue()
     if (!nextTrack) {
-      this.releaseBuffer(this.active)
       this.setCurrentTrack(null)
       return
     }
@@ -448,59 +399,13 @@ export class MusicPlayer {
     this.applyLufsGain(this.active, nextTrack.lufs ?? null)
     this.active.fadeGain.gain.cancelScheduledValues(this.ctx.currentTime)
     this.active.fadeGain.gain.setValueAtTime(1, this.ctx.currentTime)
-    this.startSource(this.active, 0)
-    this.setCurrentTrack(nextTrack)
-  }
-
-  /**
-   * standby 側に次の曲をロードし、active と standby の fadeGain を
-   * linearRampToValueAtTime でクロスフェードする。
-   * 終わったら active / standby の役割を交換する。
-   */
-  private async crossfadeTo(track: Track, durationMs: number): Promise<void> {
-    this.cancelFade(this.active)
-    this.cancelFade(this.standby)
-    this.stopSource(this.standby)
-
     try {
-      await this.loadInto(this.standby, track)
+      await this.active.audio.play()
     } catch (e) {
-      console.error('[MusicPlayer] loadInto failed:', e)
+      console.error('[MusicPlayer] audio.play failed:', e)
       return
     }
-    this.applyLufsGain(this.standby, track.lufs ?? null)
-
-    const now = this.ctx.currentTime
-    const dur = durationMs / 1000
-
-    // standby は 0 から鳴らし始める
-    this.standby.fadeGain.gain.cancelScheduledValues(now)
-    this.standby.fadeGain.gain.setValueAtTime(0, now)
-    this.startSource(this.standby, 0)
-
-    // ランプをスケジュール
-    const outG = this.active.fadeGain.gain
-    const inG = this.standby.fadeGain.gain
-    outG.cancelScheduledValues(now)
-    outG.setValueAtTime(outG.value, now)
-    outG.linearRampToValueAtTime(0, now + dur)
-
-    inG.setValueAtTime(0, now)
-    inG.linearRampToValueAtTime(1, now + dur)
-
-    // 自然終端と同じ扱いにするため history に積む
-    if (this.currentTrack) {
-      this.history.push(this.currentTrack)
-    }
-
-    // ランプ終了を待つ
-    await new Promise<void>(resolve => setTimeout(resolve, durationMs))
-
-    // 旧 active を止めて buffer を解放、役割を交換
-    this.stopSource(this.active)
-    this.releaseBuffer(this.active)
-    this.swapActive()
-    this.setCurrentTrack(track)
+    this.setCurrentTrack(nextTrack)
   }
 
   /**
@@ -508,7 +413,7 @@ export class MusicPlayer {
    */
   private async fadeOut(deck: Deck, durationMs: number): Promise<void> {
     this.cancelFade(deck)
-    if (!deck.isPlaying) return
+    if (deck.audio.paused) return
 
     const now = this.ctx.currentTime
     const dur = durationMs / 1000
@@ -548,84 +453,84 @@ export class MusicPlayer {
   }
 
   /**
-   * active と standby のデッキを入れ替える。
-   */
-  private swapActive(): void {
-    const tmp = this.active
-    this.active = this.standby
-    this.standby = tmp
-  }
-
-  /**
-   * トラックのファイルを読み出して decodeAudioData() で AudioBuffer に展開し、
-   * デッキにセットする。再生開始は呼び出し側で startSource() する。
-   *
-   * Tauri Android の Range request バグを避けるため WebView の HTTP 配信を
-   * 一切経由せず、Rust 側で読んだ Vec<u8> を直接デコードする。
+   * トラックのファイル全体を Rust 側から Vec<u8> として受け取り、
+   * Blob → ObjectURL → audio.src の順で WebView 内部に閉じた URL で
+   * 食わせる。Tauri の HTTP プロキシを経由しないため Android の Range
+   * バグ (#12019) を回避できる。再生開始は呼び出し側で audio.play() する。
    */
   private async loadInto(deck: Deck, track: Track): Promise<void> {
-    let playablePath: string
-    try {
-      playablePath = await invoke<string>('music_prepare_track', {
-        trackId: track.id,
-      })
-    } catch (e) {
-      throw new Error(`music_prepare_track failed: ${String(e)}`)
-    }
-    if (!playablePath) {
-      throw new Error(`music_prepare_track returned empty path for track ${track.id}`)
+    // 古い Blob URL を解放してから新しい src をセットする。
+    if (this.currentBlobUrl) {
+      URL.revokeObjectURL(this.currentBlobUrl)
+      this.currentBlobUrl = null
     }
 
-    let bytes: number[] | Uint8Array
+    let buf: ArrayBuffer
     try {
-      bytes = await invoke<number[] | Uint8Array>('music_read_file', {
-        path: playablePath,
-      })
+      const t0 = performance.now()
+      const result = await invoke<ArrayBuffer | Uint8Array | number[]>(
+        'music_read_file',
+        { trackId: track.id }
+      )
+      const tMs = (performance.now() - t0).toFixed(0)
+
+      if (result instanceof ArrayBuffer) {
+        buf = result
+      } else if (ArrayBuffer.isView(result)) {
+        const v = result as Uint8Array
+        buf = v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength) as ArrayBuffer
+      } else if (Array.isArray(result)) {
+        // 旧 Vec<u8> 経路 (JSON の number 配列)。Rust が再ビルドされていない
+        // とここを通る。Blob([number[]]) は "10,20,..." の文字列に化けるので
+        // 必ず Uint8Array 経由でバイナリに戻す。
+        console.warn(
+          '[loadInto] received number[] (slow JSON path) — restart `tauri dev` to pick up the binary Response'
+        )
+        buf = new Uint8Array(result).buffer as ArrayBuffer
+      } else {
+        throw new Error('unexpected music_read_file response type')
+      }
+
+      console.log(`[loadInto] invoke: ${tMs}ms, size: ${buf.byteLength}`)
     } catch (e) {
       throw new Error(`music_read_file failed: ${String(e)}`)
     }
 
-    // decodeAudioData は渡された ArrayBuffer を detach するため、
-    // Uint8Array が共有 buffer 上のビューだと元データも壊れる。
-    // 安全のため必要範囲だけコピーした独立 ArrayBuffer を渡す。
-    const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-    const arrayBuffer = u8.buffer.slice(
-      u8.byteOffset,
-      u8.byteOffset + u8.byteLength
-    ) as ArrayBuffer
+    const mime = mimeForPath(track.path)
+    const blob = new Blob([buf], { type: mime })
+    const url = URL.createObjectURL(blob)
+    this.currentBlobUrl = url
 
-    let audioBuffer: AudioBuffer
-    try {
-      audioBuffer = await this.ctx.decodeAudioData(arrayBuffer)
-    } catch (e) {
-      throw new Error(`decodeAudioData failed: ${String(e)}`)
-    }
+    await new Promise<void>((resolve, reject) => {
+      const onCanPlay = () => {
+        deck.audio.removeEventListener('error', onError)
+        resolve()
+      }
+      const onError = () => {
+        deck.audio.removeEventListener('canplay', onCanPlay)
+        const err = deck.audio.error
+        reject(new Error(`audio error: code=${err?.code ?? 'unknown'} ${err?.message ?? ''}`))
+      }
+      deck.audio.addEventListener('canplay', onCanPlay, { once: true })
+      deck.audio.addEventListener('error', onError, { once: true })
+      deck.audio.src = url
+      deck.audio.load()
+    })
 
-    deck.buffer = audioBuffer
-    deck.durationSec = audioBuffer.duration
-    deck.pausedAtSec = 0
-    deck.isPlaying = false
+    deck.durationSec = isFinite(deck.audio.duration) ? deck.audio.duration : 0
   }
 }
 
 /**
  * 1 曲分の再生経路をまとめた構造体。
+ * MediaElementSource の一度きり制約のため、フィールドはすべて使い回し対象。
  */
 interface Deck {
-  // BufferSource は使い捨て: 再生 / シーク / 再開のたびに作り直す
-  source: AudioBufferSourceNode | null
-  buffer: AudioBuffer | null
+  audio: HTMLAudioElement
+  source: MediaElementAudioSourceNode
   normGain: GainNode
   fadeGain: GainNode
-
-  // HTMLAudioElement の置き換えで自前管理が必要なもの
-  startedAtCtxTime: number  // ctx.currentTime ベース。再生開始時刻 (offset 込み)
-  pausedAtSec: number       // pause / 停止時の経過秒
-  isPlaying: boolean
-  durationSec: number       // buffer.duration を保持
-
-  // 意図的停止と自然終端を区別するためのフラグ
-  endedHandled: boolean
+  durationSec: number  // audio.duration を最後に観測した値
 }
 
 // アプリ全体で共有する singleton
