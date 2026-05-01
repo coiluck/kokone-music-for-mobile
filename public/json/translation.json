@@ -45,5 +45,6 @@
   "search.loading": { "ja": "読み込み中", "en": "Loading..." },
   "search.noItem": { "ja": "該当する曲が見つかりませんでした", "en": "No tracks found." },
   "search.noWord": { "ja": "キーワードを入力してください", "en": "Enter a keyword to search." },
-  "search.count": { "ja": "曲", "en": "tracks" }
+  "search.count": { "ja": "曲", "en": "tracks" },
+  "queue.title": { "ja": "再生待機リスト", "en": "Playback Queue" }
 }

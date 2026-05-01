@@ -1,0 +1,43 @@
+.queue-page-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.queue-page-back-button {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.queue-page-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-page-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.queue-page-item-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  cursor: grab;
+  touch-action: none;
+}
+.queue-page-item-handle:active {
+  cursor: grabbing;
+}
+.queue-page-item-handle-icon {
+  opacity: .5;
+}
+
+.queue-page-item-content {
+  flex: 1;
+  min-width: 0;
+}
