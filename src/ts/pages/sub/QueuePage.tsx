@@ -102,11 +102,12 @@ export default function QueuePage() {
             items={queue.map(t => t.id)}
             strategy={verticalListSortingStrategy}
           >
-            {queue.map(track => (
+            {queue.map((track, index) => (
               <SortableQueueItem
                 key={track.id}
                 track={track}
                 onPlay={handlePlay}
+                onRemove={() => handleRemoveFromQueue(index)}
               />
             ))}
           </SortableContext>
@@ -119,9 +120,10 @@ export default function QueuePage() {
 interface SortableQueueItemProps {
   track: Track
   onPlay: (track: Track) => void
+  onRemove: () => void
 }
 
-function SortableQueueItem({ track, onPlay }: SortableQueueItemProps) {
+function SortableQueueItem({ track, onPlay, onRemove }: SortableQueueItemProps) {
   const {
     attributes,
     listeners,
@@ -157,7 +159,7 @@ function SortableQueueItem({ track, onPlay }: SortableQueueItemProps) {
         <Icon name="hamburger" mode={null} size={24} folder='/images/QueuePage/' className='queue-page-item-handle-icon' />
       </div>
       <div className="queue-page-item-content">
-        <MusicItem track={track} onPlay={onPlay} />
+        <MusicItem track={track} onPlay={onPlay} onRemove={onRemove} />
       </div>
     </div>
   )

@@ -7,9 +7,10 @@ import '../../css/components/MusicItem.css'
 interface Props {
   track: Track
   onPlay: (track: Track) => void
+  onRemove?: () => void
 }
 
-export default function MusicItem({ track, onPlay }: Props) {
+export default function MusicItem({ track, onPlay, onRemove }: Props) {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const handleEditMeta = () => {
@@ -49,11 +50,21 @@ export default function MusicItem({ track, onPlay }: Props) {
           )}
         </div>
       </div>
-      <div
-        className="mi-component-actions"
-        onClick={e => { e.stopPropagation(); handleEditMeta(); }}
-      >
-        <Icon name="ellipsis" mode={null} folder="/images/MusicItem/" />
+      <div className="mi-component-actions-container">
+        {onRemove && (
+          <div
+            className="mi-component-actions"
+            onClick={e => { e.stopPropagation(); onRemove(); }}
+          >
+            <Icon name="remove" mode={iconStyle} folder="/images/MusicItem/" />
+          </div>
+        )}
+        <div
+          className="mi-component-actions"
+          onClick={e => { e.stopPropagation(); handleEditMeta(); }}
+         >
+          <Icon name="ellipsis" mode={null} folder="/images/MusicItem/" />
+        </div>
       </div>
     </div>
   )

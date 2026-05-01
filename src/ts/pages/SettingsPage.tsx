@@ -309,7 +309,7 @@ export default function SettingsPage() {
             <div className='settings-folder-add-container' onClick={handleAddFolder}>
               <span className='settings-folder-add-text'>{t.addFolder}</span>
               <span className='settings-folder-add-icon'>
-                <Icon name="folder-plus" mode={iconStyle} size={24} folder='/images/SettingsPage/' />
+                <Icon name="folder-plus" mode={null} size={24} folder='/images/SettingsPage/' />
               </span>
             </div>
             <div className='settings-folder-container'>

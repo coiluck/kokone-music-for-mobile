@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   width="800"
+   height="800"
+   viewBox="0 0 512 512"
+   version="1.1"
+   id="svg2"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <title
+     id="title1">ionicons-v5-a</title>
+  <rect
+     x="64"
+     y="176"
+     width="384"
+     height="256"
+     rx="28.870001"
+     ry="28.870001"
+     style="fill:none;stroke:#000000;stroke-width:32px;stroke-linejoin:round"
+     id="rect1" />
+  <line
+     x1="144"
+     y1="80"
+     x2="368"
+     y2="80"
+     style="stroke:#000000;stroke-width:32px;stroke-linecap:round;stroke-miterlimit:10"
+     id="line1" />
+  <line
+     x1="112"
+     y1="128"
+     x2="400"
+     y2="128"
+     style="stroke:#000000;stroke-width:32px;stroke-linecap:round;stroke-miterlimit:10"
+     id="line2" />
+  <rect
+     style="fill:#000000;fill-opacity:1;stroke-width:11.6852;stroke-linecap:square;stroke-miterlimit:0"
+     id="rect2"
+     width="402.68277"
+     height="282.2485"
+     x="54.349819"
+     y="162.43184"
+     ry="92.062256"
+     rx="108.46069" />
+</svg>

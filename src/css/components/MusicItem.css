@@ -20,8 +20,8 @@
   height: 2.5rem;
   padding: .3rem;
   border-radius: .3rem;
-  background-color: rgb(from var(--color-text) r g b / 0.15);
-  opacity: .5;
+  background-color: rgb(from var(--color-text) r g b / 0.1);
+  opacity: .7;
 }
 
 .mi-component-text-container {
@@ -45,7 +45,7 @@
   font-size: .7rem;
 }
 .mi-component-info-left {
-  opacity: .8;
+  opacity: .7;
 }
 
 .mi-component-tag-container {
@@ -59,4 +59,19 @@
   border: 1px solid var(--color-accent);
   border-radius: 4px;
   background-color: rgb(from var(--color-accent) r g b / 0.15);
+}
+
+.mi-component-actions-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: .5rem;
+}
+.mi-component-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  opacity: .5;
 }
