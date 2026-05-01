@@ -8,6 +8,7 @@ Default permissions for the android-media plugin. Allows querying MediaStore aud
 - `allow-request-audio-permission`
 - `allow-query-audio-metadata`
 - `allow-audio-hash`
+- `allow-prepare-audio`
 
 ## Permission Table
 
@@ -66,6 +67,32 @@ Enables the has_audio_permission command without any pre-configured scope.
 <td>
 
 Denies the has_audio_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:allow-prepare-audio`
+
+</td>
+<td>
+
+Enables the prepare_audio command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:deny-prepare-audio`
+
+</td>
+<td>
+
+Denies the prepare_audio command without any pre-configured scope.
 
 </td>
 </tr>

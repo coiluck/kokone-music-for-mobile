@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 /*.md
 !README.md
+
+# Android / Gradle
+**/build/
+**/.gradle/
+
+# Tauri plugin android build
+tauri-plugin-android-media/android/build/

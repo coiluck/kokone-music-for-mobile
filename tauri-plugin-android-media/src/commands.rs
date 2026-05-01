@@ -30,3 +30,11 @@ pub(crate) async fn audio_hash<R: Runtime>(
 ) -> Result<HashResponse> {
     app.android_media().audio_hash(payload)
 }
+
+#[tauri::command]
+pub(crate) async fn prepare_audio<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PrepareAudioRequest,
+) -> Result<PrepareAudioResponse> {
+    app.android_media().prepare_audio(payload)
+}

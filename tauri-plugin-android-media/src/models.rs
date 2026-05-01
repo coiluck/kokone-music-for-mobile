@@ -37,3 +37,16 @@ pub struct HashResponse {
 pub struct QueryAudioMetadataResponse {
     pub items: Vec<AudioMeta>,
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareAudioRequest {
+    pub audio_id: i64,
+    pub ext: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareAudioResponse {
+    pub path: String,
+}

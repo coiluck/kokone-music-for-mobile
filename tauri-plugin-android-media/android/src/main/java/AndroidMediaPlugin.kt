@@ -26,6 +26,12 @@ class AudioHashArgs {
     var isMp3: Boolean = false
 }
 
+@InvokeArg
+class PrepareAudioArgs {
+    var audioId: Long = 0
+    var ext: String = ""
+}
+
 @TauriPlugin(
     permissions = [
         Permission(strings = [Manifest.permission.READ_MEDIA_AUDIO], alias = "audio33"),
@@ -303,4 +309,112 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private val HEX = "0123456789abcdef".toCharArray()
+
+
+        // -----------------------------------------------------------------------
+    // Prepare audio for playback
+    //
+    // WebView の <audio> は MediaStore の content:// URI を直接食えるが、
+    // Tauri の asset/custom protocol 経由だと Range リクエストが正しく
+    // 返らずシーク不能 + 30 秒前後で停止する問題があるため、
+    // 一旦アプリの cacheDir にコピーしてからローカルファイルとして再生する。
+    //
+    // 既にコピー済みなら何もしない。サイズと最終更新時刻が一致していれば再利用する。
+    // -----------------------------------------------------------------------
+    @Command
+    fun prepareAudio(invoke: Invoke) {
+        val args = invoke.parseArgs(PrepareAudioArgs::class.java)
+        val ret = JSObject()
+        try {
+            val cacheRoot = java.io.File(activity.cacheDir, "playback")
+            if (!cacheRoot.exists()) cacheRoot.mkdirs()
+
+            val ext = args.ext.lowercase().ifEmpty { "bin" }
+            val outFile = java.io.File(cacheRoot, "${args.audioId}.${ext}")
+
+            val uri = ContentUris.withAppendedId(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                args.audioId
+            )
+
+            // ソース側のサイズを取得して、既存キャッシュと比較
+            val srcSize: Long = try {
+                activity.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    pfd.statSize
+                } ?: -1L
+            } catch (e: Exception) {
+                -1L
+            }
+
+            // 既存キャッシュが有効か判定: ファイルが存在し、サイズがソースと一致
+            val cacheValid = outFile.exists() &&
+                srcSize > 0 &&
+                outFile.length() == srcSize
+
+            if (!cacheValid) {
+                // 既存の壊れた/古いキャッシュは消す
+                if (outFile.exists()) outFile.delete()
+
+                activity.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    FileInputStream(pfd.fileDescriptor).use { input ->
+                        java.io.FileOutputStream(outFile).use { output ->
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n <= 0) break
+                                output.write(buf, 0, n)
+                            }
+                            output.flush()
+                        }
+                    }
+                } ?: run {
+                    ret.put("path", "")
+                    invoke.resolve(ret)
+                    return
+                }
+            }
+
+            // 触ったキャッシュの mtime を更新 (LRU 的に「最近使った」印)
+            outFile.setLastModified(System.currentTimeMillis())
+
+            // 古いキャッシュのトリミング
+            trimPlaybackCache(cacheRoot)
+
+            ret.put("path", outFile.absolutePath)
+            invoke.resolve(ret)
+        } catch (e: Exception) {
+            android.util.Log.w("AndroidMediaPlugin", "prepareAudio failed", e)
+            ret.put("path", "")
+            invoke.resolve(ret)
+        }
+    }
+
+    // playback キャッシュは 10 ファイル / 200MB を上限に LRU で削る。
+    // 上限を超えていたら、最終更新時刻が古いものから消す。
+    private fun trimPlaybackCache(root: java.io.File) {
+        try {
+            val maxFiles = 10
+            val maxBytes = 200L * 1024 * 1024
+
+            val files = root.listFiles()?.filter { it.isFile } ?: return
+            if (files.size <= maxFiles) {
+                val total = files.sumOf { it.length() }
+                if (total <= maxBytes) return
+            }
+
+            val sorted = files.sortedBy { it.lastModified() } // 古い順
+            var totalBytes = files.sumOf { it.length() }
+            var count = files.size
+            for (f in sorted) {
+                if (count <= maxFiles && totalBytes <= maxBytes) break
+                val len = f.length()
+                if (f.delete()) {
+                    totalBytes -= len
+                    count -= 1
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("AndroidMediaPlugin", "trimPlaybackCache failed", e)
+        }
+    }
 }

@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the has_audio_permission command without any pre-configured scope."
         },
         {
+          "description": "Enables the prepare_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-prepare-audio",
+          "markdownDescription": "Enables the prepare_audio command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the prepare_audio command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-prepare-audio",
+          "markdownDescription": "Denies the prepare_audio command without any pre-configured scope."
+        },
+        {
           "description": "Enables the query_audio_metadata command without any pre-configured scope.",
           "type": "string",
           "const": "allow-query-audio-metadata",
@@ -343,10 +355,10 @@
           "markdownDescription": "Denies the request_audio_permission command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`",
+          "description": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-prepare-audio`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`"
+          "markdownDescription": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-prepare-audio`"
         }
       ]
     }

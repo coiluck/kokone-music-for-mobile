@@ -43,4 +43,10 @@ impl<R: Runtime> AndroidMedia<R> {
             .run_mobile_plugin::<HashResponse>("audioHash", payload)
             .map_err(Into::into)
     }
+
+    pub fn prepare_audio(&self, payload: PrepareAudioRequest) -> Result<PrepareAudioResponse> {
+        self.0
+            .run_mobile_plugin::<PrepareAudioResponse>("prepareAudio", payload)
+            .map_err(Into::into)
+    }
 }

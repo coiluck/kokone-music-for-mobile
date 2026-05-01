@@ -40,6 +40,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::request_audio_permission,
             commands::query_audio_metadata,
             commands::audio_hash,
+            commands::prepare_audio,
         ])
         .setup(|app, api| {
             #[cfg(target_os = "android")]

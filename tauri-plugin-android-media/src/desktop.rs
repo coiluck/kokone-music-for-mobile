@@ -31,4 +31,8 @@ impl<R: Runtime> AndroidMedia<R> {
             hash: String::new(),
         })
     }
+
+    pub fn prepare_audio(&self, _payload: PrepareAudioRequest) -> Result<PrepareAudioResponse> {
+        Ok(PrepareAudioResponse { path: String::new() })
+    }
 }
