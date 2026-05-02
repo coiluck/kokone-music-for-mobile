@@ -18,10 +18,15 @@ interface TrackRow extends Omit<Track, 'tags'> {
   tags: string
 }
 
+export type PlaylistIcon =
+  | { kind: 'svg'; name: 'icon1' | 'icon2' | 'icon3'; hue: number }
+  | { kind: 'auto'; hue: number }
+
 export interface Playlist {
   id: number
   name: string
   trackIds: number[]
+  icon: PlaylistIcon | null
   created_at: number
 }
 interface PlaylistRow extends Omit<Playlist, 'trackIds'> {
@@ -129,31 +134,6 @@ export async function searchTracks(query: string): Promise<Track[]> {
     [q]
   )
   return rows.map(rowToTrack)
-}
-
-
-function rowToPlaylist(row: PlaylistRow): Playlist {
-  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber) }
-}
-
-export async function getPlaylists(): Promise<Playlist[]> {
-  const db = await getDb()
-  const rows = await db.select<PlaylistRow[]>(
-    'SELECT * FROM playlists ORDER BY created_at DESC'
-  )
-  return rows.map(rowToPlaylist)
-}
-
-export async function getPlaylistTracks(trackIds: number[]): Promise<Track[]> {
-  if (trackIds.length === 0) return []
-  const db = await getDb()
-  const placeholders = trackIds.map((_, i) => `$${i + 1}`).join(', ')
-  const rows = await db.select<TrackRow[]>(
-    `SELECT * FROM tracks WHERE id IN (${placeholders})`,
-    trackIds
-  )
-  const map = new Map(rows.map(r => [r.id, rowToTrack(r)]))
-  return trackIds.flatMap(id => map.has(id) ? [map.get(id)!] : [])
 }
 
 export async function getHistory() {
@@ -271,5 +251,92 @@ export async function musicPlay(trackId: number): Promise<void> {
   await db.execute(
     'INSERT INTO history (track_id, played_at) VALUES ($1, $2)',
     [trackId, nowUNIX]
+  )
+}
+
+// ここからプレイリスト用
+function rowToPlaylist(row: PlaylistRow): Playlist {
+  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber) }
+}
+
+export async function getPlaylists(): Promise<Playlist[]> {
+  const db = await getDb()
+  const rows = await db.select<PlaylistRow[]>(
+    'SELECT * FROM playlists ORDER BY created_at DESC'
+  )
+  return rows.map(rowToPlaylist)
+}
+
+export async function getPlaylistTracks(trackIds: number[]): Promise<Track[]> {
+  if (trackIds.length === 0) return []
+  const db = await getDb()
+  const placeholders = trackIds.map((_, i) => `$${i + 1}`).join(', ')
+  const rows = await db.select<TrackRow[]>(
+    `SELECT * FROM tracks WHERE id IN (${placeholders})`,
+    trackIds
+  )
+  const map = new Map(rows.map(r => [r.id, rowToTrack(r)]))
+  return trackIds.flatMap(id => map.has(id) ? [map.get(id)!] : [])
+}
+
+// playlistを追加
+export async function addPlaylist(name: string): Promise<Playlist> {
+  const db = await getDb()
+  const created_at = Date.now()
+  const result = await db.execute(
+    'INSERT INTO playlists (name, tracks, created_at) VALUES ($1, $2, $3)',
+    [name, '[]', created_at]
+  )
+  return {
+    id: result.lastInsertId as number,
+    name,
+    trackIds: [],
+    icon: null,
+    created_at,
+  }
+}
+
+export async function deletePlaylist(id: number): Promise<void> {
+  const db = await getDb()
+  await db.execute('DELETE FROM playlists WHERE id = $1', [id])
+}
+
+export async function renamePlaylist(id: number, name: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('UPDATE playlists SET name = $1 WHERE id = $2', [name, id])
+}
+
+// 内部ヘルパー: 現在のtrackIdsを取得
+async function getPlaylistTrackIds(id: number): Promise<number[]> {
+  const db = await getDb()
+  const rows = await db.select<{ tracks: string }[]>(
+    'SELECT tracks FROM playlists WHERE id = $1',
+    [id]
+  )
+  if (rows.length === 0) return []
+  return parseJsonArray(rows[0].tracks, isNumber)
+}
+
+// playlistにtrackを追加
+export async function addTrackToPlaylist(playlistId: number, trackId: number): Promise<void> {
+  const db = await getDb()
+  const current = await getPlaylistTrackIds(playlistId)
+  if (current.includes(trackId)) return
+  const next = [...current, trackId]
+  await db.execute(
+    'UPDATE playlists SET tracks = $1 WHERE id = $2',
+    [JSON.stringify(next), playlistId]
+  )
+}
+
+// playlistからtrackを削除
+export async function removeTrackFromPlaylist(playlistId: number, trackId: number): Promise<void> {
+  const db = await getDb()
+  const current = await getPlaylistTrackIds(playlistId)
+  const next = current.filter(id => id !== trackId)
+  if (next.length === current.length) return
+  await db.execute(
+    'UPDATE playlists SET tracks = $1 WHERE id = $2',
+    [JSON.stringify(next), playlistId]
   )
 }
