@@ -1,6 +1,7 @@
 import { Track } from "../lib/db"
-import { formatTime } from "../components/MiniPlayer"
+import { usePlayerStore } from "../lib/playerStore"
 import { useSettingsStore } from '../lib/settingsStore'
+import { formatTime } from "../components/MiniPlayer"
 import { Icon } from "./Icon"
 import '../../css/components/MusicItem.css'
 
@@ -13,6 +14,9 @@ interface Props {
 export default function MusicItem({ track, onPlay, onRemove }: Props) {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
+  const isItemPlaying = usePlayerStore(s => s.currentTrack?.id === track.id)
+  const isItemPausing = usePlayerStore(s => s.currentTrack?.id === track.id && !s.isPlaying)
+
   const handleEditMeta = () => {
     console.log('Edit!');
   }
@@ -20,13 +24,23 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
   return (
     <div
       className="mi-component-container"
-      onClick={() => onPlay(track)}
+      onClick={() => { if (!isItemPlaying) onPlay(track); }}
     >
-      <div className="mi-component-icon-container">
-        <Icon name="music" mode={iconStyle} size={24} folder='/images/MiniPlayer/' />
+      <div className={`mi-component-icon-container ${isItemPlaying ? 'playing' : ''}`}>
+        {isItemPlaying ? (
+          <div className={`mi-component-icon-container-playing ${isItemPausing ? 'paused' : ''}`} >
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        ) : (
+          <Icon name="music" mode={iconStyle} size={24} folder='/images/MiniPlayer/' />
+        )}
       </div>
       <div className="mi-component-text-container">
-        <span className="mi-component-title">{track.title}</span>
+        <span className={`mi-component-title ${isItemPlaying ? 'playing' : ''}`}>{track.title}</span>
         <div className="mi-component-info">
           <div className="mi-component-info-left">
             <span className="mi-component-artist">{track.artist}</span>

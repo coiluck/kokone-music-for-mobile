@@ -8,8 +8,10 @@
   border-radius: .5rem;
   transition: all 0.3s ease;
 }
-.ai-component-container:hover {
-  background-color: rgb(from var(--color-text) r g b / 0.15);
+@media (hover: hover) {
+  .ai-component-container:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.15);
+  }
 }
 
 .ai-component-icon-container {

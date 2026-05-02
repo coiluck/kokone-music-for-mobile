@@ -16,18 +16,11 @@
 }
 
 .player-component-content {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   width: 100%;
-}
-.player-component-content-left {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1rem;
 }
 
 .player-component-icon-container {
@@ -38,6 +31,13 @@
   display: flex;
   flex-direction: column;
   line-height: 1.2;
+  min-width: 0;
+}
+.player-component-info-title {
+  text-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .player-component-info-meta {
   font-size: .7rem;
@@ -60,13 +60,11 @@
 
 .player-component-duration-container .player-component-seek-container {
   flex: 1;
-  /* クリック領域を広げる。モバイルで細いバーは押しにくい */
   position: relative;
   height: 20px;
   display: flex;
   align-items: center;
   cursor: pointer;
-  /* スクロールとの競合を防ぐ（縦スクロール中に誤反応しないように横方向のジェスチャーだけ奪う） */
   touch-action: none;
   user-select: none;
 }

@@ -80,19 +80,17 @@ export default function MiniPlayer() {
   return (
     <div className="player-component-container">
       <div className='player-component-content'>
-        <div className='player-component-content-left'>
-          <div className='player-component-icon-container'>
-            <Icon name="music" mode={iconStyle} size={36} folder='/images/MiniPlayer/' />
-          </div>
+        <div className='player-component-icon-container'>
+          <Icon name="music" mode={iconStyle} size={36} folder='/images/MiniPlayer/' />
+        </div>
 
-          <div className="player-component-info">
-            <div className="player-component-info-title">
-              {currentTrack.title ?? currentTrack.path.split('/').pop()}
-            </div>
-            <div className="player-component-info-meta">
-              {currentTrack.artist ?? '—'}
-              {currentTrack.tags.length !== 0 && (`・${currentTrack.tags}`)}
-            </div>
+        <div className="player-component-info">
+          <div className="player-component-info-title">
+            {currentTrack.title ?? currentTrack.path.split('/').pop()}
+          </div>
+          <div className="player-component-info-meta">
+            {currentTrack.artist ?? '—'}
+            {currentTrack.tags.length !== 0 && (`・${currentTrack.tags}`)}
           </div>
         </div>
 
@@ -104,12 +102,12 @@ export default function MiniPlayer() {
             >
               <Icon name='prev_text' mode={null} folder='/images/MiniPlayer/' color='rgb(from var(--color-text) r g b / 0.7)' />
             </button>
-            <button 
+            <button
               className="player-component-control-button play"
               onClick={() => musicPlayer.togglePause()}
             >
-              {isPlaying 
-                ? <Icon name='pause' mode={null} folder='/images/MiniPlayer/' /> 
+              {isPlaying
+                ? <Icon name='pause' mode={null} folder='/images/MiniPlayer/' />
                 : <Icon name='play' mode={null} folder='/images/MiniPlayer/' /> }
             </button>
             <button
@@ -120,7 +118,7 @@ export default function MiniPlayer() {
             </button>
           </div>
 
-          <div 
+          <div
             className='player-component-list-button'
             onClick={handleOpenQueue}
           >
