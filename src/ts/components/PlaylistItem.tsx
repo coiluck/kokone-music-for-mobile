@@ -9,12 +9,15 @@ import '../../css/components/PlaylistItem.css'
 
 interface Props {
   playlist: Playlist
+  onDelete: (id: number) => void
+  onRename: (id: number, name: string) => void
 }
 
-export default function PlaylistItem({ playlist }: Props) {
+export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
   const icon = playlist.icon
 
   const actionsBtnRef = useRef<HTMLDivElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
@@ -28,6 +31,15 @@ export default function PlaylistItem({ playlist }: Props) {
     editInfoCancel: 'playlist.item.edit-info.cancel',
     editInfoSave: 'playlist.item.edit-info.save',
   })
+
+  const handleSave = () => {
+    const name = nameInputRef.current?.value.trim()
+    if (!name) return
+    if (name !== playlist.name) {
+      onRename(playlist.id, name)
+    }
+    setEditOpen(false)
+  }
 
   const menuItems: ActionMenuItem[] = [
     {
@@ -50,7 +62,7 @@ export default function PlaylistItem({ playlist }: Props) {
       key: 'delete',
       label: t.delete,
       danger: true,
-      onClick: () => console.log('[PlaylistItem] delete:', playlist),
+      onClick: () => onDelete(playlist.id),
     },
   ]
 
@@ -99,10 +111,12 @@ export default function PlaylistItem({ playlist }: Props) {
           <div className="ei-component-field">
             <label className="ei-component-field-label">{t.editInfoName}</label>
             <input
+              ref={nameInputRef}
               className="ei-component-field-input"
               type="text"
               defaultValue={playlist.name}
               onClick={e => e.stopPropagation()}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
             />
           </div>
           <div className="ei-component-footer">
@@ -116,8 +130,7 @@ export default function PlaylistItem({ playlist }: Props) {
               className="ei-component-button primary"
               onClick={e => {
                 e.stopPropagation()
-                console.log('[PlaylistItem] save edit (TODO):', playlist)
-                setEditOpen(false)
+                handleSave()
               }}
             >
               {t.editInfoSave}

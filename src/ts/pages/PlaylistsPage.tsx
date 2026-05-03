@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getPlaylists, addPlaylist, type Playlist } from '../lib/db'
+import { getPlaylists, addPlaylist, deletePlaylist, renamePlaylist, type Playlist } from '../lib/db'
 import { Icon } from '../components/Icon'
 import { useMappedTranslations } from '../lib/i18n'
 import PlaylistItem from '../components/PlaylistItem'
@@ -15,6 +15,7 @@ export const DISPLAY_NAMES: Record<string, { ja: string, en: string }> = {
 
 export default function PlaylistsPage() {
   const t = useMappedTranslations({
+    count: 'playlists.page.count',
     placeholder: 'playlists.page.add.placeholder',
     add: 'playlists.page.add.button',
   })
@@ -39,6 +40,24 @@ export default function PlaylistsPage() {
     setIsAdding(false)
   }
 
+  const handleDelete = async (id: number) => {
+    await deletePlaylist(id)
+    setPlaylists(prev => prev.filter(pl => pl.id !== id))
+  }
+
+  const handleRename = async (id: number, name: string) => {
+    if (RESERVED_NAMES.includes(name)) {
+      console.log('[PlaylistsPage] rename rejected: reserved name:', name)
+      return
+    }
+    if (playlists.some(pl => pl.id !== id && pl.name === name)) {
+      console.log('[PlaylistsPage] rename rejected: name already exists:', name)
+      return
+    }
+    await renamePlaylist(id, name)
+    setPlaylists(prev => prev.map(pl => pl.id === id ? { ...pl, name } : pl))
+  }
+
   return (
     <div className="page fade-in">
       {isAdding && (
@@ -50,7 +69,7 @@ export default function PlaylistsPage() {
 
       <div className="playlists-page-user-list">
         <div className="playlists-page-user-list-header">
-          <span className="playlists-page-user-list-header-title">{playlists.length} playlists</span>
+          <span className="playlists-page-user-list-header-title">{playlists.length} {t.count}</span>
           <span className="playlists-page-user-list-header-icon-container" onClick={() => { setIsAdding(true); inputRef.current?.focus() }}>
             <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
           </span>
@@ -72,7 +91,11 @@ export default function PlaylistsPage() {
             key={pl.id}
             onClick={() => navigate(`/playlists/${encodeURIComponent(pl.name)}`)}
           >
-            <PlaylistItem playlist={pl} />
+            <PlaylistItem
+              playlist={pl}
+              onDelete={handleDelete}
+              onRename={handleRename}
+            />
           </div>
         ))}
       </div>

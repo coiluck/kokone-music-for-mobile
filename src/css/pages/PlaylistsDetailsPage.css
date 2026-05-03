@@ -54,7 +54,7 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  animation: spin 1.5s ease-out;
+  animation: spin .75s ease-out;
 }
 
 @keyframes spin {

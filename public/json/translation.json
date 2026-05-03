@@ -47,6 +47,7 @@
   "search.noWord": { "ja": "キーワードを入力してください", "en": "Enter a keyword to search." },
   "search.count": { "ja": "曲", "en": "tracks" },
   "queue.title": { "ja": "再生待機リスト", "en": "Playback Queue" },
+  "playlists.page.count": { "ja": "プレイリスト", "en": "playlists" },
   "playlists.page.add.placeholder": { "ja": "プレイリスト名", "en": "Playlist Name" },
   "playlists.page.add.button": { "ja": "追加", "en": "Add" },
   "playlists.page.add.error.name": { "ja": "プレイリスト名を入力してください", "en": "Please enter a playlist name." },

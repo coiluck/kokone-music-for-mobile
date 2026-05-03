@@ -23,7 +23,7 @@ export interface Playlist {
   id: number
   name: string
   trackIds: number[]
-  icon: PlaylistIconData | null
+  icon: PlaylistIconData
   created_at: number
 }
 interface PlaylistRow extends Omit<Playlist, 'trackIds' | 'icon'> {
@@ -256,13 +256,20 @@ export async function musicPlay(trackId: number): Promise<void> {
 }
 
 // ここからプレイリスト用
+
+// ランダムなhue (0-359)のidenticonアイコンを生成
+function createDefaultIcon(): PlaylistIconData {
+  const hue = Math.floor(Math.random() * 360)
+  return { kind: 'auto', hue }
+}
+
 function rowToPlaylist(row: PlaylistRow): Playlist {
-  let icon: PlaylistIconData | null = null
+  let icon: PlaylistIconData = createDefaultIcon()
   if (row.icon) {
     try { icon = JSON.parse(row.icon) as PlaylistIconData }
-    catch { /* noop */ }
+    catch { icon = createDefaultIcon() }
   }
-  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber), icon  }
+  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber), icon }
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
@@ -297,7 +304,7 @@ export async function addPlaylist(name: string): Promise<Playlist> {
     id: result.lastInsertId as number,
     name,
     trackIds: [],
-    icon: null,
+    icon: createDefaultIcon(),
     created_at,
   }
 }
