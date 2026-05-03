@@ -1,0 +1,56 @@
+.am-component-container {  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: fixed;
+  min-width: 10rem;
+  padding: .25rem;
+  background-color: var(--color-bg);
+  border: 1px solid rgb(from var(--color-text) r g b / 0.15);
+  border-radius: .5rem;
+  box-shadow: 0 8px 24px rgb(from var(--color-text) r g b / 0.35);
+  z-index: 1000;
+  animation: actions-menu-fade .2s ease-out;
+}
+
+@keyframes actions-menu-fade {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.am-component-item {
+  display: block;
+  width: 100%;
+  padding: .5rem .75rem;
+  text-align: left;
+  font-size: .9rem;
+  white-space: nowrap;
+  color: var(--color-text);
+  background: transparent;
+  border: none;
+  border-radius: .35rem;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+@media (hover: hover) {
+  .am-component-item:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.12);
+  }
+}
+.am-component-item:active {
+  background-color: rgb(from var(--color-text) r g b / 0.18);
+}
+
+.am-component-item.is-danger {
+  color: #ff6b6b;
+}
+@media (hover: hover) {
+  .am-component-item.is-danger:hover {
+    background-color: rgb(255 107 107 / 0.12);
+  }
+}
+
+.am-component-separator {
+  height: 1px;
+  margin: .25rem .25rem;
+  background-color: rgb(from var(--color-text) r g b / 0.15);
+}
