@@ -24,11 +24,48 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-bg-mild);
-  border-radius: .4rem;
-  padding: 1rem;
+}
+
+.playlists-details-header-cd-wrapper {
+  position: relative;
+  width: 288px;
+  height: 192px;
+}
+
+.playlists-details-header-cd-jacket-container {
+  position: relative;
+  z-index: 1;
+  width: 192px;
+  height: 192px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
   cursor: pointer;
 }
+
+.playlists-details-header-cd-disc-icon {
+  position: absolute;
+  top: 0;
+  left: 96px;
+  width: 192px;
+  height: 192px;
+  background-image: url('/images/PlaylistsPage/cd.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: spin 1.5s ease-out;
+}
+
+@keyframes spin {
+  from {
+    transform: translateX(-96px) rotate(-180deg);
+  }
+  to {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
 
 .playlists-details-header-title {
   font-size: 1.5rem;

@@ -1,0 +1,71 @@
+.pli-component-container {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: .5rem;
+  border-radius: .5rem;
+  transition: all 0.3s ease;
+}
+@media (hover: hover) {
+  .pli-component-container:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.15);
+  }
+}
+
+.pli-component-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pli-component-icon-jacket {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  background-color: #fff;
+  z-index: 1;
+}
+.pli-component-icon-cd {
+  position: absolute;
+  left: 100%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 100%;
+  background-image: url('/images/PlaylistsPage/cd.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: -1;
+}
+
+.pli-component-text-container {
+  display: flex;
+  flex-direction: column;
+  margin-left: calc(64px / 2); /* cdが半分はみ出しているので */
+  text-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  gap: 2px;
+}
+
+.pli-component-title {
+  font-size: 1rem;
+}
+.pli-component-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: .7rem;
+  font-size: .7rem;
+}
+.pli-component-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  opacity: .5;
+}

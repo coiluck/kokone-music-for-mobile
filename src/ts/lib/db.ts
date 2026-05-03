@@ -1,4 +1,5 @@
 import Database from '@tauri-apps/plugin-sql'
+import type { PlaylistIcon as PlaylistIconData } from './playlistIcon'
 
 export interface Track {
   id: number
@@ -18,18 +19,15 @@ interface TrackRow extends Omit<Track, 'tags'> {
   tags: string
 }
 
-export type PlaylistIcon =
-  | { kind: 'svg'; name: 'icon1' | 'icon2' | 'icon3'; hue: number }
-  | { kind: 'auto'; hue: number }
-
 export interface Playlist {
   id: number
   name: string
   trackIds: number[]
-  icon: PlaylistIcon | null
+  icon: PlaylistIconData | null
   created_at: number
 }
-interface PlaylistRow extends Omit<Playlist, 'trackIds'> {
+interface PlaylistRow extends Omit<Playlist, 'trackIds' | 'icon'> {
+  icon: string
   tracks: string
 }
 
@@ -38,6 +36,7 @@ export interface taglist {
   name: string
   positive_tags: string[]
   negative_tags: string[]
+  icon: PlaylistIconData | null
   created_at: number
 }
 
@@ -77,7 +76,8 @@ export async function initDb(): Promise<void> {
     CREATE TABLE IF NOT EXISTS playlists (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       name       TEXT    NOT NULL,
-      tracks     INTEGER NOT NULL DEFAULT '[]',
+      tracks     TEXT    NOT NULL DEFAULT '[]',
+      icon       TEXT,
       created_at INTEGER NOT NULL
     )
   `)
@@ -87,6 +87,7 @@ export async function initDb(): Promise<void> {
       name          TEXT NOT NULL,
       positive_tags TEXT NOT NULL DEFAULT '[]',
       negative_tags TEXT NOT NULL DEFAULT '[]',
+      icon          TEXT,
       created_at    INTEGER NOT NULL
     )
   `)
@@ -256,7 +257,12 @@ export async function musicPlay(trackId: number): Promise<void> {
 
 // ここからプレイリスト用
 function rowToPlaylist(row: PlaylistRow): Playlist {
-  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber) }
+  let icon: PlaylistIconData | null = null
+  if (row.icon) {
+    try { icon = JSON.parse(row.icon) as PlaylistIconData }
+    catch { /* noop */ }
+  }
+  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber), icon  }
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
@@ -339,4 +345,34 @@ export async function removeTrackFromPlaylist(playlistId: number, trackId: numbe
     'UPDATE playlists SET tracks = $1 WHERE id = $2',
     [JSON.stringify(next), playlistId]
   )
+}
+
+// アイコンを設定（kind/name/hueを丸ごと差し替え）
+export async function setPlaylistIcon(
+  id: number,
+  icon: PlaylistIconData
+): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE playlists SET icon = $1 WHERE id = $2',
+    [JSON.stringify(icon), id]
+  )
+}
+
+// hueだけ差し替え（サイコロボタン用）
+export async function setPlaylistIconHue(id: number, hue: number): Promise<void> {
+  const db = await getDb()
+  const rows = await db.select<{ icon: string | null }[]>(
+    'SELECT icon FROM playlists WHERE id = $1',
+    [id]
+  )
+  if (rows.length === 0 || !rows[0].icon) return
+  try {
+    const icon = JSON.parse(rows[0].icon) as PlaylistIconData
+    icon.hue = hue
+    await db.execute(
+      'UPDATE playlists SET icon = $1 WHERE id = $2',
+      [JSON.stringify(icon), id]
+    )
+  } catch { /* noop */ }
 }

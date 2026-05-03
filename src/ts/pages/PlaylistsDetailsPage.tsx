@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { getPlaylists, getPlaylistTracks, getHistory, getRecommended, type Track } from '../lib/db'
 import { musicPlayer } from '../lib/music'
 import MusicItem from '../components/MusicItem'
 import { DISPLAY_NAMES } from './PlaylistsPage'
 import { useSettingsStore, type Lang } from '../lib/settingsStore'
+import { PlaylistIcon as PlaylistIconView } from '../components/PlaylistIcon'
+import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { Icon } from '../components/Icon'
 import '../../css/pages/PlaylistsDetailsPage.css'
 
@@ -13,6 +15,8 @@ export default function PlaylistsDetailsPage() {
   const playlistName = name ? decodeURIComponent(name) : ''
   const lang = useSettingsStore(s => s.lang)
   const iconStyle = useSettingsStore(s => s.iconStyle)
+  const [icon, setIcon] = useState<PlaylistIconData | null>(null)
+  const navigate = useNavigate()
 
   const [tracks, setTracks] = useState<Track[]>([])
 
@@ -25,6 +29,7 @@ export default function PlaylistsDetailsPage() {
       getPlaylists().then(playlists => {
         const pl = playlists.find(p => p.name === playlistName)
         if (!pl) return
+        setIcon(pl.icon)
         getPlaylistTracks(pl.trackIds).then(setTracks)
       })
     }
@@ -58,8 +63,16 @@ export default function PlaylistsDetailsPage() {
     <div className="playlists-details-header">
       <div className="playlists-details-header-title">{displayName}</div>
       <div className="playlists-details-header-icon-container">
-        <Icon name="playlist" mode={iconStyle} size={128} folder='/images/PlaylistsPage/' />
-      </div>
+  <div className="playlists-details-header-cd-wrapper">
+    <div
+      className="playlists-details-header-cd-jacket-container"
+      onClick={() => navigate(`/playlist-icon-edit/${encodeURIComponent(playlistName)}`)}
+    >
+      <PlaylistIconView icon={icon} name={playlistName} size={192} iconStyle={iconStyle} />
+    </div>
+    <div className="playlists-details-header-cd-disc-icon" />
+  </div>
+</div>
       <div className="playlists-details-button-container">
         <div className="playlists-details-button-left">
           <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />

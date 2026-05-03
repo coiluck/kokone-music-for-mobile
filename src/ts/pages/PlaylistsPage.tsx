@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getPlaylists, addPlaylist, type Playlist } from '../lib/db'
 import { Icon } from '../components/Icon'
 import { useMappedTranslations } from '../lib/i18n'
+import PlaylistItem from '../components/PlaylistItem'
 import '../../css/pages/PlaylistsPage.css'
 
 const RESERVED_NAMES = ['__history__', '__recommended__'];
@@ -70,9 +71,8 @@ export default function PlaylistsPage() {
           <div
             key={pl.id}
             onClick={() => navigate(`/playlists/${encodeURIComponent(pl.name)}`)}
-            style={{ cursor: 'pointer', padding: '12px 16px', border: '1px solid #eee' }}
-            >
-            {pl.name}
+          >
+            <PlaylistItem playlist={pl} />
           </div>
         ))}
       </div>
