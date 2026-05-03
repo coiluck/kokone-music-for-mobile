@@ -296,15 +296,20 @@ export async function getPlaylistTracks(trackIds: number[]): Promise<Track[]> {
 export async function addPlaylist(name: string): Promise<Playlist> {
   const db = await getDb()
   const created_at = Date.now()
+
+  // githubみたいなやつを生成
+  const icon = createDefaultIcon()
+
   const result = await db.execute(
-    'INSERT INTO playlists (name, tracks, created_at) VALUES ($1, $2, $3)',
-    [name, '[]', created_at]
+    'INSERT INTO playlists (name, tracks, icon, created_at) VALUES ($1, $2, $3, $4)',
+    [name, '[]', JSON.stringify(icon), created_at]
   )
+
   return {
     id: result.lastInsertId as number,
     name,
     trackIds: [],
-    icon: createDefaultIcon(),
+    icon,
     created_at,
   }
 }

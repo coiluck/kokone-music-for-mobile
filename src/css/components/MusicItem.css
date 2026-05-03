@@ -116,3 +116,66 @@
   height: 2.5rem;
   opacity: .5;
 }
+
+/* プレイリスト選択 */
+.mi-component-select-playlist-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.mi-component-playlist-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+  gap: 1rem;
+  padding: .5rem;
+  padding-left: 3rem;
+}
+.mi-component-playlist-item::before {
+  content: '';
+  position: absolute;
+  left: .25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  border-radius: .2rem;
+  border: 1px solid rgb(from var(--color-text) r g b / 0.4);
+}
+.mi-component-playlist-item.checked::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: var(--color-accent);
+  mask-image: url('/images/MusicItem/check.svg');
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+
+.mi-component-playlist-item-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background-color: #fff;
+}
+.mi-component-playlist-item-text-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+}
+.mi-component-playlist-item-text-count {
+  font-size: .7rem;
+  opacity: .7;
+}

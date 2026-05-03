@@ -1,7 +1,7 @@
 .ei-component-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgb(0 0 0 / 0.55);
+  background-color: rgb(from var(--color-bg) r g b / 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -66,6 +66,17 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 内部用 */
+.ei-component-main-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -74,7 +85,6 @@
   }
 }
 
-/* 内部用 */
 .ei-component-field {
   display: flex;
   flex-direction: column;

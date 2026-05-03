@@ -53,6 +53,7 @@
   "playlists.page.add.error.name": { "ja": "プレイリスト名を入力してください", "en": "Please enter a playlist name." },
   "playlists.page.add.error.name.exists": { "ja": "すでに同じ名前のプレイリストが存在します", "en": "A playlist with the same name already exists." },
   "playlists.page.add.error.name.reserved": { "ja": "予約語は使用できません", "en": "Reserved words cannot be used." },
+  "playlists.item.count": { "ja": "曲", "en": "tracks" },
   "playlist.item.add-to-queue": { "ja": "再生キューに追加", "en": "Add to Queue" },
   "playlist.item.play-next": { "ja": "再生キューを上書き", "en": "Overwrite Queue" },
   "playlist.item.edit-info": { "ja": "情報を編集", "en": "Edit Info" },
@@ -71,5 +72,6 @@
   "music.item.edit-info.save": { "ja": "保存", "en": "Save" },
   "music.item.actions.add-to-queue": { "ja": "再生キューに追加", "en": "Add to Queue" },
   "music.item.actions.play-next": { "ja": "次に再生", "en": "Play Next" },
-  "music.item.actions.add-to-playlist": { "ja": "プレイリストに追加", "en": "Add to Playlist" }
+  "music.item.actions.add-to-playlist": { "ja": "プレイリストに追加", "en": "Add to Playlist" },
+  "music.item.count": { "ja": "曲", "en": "tracks" }
 }

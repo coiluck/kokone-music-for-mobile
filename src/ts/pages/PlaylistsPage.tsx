@@ -25,7 +25,10 @@ export default function PlaylistsPage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    getPlaylists().then(setPlaylists)
+    getPlaylists().then(data => {
+      const sorted = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      setPlaylists(sorted)
+    })
   }, [])
 
   const handleAdd = async () => {
@@ -35,7 +38,10 @@ export default function PlaylistsPage() {
     if (RESERVED_NAMES.includes(name)) return
 
     const created = await addPlaylist(name)
-    setPlaylists(prev => [created, ...prev])
+    setPlaylists(prev => {
+      const next = [...prev, created]
+      return next.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    })
     if (inputRef.current) inputRef.current.value = ''
     setIsAdding(false)
   }
@@ -55,7 +61,10 @@ export default function PlaylistsPage() {
       return
     }
     await renamePlaylist(id, name)
-    setPlaylists(prev => prev.map(pl => pl.id === id ? { ...pl, name } : pl))
+    setPlaylists(prev => {
+      const next = prev.map(pl => pl.id === id ? { ...pl, name } : pl)
+      return next.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    })
   }
 
   return (

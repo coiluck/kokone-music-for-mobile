@@ -22,6 +22,7 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
   const [editOpen, setEditOpen] = useState(false)
 
   const t = useMappedTranslations({
+    count: 'playlists.item.count',
     addToQueue: 'playlist.item.add-to-queue',
     playNext: 'playlist.item.play-next',
     editInfo: 'playlist.item.edit-info',
@@ -77,11 +78,9 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
       <div className="pli-component-text-container">
         <span className="pli-component-title">{playlist.name}</span>
         <div className="pli-component-info">
-          {playlist.trackIds.length == 0 && (
-            <span className="pli-component-duration">
-              0:00
-            </span>
-          )}
+          <span className="pli-component-duration">
+            {playlist.trackIds.length} {t.count}
+          </span>
         </div>
       </div>
       <div
