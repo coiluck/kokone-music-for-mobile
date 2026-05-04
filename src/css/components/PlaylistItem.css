@@ -22,9 +22,6 @@
 
 .pli-component-icon-jacket {
   position: relative;
-  width: 64px;
-  height: 64px;
-  background-color: #fff;
   z-index: 1;
 }
 .pli-component-icon-cd {

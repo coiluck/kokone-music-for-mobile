@@ -1,7 +1,9 @@
 // Components/ArtistItem.tsx
+import { useRef, useState } from "react"
 import { useSettingsStore } from '../lib/settingsStore'
 import { useNavigate } from 'react-router-dom'
 import { useMappedTranslations } from '../lib/i18n'
+import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import { Icon } from "../components/Icon"
 import '../../css/components/ArtistItem.css'
 
@@ -18,12 +20,26 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
 
   const t = useMappedTranslations({
     tracksNumber: 'artist.item.tracksNumber',
+    addToQueue: 'artist.item.add-to-queue',
+    playNext: 'artist.item.play-next',
   })
+
+  const actionsBtnRef = useRef<HTMLDivElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
-  const handleArtistMeta = () => {
-    console.log('Edit!');
-  }
+  const menuItems: ActionMenuItem[] = [
+    {
+      key: 'add-to-queue',
+      label: t.addToQueue,
+      onClick: () => console.log('[ArtistItem] add to queue:', artistName),
+    },
+    {
+      key: 'play-next',
+      label: t.playNext,
+      onClick: () => console.log('[ArtistItem] play next:', artistName),
+    },
+  ]
 
   return (
     <div
@@ -40,11 +56,20 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
         </div>
       </div>
       <div
+        ref={actionsBtnRef}
         className="ai-component-actions"
-        onClick={e => { e.stopPropagation(); handleArtistMeta(); }}
+        onClick={e => { e.stopPropagation(); setMenuOpen(o => !o) }}
       >
         <Icon name="ellipsis" mode={null} folder="images/ArtistItem/" />
       </div>
+
+      {menuOpen && (
+        <ItemActionsMenu
+          anchorEl={actionsBtnRef.current}
+          items={menuItems}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </div>
   )
 }

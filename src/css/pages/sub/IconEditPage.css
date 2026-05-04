@@ -1,0 +1,110 @@
+.ie-page-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.ie-page-header-title {
+  font-size: 1.5rem;
+}
+
+.ie-page-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 0 auto 1rem;
+  background-color: #fff;
+}
+
+/* サイコロボタン */
+.ie-page-dice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.ie-page-dice-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-color: rgb(from var(--color-text) r g b / 0.1);
+  cursor: pointer;
+  transition: background-color .2s ease, transform .2s ease;
+}
+@media (hover: hover) {
+  .ie-page-dice-inner:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.18);
+  }
+}
+
+.ie-page-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, calc(2 * 1vw + 0px), 20px);
+  padding: 1rem;
+}
+
+.ie-page-candidate-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: .5rem;
+  border-radius: .6rem;
+  border: 2px solid transparent;
+  background-color: rgb(from var(--color-text) r g b / 0.07);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+@media (hover: hover) {
+  .ie-page-candidate-item:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.15);
+  }
+}
+.ie-page-candidate-item.selected {
+  border: 2px solid var(--color-accent);
+}
+
+.ie-page-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1rem;
+  position: sticky;
+  bottom: 0;
+  background-color: var(--color-bg);
+  border-top: 1px solid rgb(from var(--color-text) r g b / 0.1);
+}
+.ie-page-actions.playing {
+  padding-bottom: calc(24px + .8rem + 20px + .5rem + 1rem);
+}
+.ie-page-actions-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .75rem;
+  background-color: rgb(from var(--color-text) r g b / 0.1);
+  color: var(--color-text);
+  font-size: .95rem;
+  border-radius: .5rem;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.ie-page-actions-button.primary {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .ie-page-actions-button:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.2);
+  }
+  .ie-page-actions-button.primary:hover {
+    background-color: rgb(from var(--color-accent) r g b / 0.8);
+  }
+}

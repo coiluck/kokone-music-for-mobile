@@ -107,7 +107,7 @@ export default function MiniPlayer() {
               onClick={() => musicPlayer.togglePause()}
             >
               {isPlaying
-                ? <Icon name='pause' mode={null} folder='/images/MiniPlayer/' />
+                ? <Icon name='pause' mode={iconStyle} folder='/images/MiniPlayer/' />
                 : <Icon name='play' mode={null} folder='/images/MiniPlayer/' /> }
             </button>
             <button

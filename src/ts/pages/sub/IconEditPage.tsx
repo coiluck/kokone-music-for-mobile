@@ -3,19 +3,26 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getPlaylists, setPlaylistIcon } from '../../lib/db'
 import {
   rollHue,
-  getSvgColors,
-  getIdenticonColors,
   SVG_NAMES,
   type PlaylistIcon as PlaylistIconData,
   type SvgIconName,
 } from '../../lib/playlistIcon'
+import { usePlayerStore } from '../../lib/playerStore'
 import { PlaylistIcon } from '../../components/PlaylistIcon'
 import { Icon } from '../../components/Icon'
+import { useMappedTranslations } from '../../lib/i18n'
+import '../../../css/pages/sub/IconEditPage.css'
 
 export default function PlaylistIconEditPage() {
   const { name } = useParams<{ name: string }>()
   const playlistName = name ? decodeURIComponent(name) : ''
   const navigate = useNavigate()
+  const currentTrack = usePlayerStore(s => s.currentTrack)
+
+  const t = useMappedTranslations({
+    cancel: 'playlist.icon.edit.cancel',
+    save: 'playlist.icon.edit.save',
+  })
 
   const [playlistId, setPlaylistId] = useState<number | null>(null)
   const [hue, setHue] = useState<number>(() => rollHue())
@@ -62,13 +69,13 @@ export default function PlaylistIconEditPage() {
     (cand.kind === 'auto' || cand.name === (selectedKind as { name: SvgIconName }).name)
 
   return (
-    <div className="page fade-in playlist-icon-edit-page">
-      <div className="playlist-icon-edit-header">
-        <span>{playlistName}</span>
+    <div className="page fade-in" style={{ paddingBottom: '0' }}>
+      <div className="ie-page-header">
+        <span className="ie-page-header-title">{playlistName}</span>
       </div>
 
       {/* プレビュー（大） */}
-      <div className="playlist-icon-edit-preview">
+      <div className="ie-page-preview">
         <PlaylistIcon
           icon={buildIcon(selectedKind, hue)}
           name={playlistName}
@@ -77,19 +84,18 @@ export default function PlaylistIconEditPage() {
       </div>
 
       {/* サイコロボタン */}
-      <div className="playlist-icon-edit-dice">
-        <button onClick={() => setHue(rollHue())}>
-          <Icon name="dice" mode={null} size={24} folder="/images/PlaylistsPage/" />
-          <span>色をサイコロ</span>
-        </button>
+      <div className="ie-page-dice">
+        <div onClick={() => setHue(rollHue())} className="ie-page-dice-inner">
+          <Icon name="dice" mode={null} size={32} folder="/images/PlaylistsPage/" />
+        </div>
       </div>
 
       {/* 候補一覧 */}
-      <div className="playlist-icon-edit-grid">
+      <div className="ie-page-candidate-grid">
         {candidates.map((cand, i) => (
-          <button
+          <div
             key={i}
-            className={`playlist-icon-edit-cell${isSelected(cand) ? ' is-selected' : ''}`}
+            className={`ie-page-candidate-item${isSelected(cand) ? ' selected' : ''}`}
             onClick={() => {
               setSelectedKind(
                 cand.kind === 'auto'
@@ -99,14 +105,24 @@ export default function PlaylistIconEditPage() {
             }}
           >
             <PlaylistIcon icon={cand} name={playlistName} size={80} />
-          </button>
+          </div>
         ))}
       </div>
 
       {/* 確定ボタン */}
-      <div className="playlist-icon-edit-actions">
-        <button onClick={() => navigate(-1)}>キャンセル</button>
-        <button onClick={() => void handleSave()}>決定</button>
+      <div className={`ie-page-actions${currentTrack ? ' playing' : ''}`}>
+        <div
+          className="ie-page-actions-button"
+          onClick={() => navigate(-1)}
+        >
+          {t.cancel}
+        </div>
+        <div
+          className="ie-page-actions-button primary"
+          onClick={() => void handleSave()}
+        >
+          {t.save}
+        </div>
       </div>
     </div>
   )

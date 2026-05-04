@@ -23,14 +23,14 @@ const schemes: Record<SvgIconName, (h: number) => Record<string, string>> = {
   }),
   icon2: h => ({
     color1: `hsl(${h}, 75%, 88%)`,
-    color2: `hsl(${h}, 60%, 55%)`,
+    color2: `hsl(${(h - 30) % 360}, 60%, 55%)`,
     color3: `hsl(${(h + 30) % 360}, 70%, 60%)`,
-    color4: `hsl(${(h + 170) % 360}, 70%, 92%)`,
+    color4: `hsl(${(h + 120) % 360}, 70%, 92%)`,
   }),
   icon3: h => ({
-    color1: `hsl(${h}, 40%, 85%)`,
-    color2: `hsl(${h}, 75%, 65%)`,
-    color3: `hsl(${(h + 120) % 360}, 70%, 60%)`,
+    color1: `hsl(${h}, 60%, 80%)`,
+    color2: `hsl(${(h + 60) % 360}, 70%, 70%)`,
+    color3: `hsl(${(h + 120) % 360}, 65%, 60%)`,
   }),
 }
 
@@ -41,23 +41,14 @@ export function getSvgColors(name: SvgIconName, hue: number): Record<string, str
 // identicon用の色（fg/bgの2色）
 export function getIdenticonColors(hue: number): { fg: string; bg: string } {
   return {
-    fg: `hsl(${hue}, 65%, 50%)`,
-    bg: `hsl(${hue}, 25%, 95%)`,
+    fg: `hsl(${hue} 65% 50%)`,
+    bg: `hsl(${hue} 25% 95%)`,
   }
 }
 
 // hue だけサイコロ
 export function rollHue(): number {
   return Math.floor(Math.random() * 360)
-}
-
-// 種類とhue両方サイコロ（作成時のデフォルト用）
-export function rollIcon(): PlaylistIcon {
-  const hue = rollHue()
-  // svg 3種 + auto 1種 = 等確率で 1/4 ずつ
-  const r = Math.floor(Math.random() * 4)
-  if (r === 3) return { kind: 'auto', hue }
-  return { kind: 'svg', name: SVG_NAMES[r], hue }
 }
 
 // FNV-1a 32bit ハッシュ（identicon用）

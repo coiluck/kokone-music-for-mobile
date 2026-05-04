@@ -388,3 +388,13 @@ export async function setPlaylistIconHue(id: number, hue: number): Promise<void>
     )
   } catch { /* noop */ }
 }
+
+// 使わない。マイグレーション用
+export async function resetDb(): Promise<void> {
+  const db = await getDb()
+  await db.execute('DROP TABLE IF EXISTS history')
+  await db.execute('DROP TABLE IF EXISTS playlists')
+  await db.execute('DROP TABLE IF EXISTS taglists')
+  await db.execute('DROP TABLE IF EXISTS tracks')
+  await initDb()
+}

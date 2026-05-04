@@ -15,6 +15,25 @@ type Props = {
 }
 
 export function PlaylistIcon({ icon, name, size, iconStyle = null }: Props) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size,
+        height: size,
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}
+    >
+      <PlaylistIconInner icon={icon} name={name} size={size} iconStyle={iconStyle} />
+    </span>
+  )
+}
+
+function PlaylistIconInner({ icon, name, size, iconStyle }: Props) {
   if (!icon) {
     return (
       <Icon
