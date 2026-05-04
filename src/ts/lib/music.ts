@@ -294,6 +294,11 @@ export class MusicPlayer {
     return this.currentTrack
   }
 
+  // queue の処理で使用
+  pushHistory(track: Track): void {
+    this.history.push(track)
+  }
+
   // ---------------------------------------------------
   // 内部処理
   // ---------------------------------------------------

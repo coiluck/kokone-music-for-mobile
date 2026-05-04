@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
-import { Playlist } from "../lib/db"
+import { Playlist, getPlaylistTracks } from "../lib/db"
+import { musicPlayer } from "../lib/music"
 import { Icon } from "./Icon"
 import { PlaylistIcon as PlaylistIconView } from "./PlaylistIcon"
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
@@ -33,6 +34,11 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
     editInfoSave: 'playlist.item.edit-info.save',
   })
 
+  const fetchSortedTracks = async () => {
+    const tracks = await getPlaylistTracks(playlist.trackIds)
+    return tracks.sort((a, b) => a.title.localeCompare(b.title, 'ja'))
+  }
+
   const handleSave = () => {
     const name = nameInputRef.current?.value.trim()
     if (!name) return
@@ -46,12 +52,28 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
     {
       key: 'add-to-queue',
       label: t.addToQueue,
-      onClick: () => console.log('[PlaylistItem] add to queue:', playlist),
+      onClick: async () => {
+        try {
+          const tracks = await fetchSortedTracks()
+          for (const track of tracks) {
+            musicPlayer.enqueue(track)
+          }
+        } catch (e) {
+          console.error('[PlaylistItem] add to queue failed:', e)
+        }
+      },
     },
     {
       key: 'play-next',
       label: t.playNext,
-      onClick: () => console.log('[PlaylistItem] overwrite queue:', playlist),
+      onClick: async () => {
+        try {
+          const tracks = await fetchSortedTracks()
+          musicPlayer.setQueue(tracks)
+        } catch (e) {
+          console.error('[PlaylistItem] overwrite queue failed:', e)
+        }
+      },
     },
     {
       key: 'edit-info',

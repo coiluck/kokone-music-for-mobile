@@ -1,6 +1,8 @@
 // Components/ArtistItem.tsx
 import { useRef, useState } from "react"
 import { useSettingsStore } from '../lib/settingsStore'
+import { getAllTracks } from "../lib/db"
+import { musicPlayer } from "../lib/music"
 import { useNavigate } from 'react-router-dom'
 import { useMappedTranslations } from '../lib/i18n'
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
@@ -28,16 +30,39 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
   const [menuOpen, setMenuOpen] = useState(false)
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
+  const fetchSortedTracks = async () => {
+    const all = await getAllTracks()
+    return all
+      .filter(t => t.artist === artistName)
+      .sort((a, b) => a.title.localeCompare(b.title, 'ja'))
+  }
+
   const menuItems: ActionMenuItem[] = [
     {
       key: 'add-to-queue',
       label: t.addToQueue,
-      onClick: () => console.log('[ArtistItem] add to queue:', artistName),
+      onClick: async () => {
+        try {
+          const tracks = await fetchSortedTracks()
+          for (const track of tracks) {
+            musicPlayer.enqueue(track)
+          }
+        } catch (e) {
+          console.error('[ArtistItem] add to queue failed:', e)
+        }
+      },
     },
     {
       key: 'play-next',
       label: t.playNext,
-      onClick: () => console.log('[ArtistItem] play next:', artistName),
+      onClick: async () => {
+        try {
+          const tracks = await fetchSortedTracks()
+          musicPlayer.setQueue(tracks)
+        } catch (e) {
+          console.error('[ArtistItem] overwrite queue failed:', e)
+        }
+      },
     },
   ]
 

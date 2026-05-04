@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react"
 import { Track, Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist } from "../lib/db"
 import { usePlayerStore } from "../lib/playerStore"
 import { useSettingsStore } from '../lib/settingsStore'
+import { musicPlayer } from "../lib/music"
 import { formatTime } from "../components/MiniPlayer"
 import { Icon } from "./Icon"
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
@@ -102,12 +103,17 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
     {
       key: 'add-to-queue',
       label: t.addToQueue,
-      onClick: () => console.log('[MusicItem] add to queue:', track),
+      onClick: () => {
+        musicPlayer.enqueue(track)
+      },
     },
     {
       key: 'play-next',
       label: t.playNext,
-      onClick: () => console.log('[MusicItem] play next:', track),
+      onClick: () => {
+        const current = musicPlayer.getQueue().filter(t => t.id !== track.id)
+        musicPlayer.setQueue([track, ...current])
+      },
     },
     {
       key: 'add-to-playlist',

@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMappedTranslations } from '../../lib/i18n'
 import { usePlayerStore } from '../../lib/playerStore'
@@ -22,11 +23,14 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import ItemActionsMenu, { type ActionMenuItem } from "../../components/ItemActionsMenu"
 import '../../../css/pages/sub/QueuePage.css'
 
 export default function QueuePage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const actionsBtnRef = useRef<HTMLDivElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // App.tsx 側で MiniPlayer の List ボタンが渡してくれる
   const from = (location.state?.from as string | undefined) ?? '/'
@@ -36,7 +40,55 @@ export default function QueuePage() {
 
   const t = useMappedTranslations({
     title: 'queue.title',
+    shuffle: 'queue.item.shuffle',
+    duplicateClear: 'queue.item.duplicate-clear',
+    allClear: 'queue.item.all-clear',
   })
+
+  const handleShuffle = () => {
+    const current = [...musicPlayer.getQueue()]
+    for (let i = current.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[current[i], current[j]] = [current[j], current[i]]
+    }
+    musicPlayer.setQueue(current)
+  }
+
+  const handleClearDuplicates = () => {
+    const current = musicPlayer.getQueue()
+    const seen = new Set<number>()
+    const next: Track[] = []
+    for (const track of current) {
+      if (seen.has(track.id)) continue
+      seen.add(track.id)
+      next.push(track)
+    }
+    musicPlayer.setQueue(next)
+  }
+
+  const handleClearAll = () => {
+    musicPlayer.clearQueue()
+  }
+
+  const menuItems: ActionMenuItem[] = [
+    {
+      key: 'shuffle',
+      label: t.shuffle,
+      onClick: () => handleShuffle(),
+    },
+    {
+      key: 'duplicate-clear',
+      label: t.duplicateClear,
+      separatorBefore: true,
+      onClick: () => handleClearDuplicates(),
+    },
+    {
+      key: 'all-clear',
+      label: t.allClear,
+      onClick: () => handleClearAll(),
+    },
+  ]
+
 
   const sensors = useSensors(
     // pointer は 5px 動いてから drag 開始 (誤操作防止)
@@ -64,6 +116,27 @@ export default function QueuePage() {
   }
 
   const handlePlay = (track: Track) => {
+    // クリックされた曲が queue 内のどこにいるか
+    const index = queue.findIndex(t => t.id === track.id)
+    if (index === -1) {
+      musicPlayer.play(track)
+      return
+    }
+
+    // 飛ばした曲(0..index-1)と現曲を history に積む。
+    const skipped = queue.slice(0, index)
+    const current = usePlayerStore.getState().currentTrack
+    if (current) {
+      musicPlayer.pushHistory(current)
+    }
+    for (const s of skipped) {
+      musicPlayer.pushHistory(s)
+    }
+
+    // queue からクリック位置までを取り除く
+    musicPlayer.setQueue(queue.slice(index + 1))
+
+    // 再生開始
     musicPlayer.play(track)
   }
 
@@ -77,17 +150,36 @@ export default function QueuePage() {
   }
 
   return (
-    <div className="page">
+    <div className="page" style={{ gap: '.5rem' }}>
       <div className="queue-page-header">
-        <div
-          className="queue-page-back-button"
-          onClick={handleBack}
-          aria-label="back"
-        >
-          <Icon name='back' mode={null} size={24} folder='/images/App/' />
+        <div className="queue-page-header-left">
+          <div
+            className="queue-page-back-button"
+            onClick={handleBack}
+          >
+            <Icon name='back' mode={null} size={24} folder='/images/App/' />
+          </div>
+          <p>{t.title}</p>
         </div>
-        <p>{t.title}</p>
+        <div
+          className="queue-page-header-right"
+          ref={actionsBtnRef}
+          onClick={e => {
+            e.stopPropagation()
+            setMenuOpen(o => !o)
+          }}
+        >
+          <Icon name="ellipsis" mode={null} size={24} folder='/images/QueuePage/' />
+        </div>
       </div>
+
+      {menuOpen && (
+        <ItemActionsMenu
+          anchorEl={actionsBtnRef.current}
+          items={menuItems}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
 
       <div
         className="queue-page-list"

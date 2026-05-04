@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPlaylists, addPlaylist, deletePlaylist, renamePlaylist, type Playlist } from '../lib/db'
 import { Icon } from '../components/Icon'
+import { useSettingsStore } from '../lib/settingsStore'
 import { useMappedTranslations } from '../lib/i18n'
 import PlaylistItem from '../components/PlaylistItem'
 import '../../css/pages/PlaylistsPage.css'
@@ -19,6 +20,7 @@ export default function PlaylistsPage() {
     placeholder: 'playlists.page.add.placeholder',
     add: 'playlists.page.add.button',
   })
+  const lang = useSettingsStore(s => s.lang)
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const navigate = useNavigate()
@@ -73,8 +75,17 @@ export default function PlaylistsPage() {
         <div className="playlists-page-overlay" onClick={() => setIsAdding(false)} />
       )}
 
-      <div onClick={() => navigate(`/playlists/${encodeURIComponent('__history__')}`)}>history</div>
-      <div onClick={() => navigate(`/playlists/${encodeURIComponent('__recommended__')}`)}>reco</div>
+      <div className="playlists-page-default-list-container">
+        <div
+          className="playlists-page-default-list-item"
+          onClick={() => navigate(`/playlists/${encodeURIComponent('__history__')}`)}
+        >
+          {DISPLAY_NAMES['__history__'][lang]}
+        </div>
+        <div className="playlists-page-default-list-item" onClick={() => navigate(`/playlists/${encodeURIComponent('__recommended__')}`)}>
+          {DISPLAY_NAMES['__recommended__'][lang]}
+        </div>
+      </div>
 
       <div className="playlists-page-user-list">
         <div className="playlists-page-user-list-header">
@@ -95,18 +106,20 @@ export default function PlaylistsPage() {
           />
           <span onClick={() => void handleAdd()}>{t.add}</span>
         </div>
-        {playlists.map(pl => (
-          <div
-            key={pl.id}
-            onClick={() => navigate(`/playlists/${encodeURIComponent(pl.name)}`)}
-          >
-            <PlaylistItem
-              playlist={pl}
-              onDelete={handleDelete}
-              onRename={handleRename}
-            />
-          </div>
-        ))}
+        <div className="playlists-page-user-list-container">
+          {playlists.map(pl => (
+            <div
+              key={pl.id}
+              onClick={() => navigate(`/playlists/${encodeURIComponent(pl.name)}`)}
+            >
+              <PlaylistItem
+                playlist={pl}
+                onDelete={handleDelete}
+                onRename={handleRename}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
