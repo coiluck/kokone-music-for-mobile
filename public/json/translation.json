@@ -82,5 +82,11 @@
   "music.item.actions.add-to-queue": { "ja": "再生キューに追加", "en": "Add to Queue" },
   "music.item.actions.play-next": { "ja": "次に再生", "en": "Play Next" },
   "music.item.actions.add-to-playlist": { "ja": "プレイリストに追加", "en": "Add to Playlist" },
-  "music.item.count": { "ja": "曲", "en": "tracks" }
+  "music.item.count": { "ja": "曲", "en": "tracks" },
+  "message.error.mi.edit-info": { "ja": "情報の編集に失敗しました", "en": "Failed to edit info" },
+  "message.error.pl.reserved-name": { "ja": "予約語が使われています", "en": "Reserved words cannot be used." },
+  "message.error.pl.name-exists": { "ja": "すでに同じ名前のプレイリストが存在します", "en": "A playlist with the same name already exists." },
+  "message.error.pl.name-null": { "ja": "プレイリストの名前を入力してください", "en": "Enter a playlist name." },
+  "message.error.addToQueue": { "ja": "再生キューへの追加に失敗しました", "en": "Failed to add to queue." },
+  "message.error.overwriteQueue": { "ja": "再生キューの上書きに失敗しました", "en": "Failed to overwrite queue." }
 }

@@ -11,6 +11,7 @@ import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
 import '../../css/components/MusicItem.css'
 import { PlaylistIcon as PlaylistIconView } from "./PlaylistIcon"
+import { showMessage, Message } from "./Message"
 
 interface Props {
   track: Track
@@ -64,8 +65,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
 
       setLocalTrack(prev => ({ ...prev, title, artist }))
     } catch (e) {
-      console.error('[MusicItem] save edit failed:', e)
-    // TODO: エラー通知UI
+      showMessage(t.editInfoError)
     }
   }
 
@@ -88,6 +88,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
     playNext: 'music.item.actions.play-next',
     addToPlaylist: 'music.item.actions.add-to-playlist',
     count: 'music.item.count',
+    editInfoError: 'message.error.mi.edit-info',
   })
 
   // プレイリスト追加モーダルが開かれたらデータを取得・ソートしてStateにセット
@@ -386,6 +387,8 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
           </div>
         </EditInfoModal>
       )}
+
+      <Message />
     </div>
   )
 }

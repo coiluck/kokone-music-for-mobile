@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { useSettingsStore } from '../lib/settingsStore'
 import { useMappedTranslations } from '../lib/i18n'
 import PlaylistItem from '../components/PlaylistItem'
+import { showMessage, Message } from '../components/Message'
 import '../../css/pages/PlaylistsPage.css'
 
 const RESERVED_NAMES = ['__history__', '__recommended__'];
@@ -19,6 +20,9 @@ export default function PlaylistsPage() {
     count: 'playlists.page.count',
     placeholder: 'playlists.page.add.placeholder',
     add: 'playlists.page.add.button',
+    reservedName: 'message.error.pl.reserved-name',
+    nameExists: 'message.error.pl.name-exists',
+    nameNull: 'message.error.pl.name-null',
   })
   const lang = useSettingsStore(s => s.lang)
   const [playlists, setPlaylists] = useState<Playlist[]>([])
@@ -35,9 +39,18 @@ export default function PlaylistsPage() {
 
   const handleAdd = async () => {
     const name = inputRef.current?.value.trim()
-    if (!name) return
-    if (playlists.some(pl => pl.name === name)) return
-    if (RESERVED_NAMES.includes(name)) return
+    if (!name) {
+      showMessage(t.nameNull)
+      return
+    }
+    if (playlists.some(pl => pl.name === name)) {
+      showMessage(t.nameExists)
+      return
+    }
+    if (RESERVED_NAMES.includes(name)) {
+      showMessage(t.reservedName)
+      return
+    }
 
     const created = await addPlaylist(name)
     setPlaylists(prev => {
@@ -55,11 +68,11 @@ export default function PlaylistsPage() {
 
   const handleRename = async (id: number, name: string) => {
     if (RESERVED_NAMES.includes(name)) {
-      console.log('[PlaylistsPage] rename rejected: reserved name:', name)
+      showMessage(t.reservedName)
       return
     }
     if (playlists.some(pl => pl.id !== id && pl.name === name)) {
-      console.log('[PlaylistsPage] rename rejected: name already exists:', name)
+      showMessage(t.nameExists)
       return
     }
     await renamePlaylist(id, name)
@@ -121,6 +134,7 @@ export default function PlaylistsPage() {
           ))}
         </div>
       </div>
+      <Message />
     </div>
   )
 }

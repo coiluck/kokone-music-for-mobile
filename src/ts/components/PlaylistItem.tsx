@@ -7,6 +7,7 @@ import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
 import '../../css/components/PlaylistItem.css'
+import { showMessage, Message } from "./Message"
 
 interface Props {
   playlist: Playlist
@@ -32,6 +33,8 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
     editInfoName: 'playlist.item.edit-info.name',
     editInfoCancel: 'playlist.item.edit-info.cancel',
     editInfoSave: 'playlist.item.edit-info.save',
+    addToQueueError: 'message.error.addToQueue',
+    overwriteQueueError: 'message.error.overwriteQueue',
   })
 
   const fetchSortedTracks = async () => {
@@ -59,7 +62,7 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
             musicPlayer.enqueue(track)
           }
         } catch (e) {
-          console.error('[PlaylistItem] add to queue failed:', e)
+          showMessage(t.addToQueueError)
         }
       },
     },
@@ -71,7 +74,7 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
           const tracks = await fetchSortedTracks()
           musicPlayer.setQueue(tracks)
         } catch (e) {
-          console.error('[PlaylistItem] overwrite queue failed:', e)
+          showMessage(t.overwriteQueueError)
         }
       },
     },
@@ -159,6 +162,8 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
           </div>
         </EditInfoModal>
       )}
+
+      <Message />
     </div>
   )
 }

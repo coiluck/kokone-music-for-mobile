@@ -8,6 +8,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import { Icon } from "../components/Icon"
 import '../../css/components/ArtistItem.css'
+import { showMessage, Message } from "./Message"
 
 interface ArtistItemProps {
   artistName: string
@@ -24,6 +25,8 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
     tracksNumber: 'artist.item.tracksNumber',
     addToQueue: 'artist.item.add-to-queue',
     playNext: 'artist.item.play-next',
+    addToQueueError: 'message.error.addToQueue',
+    overwriteQueueError: 'message.error.overwriteQueue',
   })
 
   const actionsBtnRef = useRef<HTMLDivElement>(null)
@@ -48,7 +51,7 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
             musicPlayer.enqueue(track)
           }
         } catch (e) {
-          console.error('[ArtistItem] add to queue failed:', e)
+          showMessage(t.addToQueueError)
         }
       },
     },
@@ -60,7 +63,7 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
           const tracks = await fetchSortedTracks()
           musicPlayer.setQueue(tracks)
         } catch (e) {
-          console.error('[ArtistItem] overwrite queue failed:', e)
+          showMessage(t.overwriteQueueError)
         }
       },
     },
@@ -95,6 +98,8 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
           onClose={() => setMenuOpen(false)}
         />
       )}
+
+      <Message />
     </div>
   )
 }
