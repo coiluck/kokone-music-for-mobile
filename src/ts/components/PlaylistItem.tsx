@@ -7,7 +7,7 @@ import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
 import '../../css/components/PlaylistItem.css'
-import { showMessage, Message } from "./Message"
+import { showMessage } from "./Message"
 
 interface Props {
   playlist: Playlist
@@ -162,8 +162,6 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
           </div>
         </EditInfoModal>
       )}
-
-      <Message />
     </div>
   )
 }

@@ -11,7 +11,7 @@ import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
 import '../../css/components/MusicItem.css'
 import { PlaylistIcon as PlaylistIconView } from "./PlaylistIcon"
-import { showMessage, Message } from "./Message"
+import { showMessage } from "./Message"
 
 interface Props {
   track: Track
@@ -65,7 +65,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
 
       setLocalTrack(prev => ({ ...prev, title, artist }))
     } catch (e) {
-      showMessage(t.editInfoError)
+      showMessage(`${t.editInfoError}: ${e}`, 'infinity')
     }
   }
 
@@ -387,8 +387,6 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
           </div>
         </EditInfoModal>
       )}
-
-      <Message />
     </div>
   )
 }

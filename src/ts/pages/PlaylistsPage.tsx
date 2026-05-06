@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon'
 import { useSettingsStore } from '../lib/settingsStore'
 import { useMappedTranslations } from '../lib/i18n'
 import PlaylistItem from '../components/PlaylistItem'
-import { showMessage, Message } from '../components/Message'
+import { showMessage } from '../components/Message'
 import '../../css/pages/PlaylistsPage.css'
 
 const RESERVED_NAMES = ['__history__', '__recommended__'];
@@ -134,7 +134,6 @@ export default function PlaylistsPage() {
           ))}
         </div>
       </div>
-      <Message />
     </div>
   )
 }

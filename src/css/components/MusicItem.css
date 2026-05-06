@@ -90,7 +90,7 @@
 
 .mi-component-tag-container {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: .25rem;
 }
 .mi-component-tag-item {
@@ -235,7 +235,7 @@
 
 .mi-component-tags-input-container input[type="text"] {
   flex: 1;
-  min-width: 0;
+  min-width: 2rem;
   padding: 0;
   background: none;
   border: none;

@@ -14,31 +14,36 @@ pub struct EditTrackPayload {
 
 #[tauri::command]
 pub fn edit_track_metadata(payload: EditTrackPayload) -> Result<(), String> {
-    let path = Path::new(&payload.path);
-
-    let mut tagged_file = Probe::open(path)
-        .map_err(|e| format!("probe failed: {e}"))?
-        .read()
-        .map_err(|e| format!("read failed: {e}"))?;
-
-    // primary tagが無ければ作成
-    if tagged_file.primary_tag().is_none() {
-        let tag_type = tagged_file.primary_tag_type();
-        tagged_file.insert_tag(Tag::new(tag_type));
+    #[cfg(target_os = "android")]
+    {
+        let _ = payload;
+        return Ok(());
     }
-    let tag = tagged_file.primary_tag_mut().unwrap();
 
-    tag.set_title(payload.title);
-    tag.set_artist(payload.artist);
-    match payload.album {
-        Some(album) if !album.is_empty() => tag.set_album(album),
-        _ => {
-            tag.remove_album();
+    #[cfg(not(target_os = "android"))]
+    {
+        let path = Path::new(&payload.path);
+        let mut tagged_file = Probe::open(path)
+            .map_err(|e| format!("probe failed: {e}"))?
+            .read()
+            .map_err(|e| format!("read failed: {e}"))?;
+
+        if tagged_file.primary_tag().is_none() {
+            let tag_type = tagged_file.primary_tag_type();
+            tagged_file.insert_tag(Tag::new(tag_type));
         }
+        let tag = tagged_file.primary_tag_mut().unwrap();
+
+        tag.set_title(payload.title);
+        tag.set_artist(payload.artist);
+        match payload.album {
+            Some(album) if !album.is_empty() => tag.set_album(album),
+            _ => { tag.remove_album(); }
+        }
+
+        tag.save_to_path(path, WriteOptions::default())
+            .map_err(|e| format!("save failed: {e}"))?;
+
+        Ok(())
     }
-
-    tag.save_to_path(path, WriteOptions::default())
-        .map_err(|e| format!("save failed: {e}"))?;
-
-    Ok(())
 }

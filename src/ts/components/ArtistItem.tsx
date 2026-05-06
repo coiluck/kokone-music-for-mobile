@@ -8,7 +8,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import { Icon } from "../components/Icon"
 import '../../css/components/ArtistItem.css'
-import { showMessage, Message } from "./Message"
+import { showMessage } from "./Message"
 
 interface ArtistItemProps {
   artistName: string
@@ -63,7 +63,7 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
           const tracks = await fetchSortedTracks()
           musicPlayer.setQueue(tracks)
         } catch (e) {
-          showMessage(t.overwriteQueueError)
+          showMessage(`${t.overwriteQueueError}: ${e}`, 'infinity')
         }
       },
     },
@@ -98,8 +98,6 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
           onClose={() => setMenuOpen(false)}
         />
       )}
-
-      <Message />
     </div>
   )
 }
