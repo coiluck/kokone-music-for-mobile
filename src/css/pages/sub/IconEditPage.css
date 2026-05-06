@@ -46,7 +46,14 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, calc(2 * 1vw + 0px), 20px);
+  width: 100%;
   padding: 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .ie-page-candidate-item {

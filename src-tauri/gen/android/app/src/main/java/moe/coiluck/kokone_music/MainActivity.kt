@@ -11,8 +11,14 @@ class MainActivity : TauriActivity() {
         super.onCreate(savedInstanceState)
 
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
-            val statusBarInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            view.setPadding(0, statusBarInsets.top, 0, 0)
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(
+                systemBars.left,
+                systemBars.top,
+                systemBars.right,
+                maxOf(systemBars.bottom, ime.bottom)
+            )
             insets
         }
     }

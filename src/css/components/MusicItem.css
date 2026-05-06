@@ -160,6 +160,7 @@
   mask-repeat: no-repeat;
 }
 
+/* プレイリスト選択 */
 .mi-component-playlist-item-icon-container {
   display: flex;
   align-items: center;
@@ -174,4 +175,71 @@
 .mi-component-playlist-item-text-count {
   font-size: .7rem;
   opacity: .7;
+}
+
+/* 編集情報 */
+.mi-component-tags-input-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: .25rem;
+  width: 100%;
+}
+
+.mi-component-tags-input-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  min-width: 0;
+  padding: .5rem .7rem;
+  border: 1px solid rgb(from var(--color-text) r g b / 0.15);
+  border-radius: 5px;
+  background: var(--color-bg-mild);
+  outline: none;
+  transition: all 0.3s ease;
+}
+.mi-component-tags-input-container:focus-within {
+  border: 1px solid var(--color-accent);
+}
+
+.mi-component-tags-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.mi-component-tags-item {
+  position: relative;
+  padding: .25rem .5rem;
+  font-size: .8rem;
+  background: rgb(from var(--color-accent) r g b / 0.2);
+  border: 1px solid var(--color-accent);
+  border-radius: 5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.mi-component-tags-item::before, .mi-component-tags-item::before {
+  content: '#';
+  color: var(--color-accent);
+}
+.mi-component-tags-item::after, .mi-component-tags-item::after {
+  content: '×';
+  color: var(--color-text);
+  padding: 4px;
+}
+
+.mi-component-tags-input-container input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--color-text);
+  font-size: 1rem;
 }

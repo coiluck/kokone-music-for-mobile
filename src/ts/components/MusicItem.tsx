@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect } from "react"
-import { Track, Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist } from "../lib/db"
+import { useRef, useState, useEffect, useMemo } from "react"
+import { invoke } from "@tauri-apps/api/core"
+import { Track, Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist, updateTrack } from "../lib/db"
 import { usePlayerStore } from "../lib/playerStore"
 import { useSettingsStore } from '../lib/settingsStore'
 import { musicPlayer } from "../lib/music"
@@ -33,10 +34,51 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<Set<number>>(new Set())
   const [selectedPlaylistIds, setSelectedPlaylistIds] = useState<Set<number>>(new Set())
 
+  const [localTrack, setLocalTrack] = useState<Track>(track)
+  const sortedTags = useMemo(
+    () => [...localTrack.tags].sort((a, b) => a.localeCompare(b, 'ja')),
+    [localTrack.tags]
+  )
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const artistInputRef = useRef<HTMLInputElement>(null)
+  const [tagInput, setTagInput] = useState('')
+
+  const handleSaveEdit = async () => {
+    const title = titleInputRef.current?.value.trim() ?? track.title
+    const artist = artistInputRef.current?.value.trim() ?? track.artist
+    try {
+      await invoke('edit_track_metadata', {
+        payload: {
+          path: track.path,
+          title,
+          artist,
+        },
+      })
+
+      // DB更新（tagsもここで反映）
+      await updateTrack(track.id, {
+        title,
+        artist,
+        tags: localTrack.tags,
+      })
+
+      setLocalTrack(prev => ({ ...prev, title, artist }))
+    } catch (e) {
+      console.error('[MusicItem] save edit failed:', e)
+    // TODO: エラー通知UI
+    }
+  }
+
+  useEffect(() => {
+    setLocalTrack(track)
+  }, [track])
+
   const t = useMappedTranslations({
     editInfoTitle: 'music.item.edit-info.title',
     editInfoName: 'music.item.edit-info.name',
+    editInfoNamePlaceholder: 'music.item.edit-info.name.placeholder',
     editInfoArtist: 'music.item.edit-info.artist',
+    editInfoArtistPlaceholder: 'music.item.edit-info.artist.placeholder',
     editInfoTags: 'music.item.edit-info.tags',
     editInfoTagsPlaceholder: 'music.item.edit-info.tags.placeholder',
     editInfoAlbum: 'music.item.edit-info.album',
@@ -147,10 +189,10 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
         )}
       </div>
       <div className="mi-component-text-container">
-        <span className={`mi-component-title ${isItemPlaying ? 'playing' : ''}`}>{track.title}</span>
+        <span className={`mi-component-title ${isItemPlaying ? 'playing' : ''}`}>{localTrack.title}</span>
         <div className="mi-component-info">
           <div className="mi-component-info-left">
-            <span className="mi-component-artist">{track.artist}</span>
+            <span className="mi-component-artist">{localTrack.artist}</span>
             {track.duration_ms != null && (
               <>
                 <span className="mi-component-separator">・</span>
@@ -160,9 +202,9 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
               </>
             )}
           </div>
-          {track.tags.length > 0 && (
+          {localTrack.tags.length > 0 && (
             <div className="mi-component-tag-container">
-              {track.tags.map(tag => (
+              {sortedTags.map(tag => (
                 <span key={tag} className="mi-component-tag-item">
                   {tag}
                 </span>
@@ -263,7 +305,9 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
               <input
                 className="ei-component-field-input"
                 type="text"
-                defaultValue={track.title}
+                placeholder={t.editInfoNamePlaceholder}
+                ref={titleInputRef}
+                defaultValue={localTrack.title}
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -272,19 +316,52 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
               <input
                 className="ei-component-field-input"
                 type="text"
-                defaultValue={track.artist ?? ''}
+                placeholder={t.editInfoArtistPlaceholder}
+                ref={artistInputRef}
+                defaultValue={localTrack.artist ?? ''}
                 onClick={e => e.stopPropagation()}
               />
             </div>
             <div className="ei-component-field">
               <label className="ei-component-field-label">{t.editInfoTags}</label>
-              <input
-                className="ei-component-field-input"
-                type="text"
-                placeholder={t.editInfoTagsPlaceholder}
-                defaultValue={track.tags.join(', ')}
-                onClick={e => e.stopPropagation()}
-              />
+              {/* タグ一覧 */}
+              <div className="mi-component-tags-input-container">
+                <div className="mi-component-tags-container">
+                  {localTrack.tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="mi-component-tags-item"
+                      onClick={() => {
+                        setLocalTrack(prev => ({
+                          ...prev,
+                          tags: prev.tags.filter(t => t !== tag)
+                        }));
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <input
+                  className="ei-component-field-input"
+                  type="text"
+                  enterKeyHint="enter"
+                  placeholder={t.editInfoTagsPlaceholder}
+                  onClick={e => e.stopPropagation()}
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const newTag = tagInput.trim()
+                      if (newTag && !localTrack.tags.includes(newTag)) {
+                        setLocalTrack(prev => ({ ...prev, tags: [...prev.tags, newTag] }))
+                      }
+                      setTagInput('')
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
           <div className="ei-component-footer">
@@ -300,7 +377,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
               className="ei-component-button primary"
               onClick={e => {
                 e.stopPropagation()
-                console.log('[MusicItem] save edit (TODO):', track)
+                handleSaveEdit()
                 setEditOpen(false)
               }}
             >

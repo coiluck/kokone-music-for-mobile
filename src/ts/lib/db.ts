@@ -137,6 +137,17 @@ export async function searchTracks(query: string): Promise<Track[]> {
   return rows.map(rowToTrack)
 }
 
+export async function updateTrack(
+  id: number,
+  data: { title: string; artist: string; tags: string[] }
+): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE tracks SET title = $1, artist = $2, tags = $3 WHERE id = $4',
+    [data.title, data.artist, JSON.stringify(data.tags), id]
+  )
+}
+
 export async function getHistory() {
   // historyから直近100件
   const db = await getDb()

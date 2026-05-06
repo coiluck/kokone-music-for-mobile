@@ -4,6 +4,7 @@ mod scan_music;
 mod get_lang;
 mod android_media;
 mod music_playback;
+mod edit_track;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +20,7 @@ pub fn run() {
             scan_music::music_scan_folders,
             android_media::android_list_audio_folders,
             music_playback::music_read_file,
+            edit_track::edit_track_metadata,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
