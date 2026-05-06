@@ -7,6 +7,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import PlaylistItem from '../components/PlaylistItem'
 import { showMessage } from '../components/Message'
 import '../../css/pages/PlaylistsPage.css'
+import { usePlayerStore } from '../lib/playerStore'
 
 const RESERVED_NAMES = ['__history__', '__recommended__'];
 
@@ -28,6 +29,7 @@ export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const navigate = useNavigate()
+  const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export default function PlaylistsPage() {
           />
           <span onClick={() => void handleAdd()}>{t.add}</span>
         </div>
-        <div className="playlists-page-user-list-container">
+        <div className="playlists-page-user-list-container" style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
           {playlists.map(pl => (
             <div
               key={pl.id}

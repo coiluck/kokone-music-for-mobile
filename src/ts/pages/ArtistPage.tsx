@@ -61,6 +61,26 @@ export default function ArtistPage() {
     [tracks]
   )
 
+  const handleShuffle = useCallback(() => {
+    if (tracks.length === 0) return
+    // Fisher-Yates
+    const shuffled = [...tracks]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    const [first, ...rest] = shuffled
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
+
+  const handlePlayAll = useCallback(() => {
+    if (tracks.length === 0) return
+    const [first, ...rest] = tracks
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
+
   if (loading) {
     return (
       <div className="page fade-in">
@@ -74,12 +94,29 @@ export default function ArtistPage() {
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>
       <div className="artist-page-topbar">
-        <div className="artist-page-topbar-icon-container">
-          <Icon name="artist" mode={iconStyle} size={24} folder="/images/ArtistPage/" />
+        <div className="artist-page-topbar-left">
+          <div className="artist-page-topbar-icon-container">
+            <Icon name="artist" mode={iconStyle} size={24} folder="/images/ArtistPage/" />
+          </div>
+          <div className="artist-page-topbar-text">
+            <p className="artist-page-topbar-text-title">{artistName}</p>
+            <p className="artist-page-topbar-text-meta">{tracks.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
+          </div>
         </div>
-        <div className="artist-page-topbar-text">
-          <p className="artist-page-topbar-text-title">{artistName}</p>
-          <p className="artist-page-topbar-text-meta">{tracks.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
+
+        <div className="artist-page-topbar-right">
+          <div
+            className="artist-page-topbar-right shuffle"
+            onClick={handleShuffle}
+          >
+            <Icon name="shuffle" mode={null} size={24} folder='/images/PlaylistsPage/' />
+          </div>
+          <div
+            className="artist-page-topbar-right play_all"
+            onClick={handlePlayAll}
+          >
+            <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
+          </div>
         </div>
       </div>
       <div style={{ marginBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}>

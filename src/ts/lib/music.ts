@@ -7,6 +7,7 @@ import { useSettingsStore } from './settingsStore'
 const TARGET_LUFS = -14.0
 const NORM_TIME_CONSTANT_SEC = 0.05
 const POSITION_POLL_MS = 200
+const STOP_FADEOUT_MS = 500
 
 const MIME_BY_EXT: Record<string, string> = {
   mp3: 'audio/mpeg',
@@ -44,8 +45,6 @@ function mimeForPath(path: string): string {
  * MediaElementAudioSourceNode は同じ audio 要素に対して 1 回しか作れない
  * 制約のため、audio 要素 / source ノード / デッキは全て使い回す。
  *
- * クロスフェードは廃止 (常に即切り替え)。
- *
  * UI に見せる状態は usePlayerStore にミラーする。
  *
  * queue は「これから流れる曲」、history は「これまでに流れた曲」。
@@ -66,7 +65,6 @@ export class MusicPlayer {
   // useSettingsStore から購読した再生設定
   private masterVolume: number
   private isNormalizeVolume: boolean
-  private fadeoutMs: number
   private isTrailingSilence: boolean
   private unsubscribeSettings: () => void
 
@@ -79,7 +77,6 @@ export class MusicPlayer {
     const s = useSettingsStore.getState()
     this.masterVolume = s.masterVolume
     this.isNormalizeVolume = s.isNormalizeVolume
-    this.fadeoutMs = s.fadeoutMs
     this.isTrailingSilence = s.isTrailingSilence
 
     this.masterGain.gain.value = this.masterVolume
@@ -101,9 +98,6 @@ export class MusicPlayer {
       if (state.isNormalizeVolume !== prev.isNormalizeVolume) {
         this.isNormalizeVolume = state.isNormalizeVolume
         this.applyLufsGain(this.active, this.currentTrack?.lufs ?? null)
-      }
-      if (state.fadeoutMs !== prev.fadeoutMs) {
-        this.fadeoutMs = state.fadeoutMs
       }
       if (state.isTrailingSilence !== prev.isTrailingSilence) {
         this.isTrailingSilence = state.isTrailingSilence
@@ -166,8 +160,8 @@ export class MusicPlayer {
   /**
    * フェードアウトしつつ停止する。
    */
-  async stop(duration?: number): Promise<void> {
-    await this.fadeOut(this.active, duration ?? this.fadeoutMs)
+  async stop(): Promise<void> {
+    await this.fadeOut(this.active, STOP_FADEOUT_MS)
     this.active.audio.pause()
     this.setCurrentTrack(null)
   }
@@ -186,9 +180,11 @@ export class MusicPlayer {
         return
       }
       usePlayerStore.getState()._setIsPlaying(true)
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
     } else {
       this.active.audio.pause()
       usePlayerStore.getState()._setIsPlaying(false)
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
     }
   }
 
@@ -357,10 +353,43 @@ export class MusicPlayer {
       store._setPosition(0)
       musicPlay(track.id).catch(e => console.error('[MusicPlayer] musicPlay failed:', e))
     }
+    this.updateMediaSession(track)
   }
 
   private getActivePositionSec(): number {
     return this.active.audio.currentTime
+  }
+
+  private updateMediaSession(track: Track | null): void {
+    if (!('mediaSession' in navigator)) return
+    if (track === null) {
+      navigator.mediaSession.playbackState = 'none'
+      return
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist ?? '',
+      album: track.album ?? '',
+    })
+    navigator.mediaSession.setActionHandler('play', () => { void this.togglePause() })
+    navigator.mediaSession.setActionHandler('pause', () => { void this.togglePause() })
+    navigator.mediaSession.setActionHandler('nexttrack', () => { void this.next() })
+    navigator.mediaSession.setActionHandler('previoustrack', () => { void this.prev() })
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime != null) this.seek(details.seekTime * 1000)
+    })
+    navigator.mediaSession.playbackState = 'playing'
+  }
+
+  private updatePositionState(): void {
+    if (!('mediaSession' in navigator)) return
+    const audio = this.active.audio
+    if (!audio.duration || isNaN(audio.duration)) return
+    navigator.mediaSession.setPositionState({
+      duration: audio.duration,
+      playbackRate: audio.playbackRate,
+      position: audio.currentTime,
+    })
   }
 
   private startPositionPoll(): void {
@@ -370,6 +399,7 @@ export class MusicPlayer {
       const sec = this.active.audio.currentTime
       const clamped = Math.max(0, Math.min(this.active.durationSec, sec))
       usePlayerStore.getState()._setPosition(clamped * 1000)
+      this.updatePositionState()
     }, POSITION_POLL_MS)
   }
 

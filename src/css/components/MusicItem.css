@@ -94,11 +94,17 @@
   gap: .25rem;
 }
 .mi-component-tag-item {
+  display: inline-block;
   padding: 2px 6px;
   font-size:.7rem;
   border: 1px solid var(--color-accent);
   border-radius: 4px;
   background-color: rgb(from var(--color-accent) r g b / 0.15);
+  cursor: pointer;
+}
+.mi-component-tag-item::before {
+  content: '#';
+  color: var(--color-accent);
 }
 
 .mi-component-actions-container {
@@ -223,11 +229,11 @@
   transition: all 0.3s ease;
   cursor: pointer;
 }
-.mi-component-tags-item::before, .mi-component-tags-item::before {
+.mi-component-tags-item::before {
   content: '#';
   color: var(--color-accent);
 }
-.mi-component-tags-item::after, .mi-component-tags-item::after {
+.mi-component-tags-item::after {
   content: '×';
   color: var(--color-text);
   padding: 4px;

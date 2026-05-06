@@ -31,8 +31,6 @@ export interface SettingsStore {
   // 音楽
   masterVolume: number, // 0 to 2
   isNormalizeVolume: boolean,
-  crossSettings: 'normal' | 'cross_fade',
-  fadeTime: number, // ms, 0 to 2
   isTrailingSilence: boolean,
 }
 
@@ -68,10 +66,6 @@ export default function SettingsPage() {
     play:           'settings.play',
     masterVolume:   'settings.masterVolume',
     isNormalizeVolume: 'settings.isNormalizeVolume',
-    crossSettings:  'settings.crossSettings',
-    crossNomal:     'settings.crossSettings.nomal',
-    crossCross:     'settings.crossSettings.crossFade',
-    fadeTime:       'settings.fadeTime',
     isTrailingSilence: 'settings.isTrailingSilence',
     other:          'settings.other',
     version:        'settings.version',
@@ -107,10 +101,6 @@ export default function SettingsPage() {
   const setMasterVolume      = useSettingsStore(s => s.setMasterVolume)
   const isNormalizeVolume    = useSettingsStore(s => s.isNormalizeVolume)
   const setIsNormalizeVolume = useSettingsStore(s => s.setIsNormalizeVolume)
-  const crossfadeMode        = useSettingsStore(s => s.crossfadeMode)
-  const setCrossfadeMode     = useSettingsStore(s => s.setCrossfadeMode)
-  const fadeoutMs            = useSettingsStore(s => s.fadeoutMs)
-  const setFadeoutMs         = useSettingsStore(s => s.setFadeoutMs)
   const isTrailingSilence    = useSettingsStore(s => s.isTrailingSilence)
   const setIsTrailingSilence = useSettingsStore(s => s.setIsTrailingSilence)
 
@@ -389,31 +379,6 @@ export default function SettingsPage() {
                 />
                 <span className="slider"></span>
               </label>
-            </div>
-            <div className='settings-section-content-item'>
-              <p>{t.crossSettings}</p>
-              <select
-                value={crossfadeMode}
-                onChange={e => setCrossfadeMode(e.target.value as 'normal' | 'cross_fade')}
-              >
-                <option value="normal">{t.crossNomal}</option>
-                <option value="cross_fade">{t.crossCross}</option>
-              </select>
-            </div>
-            <div className='settings-section-content-item'>
-              <p>{t.fadeTime}</p>
-              <div style={{ display: 'flex', flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-                <input
-                  className='settings-range-slider settings-range-container'
-                  type="range"
-                  min="0"
-                   max="2000"
-                  step="100"
-                  value={fadeoutMs}
-                  onChange={e => setFadeoutMs(Number(e.target.value))}
-                />
-              <span className='settings-range-value'>{fadeoutMs}ms</span>
-              </div>
             </div>
             <div className='settings-section-content-item'>
               <p>{t.isTrailingSilence}</p>

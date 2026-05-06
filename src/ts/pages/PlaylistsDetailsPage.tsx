@@ -9,6 +9,7 @@ import { PlaylistIcon as PlaylistIconView } from '../components/PlaylistIcon'
 import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { Icon } from '../components/Icon'
 import '../../css/pages/PlaylistsDetailsPage.css'
+import { usePlayerStore } from '../lib/playerStore'
 
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
@@ -17,6 +18,7 @@ export default function PlaylistsDetailsPage() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)
   const navigate = useNavigate()
+  const isPlaying = usePlayerStore(s => s.currentTrack)
 
   const [tracks, setTracks] = useState<Track[]>([])
 
@@ -45,15 +47,41 @@ export default function PlaylistsDetailsPage() {
     void musicPlayer.play(track)
   }, [tracks])
 
+  const handlePlayAll = useCallback(() => {
+    if (tracks.length === 0) return
+    const [first, ...rest] = tracks
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
+
+  const handleShuffle = useCallback(() => {
+    if (tracks.length === 0) return
+    // Fisher-Yates
+    const shuffled = [...tracks]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    const [first, ...rest] = shuffled
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
+
   const playlistHeader = reserved ? (
     <div className="playlists-details-header">
     <div className="playlists-details-button-container">
       <div className="playlists-details-header-title">{displayName}</div>
       <div className="playlists-details-button-right">
-        <div className="playlists-details-button-right shuffle">
+        <div
+          className="playlists-details-button-right shuffle"
+          onClick={handleShuffle}
+        >
           <Icon name="shuffle" mode={null} size={20} folder='/images/PlaylistsPage/' />
         </div>
-        <div className="playlists-details-button-right play_all">
+        <div
+          className="playlists-details-button-right play_all"
+          onClick={handlePlayAll}
+        >
           <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
         </div>
       </div>
@@ -63,25 +91,31 @@ export default function PlaylistsDetailsPage() {
     <div className="playlists-details-header">
       <div className="playlists-details-header-title">{displayName}</div>
       <div className="playlists-details-header-icon-container">
-  <div className="playlists-details-header-cd-wrapper">
-    <div
-      className="playlists-details-header-cd-jacket-container"
-      onClick={() => navigate(`/playlist-icon-edit/${encodeURIComponent(playlistName)}`)}
-    >
-      <PlaylistIconView icon={icon} name={playlistName} size={192} iconStyle={iconStyle} />
-    </div>
-    <div className="playlists-details-header-cd-disc-icon" />
-  </div>
-</div>
+        <div className="playlists-details-header-cd-wrapper">
+          <div
+            className="playlists-details-header-cd-jacket-container"
+            onClick={() => navigate(`/playlist-icon-edit/${encodeURIComponent(playlistName)}`)}
+          >
+            <PlaylistIconView icon={icon} name={playlistName} size={192} iconStyle={iconStyle} />
+          </div>
+          <div className="playlists-details-header-cd-disc-icon" />
+        </div>
+      </div>
       <div className="playlists-details-button-container">
         <div className="playlists-details-button-left">
           <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
         </div>
         <div className="playlists-details-button-right">
-          <div className="playlists-details-button-right shuffle">
+          <div
+            className="playlists-details-button-right shuffle"
+            onClick={handleShuffle}
+          >
             <Icon name="shuffle" mode={null} size={24} folder='/images/PlaylistsPage/' />
           </div>
-          <div className="playlists-details-button-right play_all">
+          <div
+            className="playlists-details-button-right play_all"
+            onClick={handlePlayAll}
+          >
             <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
           </div>
         </div>
@@ -92,9 +126,11 @@ export default function PlaylistsDetailsPage() {
   return (
     <div className="page fade-in">
       {playlistHeader}
-      {tracks.map(track => (
-        <MusicItem key={track.id} track={track} onPlay={handlePlay} />
-      ))}
+      <div style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
+        {tracks.map(track => (
+          <MusicItem key={track.id} track={track} onPlay={handlePlay} />
+        ))}
+      </div>
     </div>
   )
 }

@@ -90,6 +90,6 @@
 .playlists-details-button-right.play_all {
   background-color: var(--color-accent);
   border-radius: 50%;
-  padding: .4rem;
+  padding: .5rem;
   cursor: pointer;
 }
