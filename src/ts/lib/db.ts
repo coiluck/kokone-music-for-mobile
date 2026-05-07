@@ -36,8 +36,13 @@ export interface taglist {
   name: string
   positive_tags: string[]
   negative_tags: string[]
-  icon: PlaylistIconData | null
+  icon: PlaylistIconData
   created_at: number
+}
+interface TaglistRow extends Omit<taglist, 'positive_tags' | 'negative_tags' | 'icon'> {
+  positive_tags: string
+  negative_tags: string
+  icon: string | null
 }
 
 export interface history {
@@ -398,6 +403,86 @@ export async function setPlaylistIconHue(id: number, hue: number): Promise<void>
       [JSON.stringify(icon), id]
     )
   } catch { /* noop */ }
+}
+
+// ここからtag用
+function rowToTaglist(row: TaglistRow): taglist {
+  let icon: PlaylistIconData = createDefaultIcon()
+  if (row.icon) {
+    try { icon = JSON.parse(row.icon) as PlaylistIconData }
+    catch { icon = createDefaultIcon() }
+  }
+  return {
+    ...row,
+    positive_tags: parseJsonArray(row.positive_tags, isString),
+    negative_tags: parseJsonArray(row.negative_tags, isString),
+    icon,
+  }
+}
+
+export async function getTagslists(): Promise<taglist[]> {
+  const db = await getDb()
+  const rows = await db.select<TaglistRow[]>(
+    'SELECT * FROM taglists ORDER BY created_at DESC'
+  )
+  return rows.map(rowToTaglist)
+}
+
+// taglistを追加
+export async function addTagslists(name: string): Promise<taglist> {
+  const db = await getDb()
+  const created_at = Date.now()
+
+  // githubみたいなやつを生成
+  const icon = createDefaultIcon()
+
+  const result = await db.execute(
+    'INSERT INTO taglists (name, positive_tags, negative_tags, icon, created_at) VALUES ($1, $2, $3, $4, $5)',
+    [name, '[]', '[]', JSON.stringify(icon), created_at]
+  )
+
+  return {
+    id: result.lastInsertId as number,
+    name,
+    positive_tags: [],
+    negative_tags: [],
+    icon,
+    created_at,
+  }
+}
+
+export async function deleteTagsLists(id: number): Promise<void>  {
+  const db = await getDb()
+  await db.execute('DELETE FROM taglists WHERE id = $1', [id])
+}
+
+export async function renameTagsLists(id: number, name: string): Promise<void> {
+  const db = await getDb()
+  await db.execute('UPDATE taglists SET name = $1 WHERE id = $2', [name, id])
+}
+
+export async function getTagListTracks(pos_tags: string[], neg_tags: string[]): Promise<Track[]> {
+  const db = await getDb()
+  const rows = await db.select<TrackRow[]>(
+    'SELECT * FROM tracks ORDER BY artist, album NULLS LAST, title'
+  )
+  const posSet = new Set(pos_tags)
+  const negSet = new Set(neg_tags)
+
+  return rows
+    .map(rowToTrack)
+    .filter(track => {
+      const tagSet = new Set(track.tags)
+      // negative_tagsを一つでも含むなら除外
+      for (const neg of negSet) {
+        if (tagSet.has(neg)) return false
+      }
+      // positive_tagsを全て含む必要がある
+      for (const pos of posSet) {
+        if (!tagSet.has(pos)) return false
+      }
+      return true
+    })
 }
 
 // 使わない。マイグレーション用

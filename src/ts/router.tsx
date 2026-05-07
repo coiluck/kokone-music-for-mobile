@@ -5,6 +5,8 @@ import PlaylistsPage from './pages/PlaylistsPage'
 import PlaylistsDetailsPage from './pages/PlaylistsDetailsPage'
 import ArtistlistsPage from './pages/ArtistlistsPage'
 import ArtistPage from './pages/ArtistPage'
+import TagsPage from './pages/TagsPage'
+import TagsDetailsPage from './pages/TagsDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
 import PlaylistIconEditPage from './pages/sub/IconEditPage'
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
       { path: 'playlists/:name', element: <PlaylistsDetailsPage /> },
       { path: 'artist/',       element: <ArtistlistsPage /> },
       { path: 'artist/:name',  element: <ArtistPage /> },
+      { path: 'tags/',  element: <TagsPage /> },
+      { path: 'tags/:listName',  element: <TagsDetailsPage /> },
       // subのページ
       { path: 'queue',         element: <QueuePage /> },
       { path: 'search',        element: <SearchPage /> },

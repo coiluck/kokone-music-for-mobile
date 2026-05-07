@@ -1,0 +1,60 @@
+.tags-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+.tags-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+}
+.tags-header-icon-container {
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.tags-add-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+  position: relative;
+  max-height: 0;
+  margin-top: 1rem;
+  overflow: hidden;
+  opacity: 0;
+  z-index: 1;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+.tags-add-container.is-open {
+  max-height: 100px; /* 実際の高さより大きければOK */
+  opacity: 1;
+}
+.tags-add-container input {
+  position: relative;
+  width: 100%;
+  padding: .4rem .8rem .4rem 2rem;
+  outline: none;
+  border: 1px solid rgb(from var(--color-text) r g b / 0.1);
+  border-radius: .4rem;
+  background: var(--color-bg-mild);
+  transition: all .2s ease-in-out;
+}
+.tags-add-container input:focus {
+  border: 1px solid var(--color-accent);
+}
+.tags-add-container span {
+  padding: 0 1rem;
+  text-wrap: nowrap;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.tags-main-container {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
