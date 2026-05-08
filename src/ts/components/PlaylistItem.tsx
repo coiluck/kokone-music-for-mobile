@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { Playlist, getPlaylistTracks } from "../lib/db"
 import { musicPlayer } from "../lib/music"
 import { Icon } from "./Icon"
-import { PlaylistIcon as PlaylistIconView } from "./PlaylistIcon"
+import { ListIcon } from "./ListIcon"
 import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
@@ -96,7 +96,7 @@ export default function PlaylistItem({ playlist, onDelete, onRename }: Props) {
     <div className="pli-component-container" >
       <div className="pli-component-icon-container">
         <div className="pli-component-icon-jacket">
-          <PlaylistIconView icon={icon} name={playlist.name} size={64} />
+          <ListIcon icon={icon} name={playlist.name} size={64} />
         </div>
         <div className="pli-component-icon-cd"></div>
       </div>

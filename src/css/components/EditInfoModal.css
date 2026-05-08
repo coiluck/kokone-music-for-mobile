@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  animation: edit-info-backdrop-fade .15s ease-out;
+  animation: ei-component-backdrop-fade .15s ease-out;
 }
 
 @keyframes ei-component-backdrop-fade {

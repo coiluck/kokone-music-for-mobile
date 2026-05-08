@@ -9,7 +9,7 @@ import TagsPage from './pages/TagsPage'
 import TagsDetailsPage from './pages/TagsDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
-import PlaylistIconEditPage from './pages/sub/IconEditPage'
+import IconEditPage from './pages/sub/IconEditPage'
 import SettingsLayout from './SettingsLayout'
 
 export const router = createBrowserRouter([
@@ -27,7 +27,7 @@ export const router = createBrowserRouter([
       // subのページ
       { path: 'queue',         element: <QueuePage /> },
       { path: 'search',        element: <SearchPage /> },
-      { path: 'playlist-icon-edit/:name', element: <PlaylistIconEditPage /> },
+      { path: '/icon-edit/:kind/:name', element: <IconEditPage  /> },
     ]
   },
   {

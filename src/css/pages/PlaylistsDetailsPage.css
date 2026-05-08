@@ -79,7 +79,9 @@
   gap: 1rem;
   width: 100%;
 }
-
+.playlists-details-button-left {
+  padding: .5rem;
+}
 .playlists-details-button-right {
   display: flex;
   flex-direction: row;

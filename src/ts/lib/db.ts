@@ -461,6 +461,18 @@ export async function renameTagsLists(id: number, name: string): Promise<void> {
   await db.execute('UPDATE taglists SET name = $1 WHERE id = $2', [name, id])
 }
 
+// taglistのアイコンを設定
+export async function setTaglistIcon(
+  id: number,
+  icon: PlaylistIconData
+): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE taglists SET icon = $1 WHERE id = $2',
+    [JSON.stringify(icon), id]
+  )
+}
+
 export async function getTagListTracks(pos_tags: string[], neg_tags: string[]): Promise<Track[]> {
   const db = await getDb()
   const rows = await db.select<TrackRow[]>(
@@ -468,6 +480,8 @@ export async function getTagListTracks(pos_tags: string[], neg_tags: string[]): 
   )
   const posSet = new Set(pos_tags)
   const negSet = new Set(neg_tags)
+
+  if (pos_tags.length === 0) return []
 
   return rows
     .map(rowToTrack)
@@ -483,6 +497,30 @@ export async function getTagListTracks(pos_tags: string[], neg_tags: string[]): 
       }
       return true
     })
+}
+
+// taglistのpositive_tagsを更新
+export async function setTaglistPositiveTags(
+  id: number,
+  tags: string[]
+): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE taglists SET positive_tags = $1 WHERE id = $2',
+    [JSON.stringify(tags), id]
+  )
+}
+
+// taglistのnegative_tagsを更新
+export async function setTaglistNegativeTags(
+  id: number,
+  tags: string[]
+): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE taglists SET negative_tags = $1 WHERE id = $2',
+    [JSON.stringify(tags), id]
+  )
 }
 
 // 使わない。マイグレーション用

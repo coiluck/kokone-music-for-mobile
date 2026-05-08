@@ -5,7 +5,7 @@ import { musicPlayer } from '../lib/music'
 import MusicItem from '../components/MusicItem'
 import { DISPLAY_NAMES } from './PlaylistsPage'
 import { useSettingsStore, type Lang } from '../lib/settingsStore'
-import { PlaylistIcon as PlaylistIconView } from '../components/PlaylistIcon'
+import { ListIcon } from '../components/ListIcon'
 import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { Icon } from '../components/Icon'
 import '../../css/pages/PlaylistsDetailsPage.css'
@@ -15,7 +15,6 @@ export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const playlistName = name ? decodeURIComponent(name) : ''
   const lang = useSettingsStore(s => s.lang)
-  const iconStyle = useSettingsStore(s => s.iconStyle)
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)
   const navigate = useNavigate()
   const isPlaying = usePlayerStore(s => s.currentTrack)
@@ -94,9 +93,9 @@ export default function PlaylistsDetailsPage() {
         <div className="playlists-details-header-cd-wrapper">
           <div
             className="playlists-details-header-cd-jacket-container"
-            onClick={() => navigate(`/playlist-icon-edit/${encodeURIComponent(playlistName)}`)}
+            onClick={() => navigate(`/icon-edit/playlist/${encodeURIComponent(playlistName)}`)}
           >
-            <PlaylistIconView icon={icon} name={playlistName} size={192} iconStyle={iconStyle} />
+            <ListIcon icon={icon} name={playlistName} size={192} />
           </div>
           <div className="playlists-details-header-cd-disc-icon" />
         </div>

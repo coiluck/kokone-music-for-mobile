@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPlaylists, setPlaylistIcon } from '../../lib/db'
+import {
+  getPlaylists,
+  getTagslists,
+  setPlaylistIcon,
+  setTaglistIcon,
+} from '../../lib/db'
 import {
   rollHue,
   SVG_NAMES,
@@ -8,14 +13,16 @@ import {
   type SvgIconName,
 } from '../../lib/playlistIcon'
 import { usePlayerStore } from '../../lib/playerStore'
-import { PlaylistIcon } from '../../components/PlaylistIcon'
+import { ListIcon } from '../../components/ListIcon'
 import { Icon } from '../../components/Icon'
 import { useMappedTranslations } from '../../lib/i18n'
 import '../../../css/pages/sub/IconEditPage.css'
 
-export default function PlaylistIconEditPage() {
-  const { name } = useParams<{ name: string }>()
-  const playlistName = name ? decodeURIComponent(name) : ''
+type IconKind = 'playlist' | 'taglist'
+
+export default function IconEditPage() {
+  const { kind, name } = useParams<{ kind: IconKind; name: string }>()
+  const targetName = name ? decodeURIComponent(name) : ''
   const navigate = useNavigate()
   const currentTrack = usePlayerStore(s => s.currentTrack)
 
@@ -24,26 +31,28 @@ export default function PlaylistIconEditPage() {
     save: 'playlist.icon.edit.save',
   })
 
-  const [playlistId, setPlaylistId] = useState<number | null>(null)
+  const [targetId, setTargetId] = useState<number | null>(null)
   const [hue, setHue] = useState<number>(() => rollHue())
   const [selectedKind, setSelectedKind] =
     useState<{ kind: 'svg'; name: SvgIconName } | { kind: 'auto' }>(
       { kind: 'svg', name: 'icon1' }
     )
 
-  // 初期値: 既存のプレイリストのアイコンを読み込む
+  // 初期値: 既存のアイコンを読み込む（kind に応じて取得元を切り替え）
   useEffect(() => {
-    getPlaylists().then(playlists => {
-      const pl = playlists.find(p => p.name === playlistName)
-      if (!pl) return
-      setPlaylistId(pl.id)
-      if (pl.icon) {
-        setHue(pl.icon.hue)
-        if (pl.icon.kind === 'auto') setSelectedKind({ kind: 'auto' })
-        else setSelectedKind({ kind: 'svg', name: pl.icon.name })
+    if (!kind) return
+    const fetcher = kind === 'playlist' ? getPlaylists : getTagslists
+    fetcher().then(items => {
+      const item = items.find(i => i.name === targetName)
+      if (!item) return
+      setTargetId(item.id)
+      if (item.icon) {
+        setHue(item.icon.hue)
+        if (item.icon.kind === 'auto') setSelectedKind({ kind: 'auto' })
+        else setSelectedKind({ kind: 'svg', name: item.icon.name })
       }
     })
-  }, [playlistName])
+  }, [kind, targetName])
 
   const buildIcon = (
     sel: typeof selectedKind,
@@ -54,8 +63,9 @@ export default function PlaylistIconEditPage() {
       : { kind: 'svg', name: sel.name, hue: h }
 
   const handleSave = async () => {
-    if (playlistId == null) return
-    await setPlaylistIcon(playlistId, buildIcon(selectedKind, hue))
+    if (targetId == null || !kind) return
+    const setter = kind === 'playlist' ? setPlaylistIcon : setTaglistIcon
+    await setter(targetId, buildIcon(selectedKind, hue))
     navigate(-1)
   }
 
@@ -71,14 +81,14 @@ export default function PlaylistIconEditPage() {
   return (
     <div className="page fade-in" style={{ paddingBottom: '0' }}>
       <div className="ie-page-header">
-        <span className="ie-page-header-title">{playlistName}</span>
+        <span className="ie-page-header-title">{targetName}</span>
       </div>
 
       {/* プレビュー（大） */}
       <div className="ie-page-preview">
-        <PlaylistIcon
+        <ListIcon
           icon={buildIcon(selectedKind, hue)}
-          name={playlistName}
+          name={targetName}
           size={160}
         />
       </div>
@@ -104,7 +114,7 @@ export default function PlaylistIconEditPage() {
               )
             }}
           >
-            <PlaylistIcon icon={cand} name={playlistName} size={80} />
+            <ListIcon icon={cand} name={targetName} size={80} />
           </div>
         ))}
       </div>

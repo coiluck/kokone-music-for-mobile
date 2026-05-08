@@ -1,4 +1,5 @@
-.am-component-container {  display: flex;
+.am-component-container {
+  display: flex;
   flex-direction: column;
   gap: 2px;
   position: fixed;

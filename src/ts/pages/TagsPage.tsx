@@ -75,7 +75,7 @@ export default function TagsPage() {
   return (
     <div className="page fade-in">
       {isAdding && (
-        <div className="tags-page-overlay" onClick={() => setIsAdding(false)} />
+        <div className="tags-overlay" onClick={() => setIsAdding(false)} />
       )}
 
       <div className="tags-header">

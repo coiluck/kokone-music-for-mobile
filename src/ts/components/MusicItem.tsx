@@ -10,7 +10,7 @@ import ItemActionsMenu, { type ActionMenuItem } from "./ItemActionsMenu"
 import EditInfoModal from "./EditInfoModal"
 import { useMappedTranslations } from "../lib/i18n"
 import '../../css/components/MusicItem.css'
-import { PlaylistIcon as PlaylistIconView } from "./PlaylistIcon"
+import { ListIcon } from "./ListIcon"
 import { showMessage } from "./Message"
 
 interface Props {
@@ -262,7 +262,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
                     }}
                   >
                     <div className="mi-component-playlist-item-icon-container">
-                      <PlaylistIconView icon={pl.icon} name={pl.name} size={32} />
+                      <ListIcon icon={pl.icon} name={pl.name} size={32} />
                     </div>
                     <span className="mi-component-playlist-item-text-container">
                       <span className="mi-component-playlist-item-text-name">{pl.name}</span>
@@ -344,7 +344,6 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
                   ))}
                 </div>
                 <input
-                  className="ei-component-field-input"
                   type="text"
                   enterKeyHint="enter"
                   placeholder={t.editInfoTagsPlaceholder}

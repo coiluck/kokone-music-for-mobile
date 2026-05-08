@@ -1,4 +1,3 @@
-import { Icon } from './Icon'
 import { ColoredSvg } from './ColoredSvg'
 import {
   getSvgColors,
@@ -11,10 +10,9 @@ type Props = {
   icon: PlaylistIconData | null
   name: string         // identicon の seed に使う
   size: number
-  iconStyle?: string | null  // null時のフォールバック用
 }
 
-export function PlaylistIcon({ icon, name, size, iconStyle = null }: Props) {
+export function ListIcon({ icon, name, size }: Props) {
   return (
     <span
       style={{
@@ -23,27 +21,19 @@ export function PlaylistIcon({ icon, name, size, iconStyle = null }: Props) {
         justifyContent: 'center',
         width: size,
         height: size,
-        backgroundColor: '#fff',
+        backgroundColor: '#ddd',
         overflow: 'hidden',
         flexShrink: 0,
       }}
     >
-      <PlaylistIconInner icon={icon} name={name} size={size} iconStyle={iconStyle} />
+      <ListIconInner icon={icon} name={name} size={size} />
     </span>
   )
 }
 
-function PlaylistIconInner({ icon, name, size, iconStyle }: Props) {
-  if (!icon) {
-    return (
-      <Icon
-        name="playlist"
-        mode={iconStyle as never}
-        size={size}
-        folder="/images/PlaylistsPage/"
-      />
-    )
-  }
+function ListIconInner({ icon, name, size }: Props) {
+  // ロード中などで icon が null の場合は何も描画しない（白背景のみ）
+  if (!icon) return null
 
   if (icon.kind === 'svg') {
     const colors = getSvgColors(icon.name, icon.hue)
