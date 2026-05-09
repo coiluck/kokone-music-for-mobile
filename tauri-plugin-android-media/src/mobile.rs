@@ -44,9 +44,69 @@ impl<R: Runtime> AndroidMedia<R> {
             .map_err(Into::into)
     }
 
-    pub fn prepare_audio(&self, payload: PrepareAudioRequest) -> Result<PrepareAudioResponse> {
+    pub fn playback_set_queue(&self, payload: PlaybackSetQueueRequest) -> Result<EmptyResponse> {
         self.0
-            .run_mobile_plugin::<PrepareAudioResponse>("prepareAudio", payload)
+            .run_mobile_plugin::<EmptyResponse>("playbackSetQueue", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_enqueue(&self, payload: PlaybackEnqueueRequest) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackEnqueue", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_remove_at(&self, payload: PlaybackIndexRequest) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackRemoveAt", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_move(&self, payload: PlaybackMoveRequest) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackMove", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_clear(&self) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackClear", ())
+            .map_err(Into::into)
+    }
+
+    pub fn playback_next(&self) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackNext", ())
+            .map_err(Into::into)
+    }
+
+    pub fn playback_prev(&self) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackPrev", ())
+            .map_err(Into::into)
+    }
+
+    pub fn playback_toggle_pause(&self) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackTogglePause", ())
+            .map_err(Into::into)
+    }
+
+    pub fn playback_seek(&self, payload: PlaybackSeekRequest) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackSeek", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_set_volume(&self, payload: PlaybackVolumeRequest) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackSetVolume", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_snapshot(&self) -> Result<PlaybackSnapshot> {
+        self.0
+            .run_mobile_plugin::<PlaybackSnapshot>("playbackSnapshot", ())
             .map_err(Into::into)
     }
 }

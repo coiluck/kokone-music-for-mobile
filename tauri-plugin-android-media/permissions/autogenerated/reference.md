@@ -8,7 +8,8 @@ Default permissions for the android-media plugin. Allows querying MediaStore aud
 - `allow-request-audio-permission`
 - `allow-query-audio-metadata`
 - `allow-audio-hash`
-- `allow-prepare-audio`
+- `allow-register-listener`
+- `allow-remove-listener`
 
 ## Permission Table
 
@@ -74,32 +75,6 @@ Denies the has_audio_permission command without any pre-configured scope.
 <tr>
 <td>
 
-`android-media:allow-prepare-audio`
-
-</td>
-<td>
-
-Enables the prepare_audio command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`android-media:deny-prepare-audio`
-
-</td>
-<td>
-
-Denies the prepare_audio command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `android-media:allow-query-audio-metadata`
 
 </td>
@@ -119,6 +94,58 @@ Enables the query_audio_metadata command without any pre-configured scope.
 <td>
 
 Denies the query_audio_metadata command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:allow-register-listener`
+
+</td>
+<td>
+
+Enables the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:deny-register-listener`
+
+</td>
+<td>
+
+Denies the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:allow-remove-listener`
+
+</td>
+<td>
+
+Enables the remove_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-media:deny-remove-listener`
+
+</td>
+<td>
+
+Denies the remove_listener command without any pre-configured scope.
 
 </td>
 </tr>

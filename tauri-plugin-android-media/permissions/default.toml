@@ -7,5 +7,6 @@ permissions = [
     "allow-request-audio-permission",
     "allow-query-audio-metadata",
     "allow-audio-hash",
-    "allow-prepare-audio",
+    "allow-register-listener",
+    "allow-remove-listener",
 ]

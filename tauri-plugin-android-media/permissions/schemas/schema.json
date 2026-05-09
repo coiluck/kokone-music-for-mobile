@@ -319,18 +319,6 @@
           "markdownDescription": "Denies the has_audio_permission command without any pre-configured scope."
         },
         {
-          "description": "Enables the prepare_audio command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-prepare-audio",
-          "markdownDescription": "Enables the prepare_audio command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the prepare_audio command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-prepare-audio",
-          "markdownDescription": "Denies the prepare_audio command without any pre-configured scope."
-        },
-        {
           "description": "Enables the query_audio_metadata command without any pre-configured scope.",
           "type": "string",
           "const": "allow-query-audio-metadata",
@@ -341,6 +329,30 @@
           "type": "string",
           "const": "deny-query-audio-metadata",
           "markdownDescription": "Denies the query_audio_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-listener",
+          "markdownDescription": "Enables the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-listener",
+          "markdownDescription": "Denies the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-listener",
+          "markdownDescription": "Enables the remove_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-listener",
+          "markdownDescription": "Denies the remove_listener command without any pre-configured scope."
         },
         {
           "description": "Enables the request_audio_permission command without any pre-configured scope.",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the request_audio_permission command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-prepare-audio`",
+          "description": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-prepare-audio`"
+          "markdownDescription": "Default permissions for the android-media plugin. Allows querying MediaStore audio metadata and computing audio hashes via ContentResolver.\n#### This default permission set includes:\n\n- `allow-has-audio-permission`\n- `allow-request-audio-permission`\n- `allow-query-audio-metadata`\n- `allow-audio-hash`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

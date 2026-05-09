@@ -32,7 +32,53 @@ impl<R: Runtime> AndroidMedia<R> {
         })
     }
 
-    pub fn prepare_audio(&self, _payload: PrepareAudioRequest) -> Result<PrepareAudioResponse> {
-        Ok(PrepareAudioResponse { path: String::new() })
+    pub fn playback_set_queue(&self, _payload: PlaybackSetQueueRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_enqueue(&self, _payload: PlaybackEnqueueRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_remove_at(&self, _payload: PlaybackIndexRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_move(&self, _payload: PlaybackMoveRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_clear(&self) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_next(&self) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_prev(&self) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_toggle_pause(&self) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_seek(&self, _payload: PlaybackSeekRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_set_volume(&self, _payload: PlaybackVolumeRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_snapshot(&self) -> Result<PlaybackSnapshot> {
+        Ok(PlaybackSnapshot {
+            current_index: -1,
+            is_playing: false,
+            position_ms: 0,
+            duration_ms: 0,
+            current_track_id: None,
+        })
     }
 }
