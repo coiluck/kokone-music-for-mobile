@@ -125,17 +125,17 @@
   border-radius: .5rem;
   box-shadow: 0 8px 24px rgb(from var(--color-text) r g b / 0.35);
   z-index: 1001; /* MusicItemのactionsMenuより上 */
-  animation: actions-menu-fade .2s ease-out;
+  animation: tag-actions-menu-fade .2s ease-out;
 }
 
-@keyframes actions-menu-fade {
-  from { 
-    opacity: 0; 
-    transform: translate(-50%, -50%) translateY(-2px); 
+@keyframes tag-actions-menu-fade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(-2px);
   }
-  to { 
-    opacity: 1; 
-    transform: translate(-50%, -50%) translateY(0); 
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0);
   }
 }
 
@@ -155,7 +155,7 @@
   transform: translateX(-50%);
   width: calc(100% + 2rem);
   height: 1px;
-  background-color: rgb(from var(--color-text) r g b / 0.2);  
+  background-color: rgb(from var(--color-text) r g b / 0.2);
 }
 
 

@@ -23,8 +23,7 @@
 .playlists-page-user-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
+  margin-top: .5rem;
 }
 
 .playlists-page-user-list-header {
@@ -32,10 +31,11 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+  padding: 1rem 0;
 }
 
 .playlists-page-user-list-header-icon-container {
-  padding: 1rem;
+  padding: .5rem;
   cursor: pointer;
 }
 
@@ -46,6 +46,7 @@
   gap: 2rem;
   position: relative;
   max-height: 0;
+  margin-top: 1rem;
   overflow: hidden;
   opacity: 0;
   z-index: 1;
@@ -60,6 +61,7 @@
 .playlists-page-user-list-add-container input {
   position: relative;
   width: 100%;
+  margin-bottom: 1rem;
   padding: .4rem .8rem .4rem 2rem;
   outline: none;
   border: 1px solid rgb(from var(--color-text) r g b / 0.1);
@@ -72,6 +74,7 @@
 }
 
 .playlists-page-user-list-add-container span {
+  margin-bottom: 1rem;
   padding: 0 1rem;
   text-wrap: nowrap;
   border: none;

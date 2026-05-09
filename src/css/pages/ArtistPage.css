@@ -8,6 +8,11 @@
   padding: 1rem .5rem; /* 左右はMusicItemと合わせる */
   border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
 }
+@media (hover: none) {
+  .artist-page-topbar {
+    padding: 1rem 0;
+  }
+}
 
 .artist-page-topbar-left {
   flex: 1;

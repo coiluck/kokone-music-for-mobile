@@ -17,6 +17,7 @@ interface Props {
 
 export default function TagsItem({ tagsList, onDelete, onRename }: Props) {
   const icon = tagsList.icon
+  const sortedTags = [...tagsList.positive_tags].sort((a, b) => a.localeCompare(b, 'ja'))
 
   const actionsBtnRef = useRef<HTMLDivElement>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -24,7 +25,6 @@ export default function TagsItem({ tagsList, onDelete, onRename }: Props) {
   const [editOpen, setEditOpen] = useState(false)
 
   const t = useMappedTranslations({
-    count: 'playlists.item.count',
     addToQueue: 'playlist.item.add-to-queue',
     overwrite: 'playlist.item.play-next',
     editInfo: 'playlist.item.edit-info',
@@ -103,9 +103,11 @@ export default function TagsItem({ tagsList, onDelete, onRename }: Props) {
       <div className="ti-component-text-container">
         <span className="ti-component-title">{tagsList.name}</span>
         <div className="ti-component-info">
-          <span className="ti-component-duration">
-            {fetchSortedTracks.length} {t.count}
-          </span>
+          {sortedTags.map(tag => (
+            <span key={tag} className="mi-component-tag-item">
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
       <div

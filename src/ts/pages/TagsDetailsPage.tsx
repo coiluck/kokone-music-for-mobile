@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Track, getTagslists, getTagListTracks, setTaglistPositiveTags, setTaglistNegativeTags } from '../lib/db'
 import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { usePlayerStore } from '../lib/playerStore'
+import { musicPlayer } from '../lib/music'
 import MusicItem from '../components/MusicItem'
 import { Icon } from '../components/Icon'
 import { ListIcon } from '../components/ListIcon'
 import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/TagsDetailsPage.css'
+import { useSettingsStore } from '../lib/settingsStore'
 
 export default function TagsDetailsPage() {
   const { listName } = useParams<{ listName: string }>()
@@ -22,6 +24,7 @@ export default function TagsDetailsPage() {
   const posInputRef = useRef<HTMLInputElement>(null)
   const negInputRef = useRef<HTMLInputElement>(null)
   const isPlaying = usePlayerStore(s => s.currentTrack)
+  const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const t = useMappedTranslations({
     editTitle: 'tags.details.edit.title',
@@ -53,23 +56,38 @@ export default function TagsDetailsPage() {
     return null
   }
 
-  const handlePlay = () => {
-    //
-  }
+  const handlePlay = useCallback((track: Track) => {
+    const i = tracks.findIndex(t => t.id === track.id)
+    const queue = i === -1 ? [] : [...tracks.slice(i + 1), ...tracks.slice(0, i)]
+    musicPlayer.setQueue(queue)
+    void musicPlayer.play(track)
+  }, [tracks])
 
-  const handlePlayAll = () => {
-    //
-  }
+  const handlePlayAll = useCallback(() => {
+    if (tracks.length === 0) return
+    const [first, ...rest] = tracks
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
 
-  const handleShuffle = () => {
-    //
-  }
+  const handleShuffle = useCallback(() => {
+    if (tracks.length === 0) return
+    // Fisher-Yates
+    const shuffled = [...tracks]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    const [first, ...rest] = shuffled
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [tracks])
 
   return (
     <div className='page fade-in'>
       {isMenuOpen && (
-        <div 
-          className="tags-details-overlay" 
+        <div
+          className="tags-details-overlay"
           onClick={(e) => { e.preventDefault(); setIsMenuOpen(false) }}
          />
       )}
@@ -92,7 +110,7 @@ export default function TagsDetailsPage() {
             className="tags-details-button-left"
             onClick={() => setIsMenuOpen(true)}
           >
-            <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
+            <Icon name="sliders" mode={iconStyle} size={24} folder='/images/TagsPage/' />
           </div>
           <div className="tags-details-button-right">
             <div
@@ -138,15 +156,20 @@ export default function TagsDetailsPage() {
                   <span
                     key={tag}
                     className="tags-details-menu-tag-item"
-                    onClick={() => {
-                      setPositiveTags(prev => prev.filter(t => t !== tag));
+                    onClick={async () => {
+                      if (listId === null) return
+                      const next = positiveTags.filter(t => t !== tag)
+                      setPositiveTags(next)
+                      await setTaglistPositiveTags(listId, next)
+                      const updatedTracks = await getTagListTracks(next, negativeTags)
+                      setTracks(updatedTracks)
                     }}
                   >
                     {tag}
                   </span>
                 ))}
               </div>
-              <input 
+              <input
                 className="tags-details-menu-input"
                 type="text"
                 enterKeyHint="enter"
@@ -182,15 +205,20 @@ export default function TagsDetailsPage() {
                   <span
                     key={tag}
                     className="tags-details-menu-tag-item"
-                    onClick={() => {
-                      setNegativeTags(prev => prev.filter(t => t !== tag));
+                    onClick={async () => {
+                      if (listId === null) return
+                      const next = negativeTags.filter(t => t !== tag)
+                      setNegativeTags(next)
+                      await setTaglistNegativeTags(listId, next)
+                      const updatedTracks = await getTagListTracks(positiveTags, next)
+                      setTracks(updatedTracks)
                     }}
                   >
                     {tag}
                   </span>
                 ))}
               </div>
-              <input 
+              <input
                 className="tags-details-menu-input"
                 type="text"
                 enterKeyHint="enter"

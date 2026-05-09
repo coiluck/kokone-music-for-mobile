@@ -12,6 +12,11 @@
     background-color: rgb(from var(--color-text) r g b / 0.15);
   }
 }
+@media (hover: none) {
+  .pli-component-container {
+    padding: .5rem 0;
+  }
+}
 
 .pli-component-icon-container {
   display: flex;
