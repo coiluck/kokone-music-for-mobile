@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,15 +39,88 @@ pub struct QueryAudioMetadataResponse {
     pub items: Vec<AudioMeta>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PrepareAudioRequest {
+pub struct PlaybackQueueItem {
+    pub track_id: i64,
+    /// MediaStore.Audio.Media._ID — Kotlin 側で content URI に組み立てる。
     pub audio_id: i64,
-    pub ext: String,
+    pub title: String,
+    pub artist: String,
+    pub gain: f32,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PrepareAudioResponse {
-    pub path: String,
+pub struct PlaybackSetQueueRequest {
+    pub items: Vec<PlaybackQueueItem>,
+    pub start_index: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackEnqueueRequest {
+    pub item: PlaybackQueueItem,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackAppendQueueRequest {
+    pub items: Vec<PlaybackQueueItem>,
+}
+
+/// 「path のリスト → MediaStore audio_id への解決」を Kotlin に依頼する。
+/// 全件スキャンを避けるため WHERE IN (...) で targeted lookup する。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioIdsForPathsRequest {
+    pub paths: Vec<String>,
+}
+
+/// `ids` には見つかった path だけが含まれる。
+/// 該当ファイルが MediaStore から消えていれば map に乗らないので、
+/// 呼び出し側は Option で受ける。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioIdsForPathsResponse {
+    pub ids: HashMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackIndexRequest {
+    pub index: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackMoveRequest {
+    pub from: i32,
+    pub to: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackSeekRequest {
+    pub position_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackVolumeRequest {
+    pub volume: f32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmptyResponse {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackSnapshot {
+    pub current_index: i32,
+    pub is_playing: bool,
+    pub position_ms: i64,
+    pub duration_ms: i64,
+    pub current_track_id: Option<i64>,
 }

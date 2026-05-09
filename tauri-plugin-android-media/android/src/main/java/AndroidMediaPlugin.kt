@@ -2,12 +2,22 @@ package moe.coiluck.kokone_music.androidmedia
 
 import android.Manifest
 import android.app.Activity
+import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.Permission
@@ -17,6 +27,8 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import com.google.common.util.concurrent.ListenableFuture
+import org.json.JSONObject
 import java.io.FileInputStream
 import java.security.MessageDigest
 
@@ -27,9 +39,54 @@ class AudioHashArgs {
 }
 
 @InvokeArg
-class PrepareAudioArgs {
+class AudioIdsForPathsArg {
+    var paths: Array<String> = emptyArray()
+}
+
+@InvokeArg
+class PlaybackQueueItemArg {
+    var trackId: Long = 0
     var audioId: Long = 0
-    var ext: String = ""
+    var title: String = ""
+    var artist: String = ""
+    var gain: Float = 1.0f
+}
+
+@InvokeArg
+class PlaybackSetQueueArg {
+    lateinit var items: Array<PlaybackQueueItemArg>
+    var startIndex: Int = -1
+}
+
+@InvokeArg
+class PlaybackEnqueueArg {
+    lateinit var item: PlaybackQueueItemArg
+}
+
+@InvokeArg
+class PlaybackAppendQueueArg {
+    lateinit var items: Array<PlaybackQueueItemArg>
+}
+
+@InvokeArg
+class PlaybackIndexArg {
+    var index: Int = -1
+}
+
+@InvokeArg
+class PlaybackMoveArg {
+    var from: Int = -1
+    var to: Int = -1
+}
+
+@InvokeArg
+class PlaybackSeekArg {
+    var positionMs: Long = 0
+}
+
+@InvokeArg
+class PlaybackVolumeArg {
+    var volume: Float = 1.0f
 }
 
 @TauriPlugin(
@@ -39,6 +96,189 @@ class PrepareAudioArgs {
     ]
 )
 class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
+
+    // -----------------------------------------------------------------------
+    // MediaController (Media3) — 再生制御の唯一の入口
+    // -----------------------------------------------------------------------
+
+    private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var masterVolume: Float = 1.0f
+
+    // 4Hz position 通知用 (UI のシークバー駆動)
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val positionRunnable = object : Runnable {
+        override fun run() {
+            val c = controller ?: return
+            try {
+                if (c.isPlaying) {
+                    val pos = c.currentPosition
+                    val dur = if (c.duration == C.TIME_UNSET) 0L else c.duration
+                    emitPosition(pos, dur)
+                }
+            } catch (_: Exception) { /* ignore */ }
+            mainHandler.postDelayed(this, 250)
+        }
+    }
+
+    /**
+     * MediaController を非同期で接続する。MediaSessionService は startService 不要で、
+     * SessionToken 経由で connect すれば自動的に起動する。
+     */
+    private fun ensureControllerStarted() {
+        if (controller != null || controllerFuture != null) return
+        val ctx = activity
+        val token = SessionToken(
+            ctx,
+            ComponentName(ctx, MusicPlaybackService::class.java)
+        )
+        val fut = MediaController.Builder(ctx, token).buildAsync()
+        controllerFuture = fut
+        fut.addListener({
+            try {
+                val c = fut.get()
+                controller = c
+                c.addListener(playerListener)
+                // 接続後の現在状態を JS にも一度伝える (snapshot 的)
+                emitTrackChanged(c.currentMediaItem, c.currentMediaItemIndex)
+                emitPlayingChanged(c.isPlaying)
+            } catch (e: Exception) {
+                android.util.Log.w("AndroidMediaPlugin", "MediaController connect failed", e)
+            }
+        }, ContextCompat.getMainExecutor(ctx))
+    }
+
+    /**
+     * メインスレッドで MediaController を使う。Tauri @Command は背景スレッドから呼ばれるため、
+     * 必ずメインに dispatch する (Player API はコントローラの applicationLooper に縛られる)。
+     */
+    private fun withController(action: (MediaController) -> Unit) {
+        ensureControllerStarted()
+        activity.runOnUiThread {
+            val c = controller
+            if (c != null) {
+                action(c)
+            } else {
+                val fut = controllerFuture ?: return@runOnUiThread
+                fut.addListener({
+                    try {
+                        val c2 = fut.get()
+                        action(c2)
+                    } catch (_: Exception) {}
+                }, ContextCompat.getMainExecutor(activity))
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Player.Listener: ExoPlayer の状態変化を JS に転送
+    // -----------------------------------------------------------------------
+
+    private val playerListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            applyVolume()
+            val idx = controller?.currentMediaItemIndex ?: -1
+            emitTrackChanged(mediaItem, idx)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            emitPlayingChanged(isPlaying)
+            if (isPlaying) {
+                mainHandler.removeCallbacks(positionRunnable)
+                mainHandler.post(positionRunnable)
+            } else {
+                mainHandler.removeCallbacks(positionRunnable)
+            }
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_ENDED) {
+                emitQueueEnded()
+            }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            emitError("ExoPlayer error: code=${error.errorCode} ${error.message}")
+        }
+    }
+
+    private fun emitTrackChanged(mediaItem: MediaItem?, index: Int) {
+        val obj = JSObject()
+        obj.put("type", "trackChanged")
+        obj.put("index", index)
+        if (mediaItem == null) {
+            obj.put("item", JSONObject.NULL)
+        } else {
+            val it = JSObject()
+            it.put("trackId", mediaItem.mediaId.toLongOrNull() ?: -1L)
+            it.put("title", mediaItem.mediaMetadata.title?.toString() ?: "")
+            it.put("artist", mediaItem.mediaMetadata.artist?.toString() ?: "")
+            obj.put("item", it)
+        }
+        trigger("playbackEvent", obj)
+    }
+
+    private fun emitPlayingChanged(isPlaying: Boolean) {
+        val obj = JSObject()
+        obj.put("type", "playingChanged")
+        obj.put("isPlaying", isPlaying)
+        trigger("playbackEvent", obj)
+    }
+
+    private fun emitPosition(positionMs: Long, durationMs: Long) {
+        val obj = JSObject()
+        obj.put("type", "positionChanged")
+        obj.put("positionMs", positionMs)
+        obj.put("durationMs", durationMs)
+        trigger("playbackEvent", obj)
+    }
+
+    private fun emitQueueEnded() {
+        val obj = JSObject()
+        obj.put("type", "queueEnded")
+        trigger("playbackEvent", obj)
+    }
+
+    private fun emitError(message: String) {
+        val obj = JSObject()
+        obj.put("type", "error")
+        obj.put("message", message)
+        trigger("playbackEvent", obj)
+    }
+
+    // -----------------------------------------------------------------------
+    // QueueItem -> MediaItem
+    //   gain は MediaItem の extras に乗せておき、トラック切替時に取り出して
+    //   master volume と合成する。
+    // -----------------------------------------------------------------------
+
+    private fun toMediaItem(arg: PlaybackQueueItemArg): MediaItem {
+        val uri: Uri = ContentUris.withAppendedId(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            arg.audioId
+        )
+        val extras = Bundle().apply { putFloat("gain", arg.gain) }
+        return MediaItem.Builder()
+            .setMediaId(arg.trackId.toString())
+            .setUri(uri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(arg.title)
+                    .setArtist(arg.artist)
+                    .setExtras(extras)
+                    .build()
+            )
+            .build()
+    }
+
+    private fun applyVolume() {
+        val c = controller ?: return
+        val gain = c.currentMediaItem
+            ?.mediaMetadata
+            ?.extras
+            ?.getFloat("gain", 1.0f) ?: 1.0f
+        c.volume = (masterVolume * gain).coerceIn(0f, 1f)
+    }
 
     // -----------------------------------------------------------------------
     // Permission
@@ -127,10 +367,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
                     val relPath = if (relIdx >= 0) cursor.getString(relIdx) ?: "" else ""
                     val data = if (dataIdx >= 0) cursor.getString(dataIdx) ?: "" else ""
 
-                    // 既存DBのpathカラムとの整合性のため、displayPath決定ロジックは
-                    // 旧 MediaStoreHelper.kt と完全に同一にする:
-                    //   1. MediaStore.Audio.Media.DATA が取れていればそれを使う
-                    //   2. 取れない場合は "/storage/emulated/0/" + RELATIVE_PATH + DISPLAY_NAME
                     val displayPath = if (data.isNotEmpty()) {
                         data
                     } else {
@@ -196,6 +432,50 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(ret)
     }
 
+    // -----------------------------------------------------------------------
+    // Targeted MediaStore lookup (path → audio_id)
+    //
+    // 全件スキャンを避けるため、必要な path だけを WHERE IN (...) で問い合わせる。
+    // SQLite の placeholder 上限を踏まえて 500 件ずつチャンクして送る。
+    // -----------------------------------------------------------------------
+    @Command
+    fun audioIdsForPaths(invoke: Invoke) {
+        val args = invoke.parseArgs(AudioIdsForPathsArg::class.java)
+        val ids = JSObject()
+        val ret = JSObject()
+        if (args.paths.isEmpty()) {
+            ret.put("ids", ids)
+            invoke.resolve(ret)
+            return
+        }
+
+        val chunkSize = 500
+        args.paths.toList().chunked(chunkSize).forEach { chunk ->
+            val placeholders = chunk.joinToString(",") { "?" }
+            val selection = "${MediaStore.Audio.Media.DATA} IN ($placeholders)"
+            try {
+                activity.contentResolver.query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA),
+                    selection,
+                    chunk.toTypedArray(),
+                    null
+                )?.use { cursor ->
+                    val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val dataIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                    while (cursor.moveToNext()) {
+                        val data = cursor.getString(dataIdx) ?: continue
+                        ids.put(data, cursor.getLong(idIdx))
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AndroidMediaPlugin", "audioIdsForPaths chunk failed", e)
+            }
+        }
+        ret.put("ids", ids)
+        invoke.resolve(ret)
+    }
+
     private fun hashAll(fis: FileInputStream, md: MessageDigest) {
         val buf = ByteArray(64 * 1024)
         while (true) {
@@ -205,7 +485,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    // mp3 の音声本体のみハッシュ。先頭 ID3v2 と末尾 ID3v1 (TAG) を除外する。
     private fun hashMp3Body(fis: FileInputStream, totalLen: Long, md: MessageDigest) {
         val header = ByteArray(10)
         var got = 0
@@ -310,111 +589,174 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     private val HEX = "0123456789abcdef".toCharArray()
 
-
-        // -----------------------------------------------------------------------
-    // Prepare audio for playback
-    //
-    // WebView の <audio> は MediaStore の content:// URI を直接食えるが、
-    // Tauri の asset/custom protocol 経由だと Range リクエストが正しく
-    // 返らずシーク不能 + 30 秒前後で停止する問題があるため、
-    // 一旦アプリの cacheDir にコピーしてからローカルファイルとして再生する。
-    //
-    // 既にコピー済みなら何もしない。サイズと最終更新時刻が一致していれば再利用する。
     // -----------------------------------------------------------------------
+    // Playback commands (MediaController 経由で ExoPlayer を操作)
+    //
+    // 全コマンドで invoke.resolve(JSObject()) を使う。引数なしの resolve() は
+    // Kotlin 側が文字列 "null" を返してしまい、Rust の EmptyResponse に
+    // deserialize できない。
+    // -----------------------------------------------------------------------
+
     @Command
-    fun prepareAudio(invoke: Invoke) {
-        val args = invoke.parseArgs(PrepareAudioArgs::class.java)
-        val ret = JSObject()
-        try {
-            val cacheRoot = java.io.File(activity.cacheDir, "playback")
-            if (!cacheRoot.exists()) cacheRoot.mkdirs()
-
-            val ext = args.ext.lowercase().ifEmpty { "bin" }
-            val outFile = java.io.File(cacheRoot, "${args.audioId}.${ext}")
-
-            val uri = ContentUris.withAppendedId(
-                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                args.audioId
-            )
-
-            // ソース側のサイズを取得して、既存キャッシュと比較
-            val srcSize: Long = try {
-                activity.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    pfd.statSize
-                } ?: -1L
-            } catch (e: Exception) {
-                -1L
-            }
-
-            // 既存キャッシュが有効か判定: ファイルが存在し、サイズがソースと一致
-            val cacheValid = outFile.exists() &&
-                srcSize > 0 &&
-                outFile.length() == srcSize
-
-            if (!cacheValid) {
-                // 既存の壊れた/古いキャッシュは消す
-                if (outFile.exists()) outFile.delete()
-
-                activity.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    FileInputStream(pfd.fileDescriptor).use { input ->
-                        java.io.FileOutputStream(outFile).use { output ->
-                            val buf = ByteArray(64 * 1024)
-                            while (true) {
-                                val n = input.read(buf)
-                                if (n <= 0) break
-                                output.write(buf, 0, n)
-                            }
-                            output.flush()
-                        }
+    fun playbackSetQueue(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackSetQueueArg::class.java)
+        val mediaItems = args.items.map(::toMediaItem)
+        val startIndex = args.startIndex
+        withController { c ->
+            if (startIndex in mediaItems.indices) {
+                // 完全リセット: 指定 index から再生開始
+                c.setMediaItems(mediaItems, startIndex, 0L)
+                c.prepare()
+                c.play()
+            } else {
+                // startIndex == -1: 「現曲は残して、以降を置き換える」
+                // 何も再生していなければ単に setMediaItems。
+                val curIdx = c.currentMediaItemIndex
+                val count = c.mediaItemCount
+                if (curIdx == C.INDEX_UNSET || count == 0) {
+                    c.setMediaItems(mediaItems)
+                    c.prepare()
+                } else {
+                    if (count > curIdx + 1) {
+                        c.removeMediaItems(curIdx + 1, count)
                     }
-                } ?: run {
-                    ret.put("path", "")
-                    invoke.resolve(ret)
-                    return
+                    if (mediaItems.isNotEmpty()) {
+                        c.addMediaItems(mediaItems)
+                    }
                 }
             }
-
-            // 触ったキャッシュの mtime を更新 (LRU 的に「最近使った」印)
-            outFile.setLastModified(System.currentTimeMillis())
-
-            // 古いキャッシュのトリミング
-            trimPlaybackCache(cacheRoot)
-
-            ret.put("path", outFile.absolutePath)
-            invoke.resolve(ret)
-        } catch (e: Exception) {
-            android.util.Log.w("AndroidMediaPlugin", "prepareAudio failed", e)
-            ret.put("path", "")
-            invoke.resolve(ret)
+            applyVolume()
+            invoke.resolve(JSObject())
         }
     }
 
-    // playback キャッシュは 10 ファイル / 200MB を上限に LRU で削る。
-    // 上限を超えていたら、最終更新時刻が古いものから消す。
-    private fun trimPlaybackCache(root: java.io.File) {
-        try {
-            val maxFiles = 10
-            val maxBytes = 200L * 1024 * 1024
+    @Command
+    fun playbackEnqueue(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackEnqueueArg::class.java)
+        val mi = toMediaItem(args.item)
+        withController { c ->
+            c.addMediaItem(mi)
+            invoke.resolve(JSObject())
+        }
+    }
 
-            val files = root.listFiles()?.filter { it.isFile } ?: return
-            if (files.size <= maxFiles) {
-                val total = files.sumOf { it.length() }
-                if (total <= maxBytes) return
+    /**
+     * 既存のキューに複数アイテムを末尾追加する。
+     * setQueue([first]) でまず再生開始し、その後ろに残り曲を追加する用途で使う。
+     * Media3 の addMediaItems は再生中の曲に影響しない (公式に保証)。
+     */
+    @Command
+    fun playbackAppendQueue(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackAppendQueueArg::class.java)
+        val mediaItems = args.items.map(::toMediaItem)
+        withController { c ->
+            if (mediaItems.isNotEmpty()) {
+                c.addMediaItems(mediaItems)
             }
+            invoke.resolve(JSObject())
+        }
+    }
 
-            val sorted = files.sortedBy { it.lastModified() } // 古い順
-            var totalBytes = files.sumOf { it.length() }
-            var count = files.size
-            for (f in sorted) {
-                if (count <= maxFiles && totalBytes <= maxBytes) break
-                val len = f.length()
-                if (f.delete()) {
-                    totalBytes -= len
-                    count -= 1
-                }
+    @Command
+    fun playbackRemoveAt(invoke: Invoke) {
+        // index は「upcoming 中の index」(JS の this.queue 内の位置)。
+        // native の MediaItem 配列での絶対 index = currentMediaItemIndex + 1 + upcomingIndex。
+        val args = invoke.parseArgs(PlaybackIndexArg::class.java)
+        withController { c ->
+            val curIdx = c.currentMediaItemIndex
+            val nativeIdx = if (curIdx == C.INDEX_UNSET) args.index else curIdx + 1 + args.index
+            if (nativeIdx in 0 until c.mediaItemCount) {
+                c.removeMediaItem(nativeIdx)
             }
-        } catch (e: Exception) {
-            android.util.Log.w("AndroidMediaPlugin", "trimPlaybackCache failed", e)
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackMove(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackMoveArg::class.java)
+        withController { c ->
+            val curIdx = c.currentMediaItemIndex
+            val offset = if (curIdx == C.INDEX_UNSET) 0 else curIdx + 1
+            val nativeFrom = offset + args.from
+            val nativeTo = offset + args.to
+            val n = c.mediaItemCount
+            if (nativeFrom in 0 until n && nativeTo in 0 until n) {
+                c.moveMediaItem(nativeFrom, nativeTo)
+            }
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackClear(invoke: Invoke) {
+        withController { c ->
+            c.clearMediaItems()
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackNext(invoke: Invoke) {
+        withController { c ->
+            if (c.hasNextMediaItem()) c.seekToNextMediaItem()
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackPrev(invoke: Invoke) {
+        withController { c ->
+            // ExoPlayer.seekToPrevious(): 3秒以上経過 → 曲頭、それ未満 → 前曲。
+            c.seekToPrevious()
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackTogglePause(invoke: Invoke) {
+        withController { c ->
+            if (c.isPlaying) {
+                c.pause()
+            } else {
+                if (c.playbackState == Player.STATE_IDLE) c.prepare()
+                c.play()
+            }
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackSeek(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackSeekArg::class.java)
+        withController { c ->
+            c.seekTo(args.positionMs)
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackSetVolume(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackVolumeArg::class.java)
+        masterVolume = args.volume.coerceIn(0f, 4f)
+        withController { _ ->
+            applyVolume()
+            invoke.resolve(JSObject())
+        }
+    }
+
+    @Command
+    fun playbackSnapshot(invoke: Invoke) {
+        withController { c ->
+            val obj = JSObject()
+            obj.put("currentIndex", c.currentMediaItemIndex)
+            obj.put("isPlaying", c.isPlaying)
+            obj.put("positionMs", c.currentPosition)
+            obj.put("durationMs", if (c.duration == C.TIME_UNSET) 0L else c.duration)
+            val tid = c.currentMediaItem?.mediaId?.toLongOrNull()
+            if (tid != null) obj.put("currentTrackId", tid)
+            else obj.put("currentTrackId", JSONObject.NULL)
+            invoke.resolve(obj)
         }
     }
 }

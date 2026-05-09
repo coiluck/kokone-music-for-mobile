@@ -5,7 +5,9 @@ use crate::models::*;
 use crate::AndroidMediaExt;
 
 #[tauri::command]
-pub(crate) async fn has_audio_permission<R: Runtime>(app: AppHandle<R>) -> Result<PermissionResponse> {
+pub(crate) async fn has_audio_permission<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<PermissionResponse> {
     app.android_media().has_audio_permission()
 }
 
@@ -32,9 +34,94 @@ pub(crate) async fn audio_hash<R: Runtime>(
 }
 
 #[tauri::command]
-pub(crate) async fn prepare_audio<R: Runtime>(
+pub(crate) async fn audio_ids_for_paths<R: Runtime>(
     app: AppHandle<R>,
-    payload: PrepareAudioRequest,
-) -> Result<PrepareAudioResponse> {
-    app.android_media().prepare_audio(payload)
+    payload: AudioIdsForPathsRequest,
+) -> Result<AudioIdsForPathsResponse> {
+    app.android_media().audio_ids_for_paths(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_set_queue<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackSetQueueRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_set_queue(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_enqueue<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackEnqueueRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_enqueue(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_append_queue<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackAppendQueueRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_append_queue(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_remove_at<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackIndexRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_remove_at(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_move<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackMoveRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_move(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_clear<R: Runtime>(app: AppHandle<R>) -> Result<EmptyResponse> {
+    app.android_media().playback_clear()
+}
+
+#[tauri::command]
+pub(crate) async fn playback_next<R: Runtime>(app: AppHandle<R>) -> Result<EmptyResponse> {
+    app.android_media().playback_next()
+}
+
+#[tauri::command]
+pub(crate) async fn playback_prev<R: Runtime>(app: AppHandle<R>) -> Result<EmptyResponse> {
+    app.android_media().playback_prev()
+}
+
+#[tauri::command]
+pub(crate) async fn playback_toggle_pause<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_toggle_pause()
+}
+
+#[tauri::command]
+pub(crate) async fn playback_seek<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackSeekRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_seek(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_set_volume<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackVolumeRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_set_volume(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_snapshot<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<PlaybackSnapshot> {
+    app.android_media().playback_snapshot()
 }

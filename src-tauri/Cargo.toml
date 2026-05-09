@@ -43,4 +43,5 @@ num_cpus = "1"
 
 # Android 専用: MediaStore を Kotlin プラグイン経由で叩く
 tauri-plugin-android-media = { path = "../tauri-plugin-android-media" }
+tauri-plugin-os = "2.3.2"
 

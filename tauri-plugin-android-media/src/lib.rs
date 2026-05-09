@@ -40,7 +40,19 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::request_audio_permission,
             commands::query_audio_metadata,
             commands::audio_hash,
-            commands::prepare_audio,
+            commands::audio_ids_for_paths,
+            commands::playback_set_queue,
+            commands::playback_enqueue,
+            commands::playback_append_queue,
+            commands::playback_remove_at,
+            commands::playback_move,
+            commands::playback_clear,
+            commands::playback_next,
+            commands::playback_prev,
+            commands::playback_toggle_pause,
+            commands::playback_seek,
+            commands::playback_set_volume,
+            commands::playback_snapshot,
         ])
         .setup(|app, api| {
             #[cfg(target_os = "android")]
