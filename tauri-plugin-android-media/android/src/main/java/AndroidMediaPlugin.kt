@@ -39,6 +39,11 @@ class AudioHashArgs {
 }
 
 @InvokeArg
+class AudioIdsForPathsArg {
+    var paths: Array<String> = emptyArray()
+}
+
+@InvokeArg
 class PlaybackQueueItemArg {
     var trackId: Long = 0
     var audioId: Long = 0
@@ -56,6 +61,11 @@ class PlaybackSetQueueArg {
 @InvokeArg
 class PlaybackEnqueueArg {
     lateinit var item: PlaybackQueueItemArg
+}
+
+@InvokeArg
+class PlaybackAppendQueueArg {
+    lateinit var items: Array<PlaybackQueueItemArg>
 }
 
 @InvokeArg
@@ -422,6 +432,50 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(ret)
     }
 
+    // -----------------------------------------------------------------------
+    // Targeted MediaStore lookup (path → audio_id)
+    //
+    // 全件スキャンを避けるため、必要な path だけを WHERE IN (...) で問い合わせる。
+    // SQLite の placeholder 上限を踏まえて 500 件ずつチャンクして送る。
+    // -----------------------------------------------------------------------
+    @Command
+    fun audioIdsForPaths(invoke: Invoke) {
+        val args = invoke.parseArgs(AudioIdsForPathsArg::class.java)
+        val ids = JSObject()
+        val ret = JSObject()
+        if (args.paths.isEmpty()) {
+            ret.put("ids", ids)
+            invoke.resolve(ret)
+            return
+        }
+
+        val chunkSize = 500
+        args.paths.toList().chunked(chunkSize).forEach { chunk ->
+            val placeholders = chunk.joinToString(",") { "?" }
+            val selection = "${MediaStore.Audio.Media.DATA} IN ($placeholders)"
+            try {
+                activity.contentResolver.query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA),
+                    selection,
+                    chunk.toTypedArray(),
+                    null
+                )?.use { cursor ->
+                    val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val dataIdx = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                    while (cursor.moveToNext()) {
+                        val data = cursor.getString(dataIdx) ?: continue
+                        ids.put(data, cursor.getLong(idIdx))
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AndroidMediaPlugin", "audioIdsForPaths chunk failed", e)
+            }
+        }
+        ret.put("ids", ids)
+        invoke.resolve(ret)
+    }
+
     private fun hashAll(fis: FileInputStream, md: MessageDigest) {
         val buf = ByteArray(64 * 1024)
         while (true) {
@@ -582,6 +636,23 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         val mi = toMediaItem(args.item)
         withController { c ->
             c.addMediaItem(mi)
+            invoke.resolve(JSObject())
+        }
+    }
+
+    /**
+     * 既存のキューに複数アイテムを末尾追加する。
+     * setQueue([first]) でまず再生開始し、その後ろに残り曲を追加する用途で使う。
+     * Media3 の addMediaItems は再生中の曲に影響しない (公式に保証)。
+     */
+    @Command
+    fun playbackAppendQueue(invoke: Invoke) {
+        val args = invoke.parseArgs(PlaybackAppendQueueArg::class.java)
+        val mediaItems = args.items.map(::toMediaItem)
+        withController { c ->
+            if (mediaItems.isNotEmpty()) {
+                c.addMediaItems(mediaItems)
+            }
             invoke.resolve(JSObject())
         }
     }

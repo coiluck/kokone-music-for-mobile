@@ -13,7 +13,12 @@ use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
 #[cfg(target_os = "android")]
-use tauri_plugin_android_media::{AndroidMediaExt, PlaybackQueueItem, PlaybackSetQueueRequest};
+use std::collections::HashMap;
+#[cfg(target_os = "android")]
+use tauri_plugin_android_media::{
+    AndroidMediaExt, AudioIdsForPathsRequest, PlaybackAppendQueueRequest, PlaybackEnqueueRequest,
+    PlaybackQueueItem, PlaybackSetQueueRequest,
+};
 
 #[cfg(not(target_os = "android"))]
 use tauri::ipc::Response;
@@ -88,31 +93,53 @@ pub async fn music_read_file(_app: AppHandle, _track_id: i64) -> Result<Vec<u8>,
 // -----------------------------------------------------------------------------
 
 #[cfg(target_os = "android")]
-fn build_queue_item(
-    track_id: i64,
-    path_to_audio_id: &std::collections::HashMap<String, i64>,
-    track: &TrackForPlayback,
-) -> Result<PlaybackQueueItem, String> {
-    let audio_id = *path_to_audio_id
-        .get(&track.path)
-        .ok_or_else(|| format!("track not found in MediaStore: {}", track.path))?;
-    Ok(PlaybackQueueItem {
-        track_id,
-        audio_id,
-        title: track.title.clone(),
-        artist: track.artist.clone(),
-        gain: lufs_to_gain(track.lufs),
-    })
+fn lookup_audio_ids(app: &AppHandle, paths: Vec<String>) -> Result<HashMap<String, i64>, String> {
+    if paths.is_empty() {
+        return Ok(HashMap::new());
+    }
+    // 全件スキャンを避けて WHERE _DATA IN (...) で必要な path だけ問い合わせる。
+    let resp = app
+        .android_media()
+        .audio_ids_for_paths(AudioIdsForPathsRequest { paths })
+        .map_err(|e| e.to_string())?;
+    Ok(resp.ids)
 }
 
 #[cfg(target_os = "android")]
-fn build_path_index(app: &AppHandle) -> Result<std::collections::HashMap<String, i64>, String> {
-    // MediaStore の全件スキャンは重いので、setQueue 1 回につき 1 度だけ呼ぶ。
-    let metas = crate::android_media::query_audio_metadata(app)?;
-    Ok(metas
-        .into_iter()
-        .map(|m| (m.display_path, m.id))
-        .collect())
+fn build_items_for(
+    app: &AppHandle,
+    track_ids: &[i64],
+    log_prefix: &str,
+) -> Result<Vec<PlaybackQueueItem>, String> {
+    // 1. SQLite からトラック情報を引く
+    let mut tracks: Vec<(i64, TrackForPlayback)> = Vec::with_capacity(track_ids.len());
+    for id in track_ids {
+        match fetch_track(app, *id) {
+            Ok(t) => tracks.push((*id, t)),
+            Err(e) => eprintln!("[{log_prefix}] fetch_track failed for {id}: {e}"),
+        }
+    }
+    if tracks.is_empty() {
+        return Ok(Vec::new());
+    }
+    // 2. 集めた path をまとめて Kotlin に audio_id 解決を依頼 (1 回の JNI)
+    let paths: Vec<String> = tracks.iter().map(|(_, t)| t.path.clone()).collect();
+    let id_map = lookup_audio_ids(app, paths)?;
+    // 3. PlaybackQueueItem を組み立てる
+    let mut items = Vec::with_capacity(tracks.len());
+    for (track_id, track) in tracks {
+        match id_map.get(&track.path) {
+            Some(audio_id) => items.push(PlaybackQueueItem {
+                track_id,
+                audio_id: *audio_id,
+                title: track.title,
+                artist: track.artist,
+                gain: lufs_to_gain(track.lufs),
+            }),
+            None => eprintln!("[{log_prefix}] not in MediaStore: {}", track.path),
+        }
+    }
+    Ok(items)
 }
 
 #[cfg(target_os = "android")]
@@ -122,17 +149,7 @@ pub async fn music_native_set_queue(
     track_ids: Vec<i64>,
     start_index: i32,
 ) -> Result<(), String> {
-    let path_index = build_path_index(&app)?;
-    let mut items = Vec::with_capacity(track_ids.len());
-    for id in track_ids {
-        match fetch_track(&app, id) {
-            Ok(track) => match build_queue_item(id, &path_index, &track) {
-                Ok(it) => items.push(it),
-                Err(e) => eprintln!("[music_native_set_queue] skip track {id}: {e}"),
-            },
-            Err(e) => eprintln!("[music_native_set_queue] fetch_track failed for {id}: {e}"),
-        }
-    }
+    let items = build_items_for(&app, &track_ids, "music_native_set_queue")?;
     app.android_media()
         .playback_set_queue(PlaybackSetQueueRequest { items, start_index })
         .map_err(|e| e.to_string())?;
@@ -142,11 +159,38 @@ pub async fn music_native_set_queue(
 #[cfg(target_os = "android")]
 #[tauri::command]
 pub async fn music_native_enqueue(app: AppHandle, track_id: i64) -> Result<(), String> {
-    let path_index = build_path_index(&app)?;
     let track = fetch_track(&app, track_id)?;
-    let item = build_queue_item(track_id, &path_index, &track)?;
+    let id_map = lookup_audio_ids(&app, vec![track.path.clone()])?;
+    let audio_id = *id_map
+        .get(&track.path)
+        .ok_or_else(|| format!("track not in MediaStore: {}", track.path))?;
+    let item = PlaybackQueueItem {
+        track_id,
+        audio_id,
+        title: track.title,
+        artist: track.artist,
+        gain: lufs_to_gain(track.lufs),
+    };
     app.android_media()
-        .playback_enqueue(tauri_plugin_android_media::PlaybackEnqueueRequest { item })
+        .playback_enqueue(PlaybackEnqueueRequest { item })
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// B1 の Phase 2: 既に再生開始済みのキューに残り曲を末尾追加する。
+/// JS は `play()` の中で「Phase 1 の 1 曲」が走り出した直後にこれを呼ぶ。
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn music_native_append_queue(
+    app: AppHandle,
+    track_ids: Vec<i64>,
+) -> Result<(), String> {
+    let items = build_items_for(&app, &track_ids, "music_native_append_queue")?;
+    if items.is_empty() {
+        return Ok(());
+    }
+    app.android_media()
+        .playback_append_queue(PlaybackAppendQueueRequest { items })
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -232,6 +276,13 @@ pub async fn music_native_set_queue(
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub async fn music_native_enqueue(_app: AppHandle, _track_id: i64) -> Result<(), String> { Ok(()) }
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn music_native_append_queue(
+    _app: AppHandle,
+    _track_ids: Vec<i64>,
+) -> Result<(), String> { Ok(()) }
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]

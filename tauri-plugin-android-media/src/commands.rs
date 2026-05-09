@@ -34,6 +34,14 @@ pub(crate) async fn audio_hash<R: Runtime>(
 }
 
 #[tauri::command]
+pub(crate) async fn audio_ids_for_paths<R: Runtime>(
+    app: AppHandle<R>,
+    payload: AudioIdsForPathsRequest,
+) -> Result<AudioIdsForPathsResponse> {
+    app.android_media().audio_ids_for_paths(payload)
+}
+
+#[tauri::command]
 pub(crate) async fn playback_set_queue<R: Runtime>(
     app: AppHandle<R>,
     payload: PlaybackSetQueueRequest,
@@ -47,6 +55,14 @@ pub(crate) async fn playback_enqueue<R: Runtime>(
     payload: PlaybackEnqueueRequest,
 ) -> Result<EmptyResponse> {
     app.android_media().playback_enqueue(payload)
+}
+
+#[tauri::command]
+pub(crate) async fn playback_append_queue<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PlaybackAppendQueueRequest,
+) -> Result<EmptyResponse> {
+    app.android_media().playback_append_queue(payload)
 }
 
 #[tauri::command]

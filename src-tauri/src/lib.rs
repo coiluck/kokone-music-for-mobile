@@ -24,6 +24,7 @@ pub fn run() {
             edit_track::edit_track_metadata,
             music_playback::music_native_set_queue,
             music_playback::music_native_enqueue,
+            music_playback::music_native_append_queue,
             music_playback::music_native_remove_at,
             music_playback::music_native_move,
             music_playback::music_native_clear,

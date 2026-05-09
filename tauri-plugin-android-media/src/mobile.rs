@@ -44,6 +44,15 @@ impl<R: Runtime> AndroidMedia<R> {
             .map_err(Into::into)
     }
 
+    pub fn audio_ids_for_paths(
+        &self,
+        payload: AudioIdsForPathsRequest,
+    ) -> Result<AudioIdsForPathsResponse> {
+        self.0
+            .run_mobile_plugin::<AudioIdsForPathsResponse>("audioIdsForPaths", payload)
+            .map_err(Into::into)
+    }
+
     pub fn playback_set_queue(&self, payload: PlaybackSetQueueRequest) -> Result<EmptyResponse> {
         self.0
             .run_mobile_plugin::<EmptyResponse>("playbackSetQueue", payload)
@@ -53,6 +62,15 @@ impl<R: Runtime> AndroidMedia<R> {
     pub fn playback_enqueue(&self, payload: PlaybackEnqueueRequest) -> Result<EmptyResponse> {
         self.0
             .run_mobile_plugin::<EmptyResponse>("playbackEnqueue", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn playback_append_queue(
+        &self,
+        payload: PlaybackAppendQueueRequest,
+    ) -> Result<EmptyResponse> {
+        self.0
+            .run_mobile_plugin::<EmptyResponse>("playbackAppendQueue", payload)
             .map_err(Into::into)
     }
 

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +61,29 @@ pub struct PlaybackSetQueueRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackEnqueueRequest {
     pub item: PlaybackQueueItem,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackAppendQueueRequest {
+    pub items: Vec<PlaybackQueueItem>,
+}
+
+/// 「path のリスト → MediaStore audio_id への解決」を Kotlin に依頼する。
+/// 全件スキャンを避けるため WHERE IN (...) で targeted lookup する。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioIdsForPathsRequest {
+    pub paths: Vec<String>,
+}
+
+/// `ids` には見つかった path だけが含まれる。
+/// 該当ファイルが MediaStore から消えていれば map に乗らないので、
+/// 呼び出し側は Option で受ける。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioIdsForPathsResponse {
+    pub ids: HashMap<String, i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

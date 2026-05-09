@@ -32,11 +32,27 @@ impl<R: Runtime> AndroidMedia<R> {
         })
     }
 
+    pub fn audio_ids_for_paths(
+        &self,
+        _payload: AudioIdsForPathsRequest,
+    ) -> Result<AudioIdsForPathsResponse> {
+        Ok(AudioIdsForPathsResponse {
+            ids: std::collections::HashMap::new(),
+        })
+    }
+
     pub fn playback_set_queue(&self, _payload: PlaybackSetQueueRequest) -> Result<EmptyResponse> {
         Ok(EmptyResponse::default())
     }
 
     pub fn playback_enqueue(&self, _payload: PlaybackEnqueueRequest) -> Result<EmptyResponse> {
+        Ok(EmptyResponse::default())
+    }
+
+    pub fn playback_append_queue(
+        &self,
+        _payload: PlaybackAppendQueueRequest,
+    ) -> Result<EmptyResponse> {
         Ok(EmptyResponse::default())
     }
 

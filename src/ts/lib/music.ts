@@ -200,15 +200,25 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   // ---- 公開 API ----
 
   async play(track: Track): Promise<void> {
-    // 上位呼び出しは「setQueue(rest); play(first)」のパターンなので、
-    // ネイティブには [track, ...this.queue] を渡してフルキューにする。
-    // JS 側の this.queue (= 「これから流れる曲」) はそのまま保つ。
+    // 2 段送信 (B1):
+    //   Phase 1: track 1 曲だけネイティブに渡して即座に再生開始する。
+    //            ここで音が鳴り始めるので体感レイテンシは Phase 1 だけで決まる。
+    //   Phase 2: this.queue (これから流れる曲) を末尾に append する。
+    //            Media3 の addMediaItems は再生中アイテムに影響しない。
+    // 大きなキュー (1000 曲超) でも Phase 1 が軽いので最初の 1 曲は素早く鳴る。
     this.rememberTrack(track)
-    const fullQueue = [track, ...this.queue]
     await invoke('music_native_set_queue', {
-      trackIds: fullQueue.map(t => t.id),
+      trackIds: [track.id],
       startIndex: 0,
     })
+    if (this.queue.length > 0) {
+      const restIds = this.queue.map(t => t.id)
+      try {
+        await invoke('music_native_append_queue', { trackIds: restIds })
+      } catch (err) {
+        console.error('[NativePlayer] append_queue failed:', err)
+      }
+    }
   }
 
   async stop(): Promise<void> {
