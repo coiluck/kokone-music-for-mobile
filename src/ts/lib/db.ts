@@ -130,16 +130,38 @@ export async function getAllTracks(): Promise<Track[]> {
   return rows.map(rowToTrack)
 }
 
-export async function searchTracks(query: string): Promise<Track[]> {
+export async function searchTracks(query: string, tags: string[] = []): Promise<Track[]> {
   const db = await getDb()
-  const q = `%${query}%`
-  const rows = await db.select<TrackRow[]>(
-    `SELECT * FROM tracks
-     WHERE title LIKE $1 OR artist LIKE $1 OR album LIKE $1
-     ORDER BY artist, title`,
-    [q]
-  )
-  return rows.map(rowToTrack)
+  const trimmed = query.trim()
+
+  // query 部分は SQL で絞る
+  let rows: TrackRow[]
+  if (trimmed) {
+    const q = `%${trimmed}%`
+    rows = await db.select<TrackRow[]>(
+      `SELECT * FROM tracks
+       WHERE title LIKE $1 OR artist LIKE $1 OR album LIKE $1
+       ORDER BY artist, title`,
+      [q]
+    )
+  } else {
+    rows = await db.select<TrackRow[]>(
+      'SELECT * FROM tracks ORDER BY artist, title'
+    )
+  }
+
+  const tracks = rows.map(rowToTrack)
+
+  // tags 部分はクライアントで AND 絞り込み
+  if (tags.length === 0) return tracks
+  const tagSet = new Set(tags)
+  return tracks.filter(track => {
+    const trackTagSet = new Set(track.tags)
+    for (const tag of tagSet) {
+      if (!trackTagSet.has(tag)) return false
+    }
+    return true
+  })
 }
 
 export async function updateTrack(

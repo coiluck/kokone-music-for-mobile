@@ -59,11 +59,31 @@ export default function MiniPlayer() {
     setDraggingMs(null)
   }
 
-  const handleOpenQueue = () => {
-    if (location.pathname === '/queue') return
+  const handleOpenArtist = (artist: string) => {
     const pageEl = document.querySelector('.page')
     const scrollTop = pageEl?.scrollTop ?? 0
-    navigate('/queue', {
+    navigate(`/artist/${encodeURIComponent(artist)}`, {
+      state: { from: location.pathname, scrollTop },
+    })
+  }
+
+  const handleOpenSearchWithTag = (tag: string) => {
+    const pageEl = document.querySelector('.page')
+    const scrollTop = pageEl?.scrollTop ?? 0
+    navigate('/sub/search', {
+      state: {
+        from: location.pathname,
+        scrollTop,
+        initialTags: [tag],
+      },
+    })
+  }
+
+  const handleOpenQueue = () => {
+    if (location.pathname === '/sub/queue') return
+    const pageEl = document.querySelector('.page')
+    const scrollTop = pageEl?.scrollTop ?? 0
+    navigate('/sub/queue', {
       state: { from: location.pathname, scrollTop },
     })
   }
@@ -89,8 +109,32 @@ export default function MiniPlayer() {
             {currentTrack.title ?? currentTrack.path.split('/').pop()}
           </div>
           <div className="player-component-info-meta">
+          <span
+            className="player-component-info-meta-artist"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (currentTrack.artist) handleOpenArtist(currentTrack.artist)
+            }}
+          >
             {currentTrack.artist ?? '—'}
-            {currentTrack.tags.length !== 0 && (`・${currentTrack.tags}`)}
+          </span>
+            {currentTrack.tags.length !== 0 && (
+              <div className="player-component-info-meta-tag-container">
+                {currentTrack.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="player-component-info-meta-tag"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleOpenSearchWithTag(tag)
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

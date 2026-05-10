@@ -94,9 +94,18 @@
 }
 
 .mi-component-tag-container {
+  flex: 1;
   display: flex;
   flex-wrap: nowrap;
   gap: .25rem;
+  min-width: 0;
+  mask-image: linear-gradient(to right, var(--color-bg) calc(100% - 1rem), transparent 100%);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 .mi-component-tag-item {
   display: inline-block;

@@ -1,12 +1,11 @@
-import SettingsPage from './pages/SettingsPage'
-import MiniPlayer from './components/MiniPlayer'
+import SettingsPage from './../pages/SettingsPage'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useMappedTranslations } from './lib/i18n'
+import { useMappedTranslations } from './../lib/i18n'
 
 export default function SettingsLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const from = location.state?.from ?? '/' 
+  const from = location.state?.from ?? '/'
 
   const t = useMappedTranslations({
     title: 'settings.title',
@@ -23,11 +22,6 @@ export default function SettingsLayout() {
       <main className="app-content">
         <SettingsPage />
       </main>
-
-      {/* 再生は継続させるが見せない */}
-      <div style={{ display: 'none' }}>
-        <MiniPlayer />
-      </div>
     </div>
   )
 }

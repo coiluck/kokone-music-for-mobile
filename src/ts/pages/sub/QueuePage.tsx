@@ -150,7 +150,7 @@ export default function QueuePage() {
   }
 
   return (
-    <div className="page" style={{ gap: '.5rem' }}>
+    <div className="fade-in queue-page">
       <div className="queue-page-header">
         <div className="queue-page-header-left">
           <div

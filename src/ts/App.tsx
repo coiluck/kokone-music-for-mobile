@@ -1,33 +1,15 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import MiniPlayer from './components/MiniPlayer'
 import { useEffect } from 'react'
-import { runStartupScan } from './lib/scanFolders'
-import { initDb } from './lib/db'
 import { useMappedTranslations } from './lib/i18n'
 import '../css/default.css'
 import '../css/app.css'
-import { loadAndApplyTheme } from './lib/theme'
 import { Icon } from './components/Icon'
-import { useSettingsStore } from './lib/settingsStore'
 import { ScanMessage } from './components/ScanMessage'
 import { Message } from './components/Message'
+import { useSettingsStore } from './lib/settingsStore'
 
 export default function App() {
-  const iconStyle = useSettingsStore(s => s.iconStyle)
-  const loadIconSettings = useSettingsStore(s => s.loadIconSettings)
-  const loadScanIgnoreSettings = useSettingsStore(s => s.loadScanIgnoreSettings)
-  const loadLang = useSettingsStore(s => s.loadLang)
-  const loadPlaySettings = useSettingsStore(s => s.loadPlaySettings)
-
-  useEffect(() => {
-    initDb().then(runStartupScan)
-    loadAndApplyTheme()
-    loadIconSettings()
-    loadScanIgnoreSettings()
-    loadLang()
-    loadPlaySettings()
-  }, [])
-
   const t = useMappedTranslations({
     library: 'page.library',
     playlist: 'page.playlist',
@@ -38,6 +20,8 @@ export default function App() {
 
   const location = useLocation()
   const navigate = useNavigate()
+
+  const iconStyle = useSettingsStore(s => s.iconStyle)
 
   useEffect(() => {
     const scrollTop = location.state?.restoreScrollTop
@@ -56,7 +40,7 @@ export default function App() {
   const handleOpenSearch = () => {
     if (location.pathname === '/search') {
       // 再度inputにfocusを合わせるため
-      navigate('/search', {
+      navigate('/sub/search', {
         replace: true,
         state: location.state, // from / scrollTop を引き継ぐ
       })
@@ -64,7 +48,7 @@ export default function App() {
     }
     const pageEl = document.querySelector('.page')
     const scrollTop = pageEl?.scrollTop ?? 0
-    navigate('/search', {
+    navigate('/sub/search', {
       state: { from: location.pathname, scrollTop },
     })
   }
