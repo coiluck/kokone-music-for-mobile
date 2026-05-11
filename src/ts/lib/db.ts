@@ -545,6 +545,31 @@ export async function setTaglistNegativeTags(
   )
 }
 
+
+// ここからalbum用
+// album一覧を取得（album名と曲数）
+export async function getAlbums(): Promise<{ album: string; count: number }[]> {
+  const db = await getDb()
+  const rows = await db.select<{ album: string | null; cnt: number }[]>(
+    `SELECT album, COUNT(*) as cnt
+     FROM tracks
+     WHERE album IS NOT NULL AND album != ''
+     GROUP BY album
+     ORDER BY album`
+  )
+  return rows.map(r => ({ album: r.album ?? '', count: r.cnt }))
+}
+
+// 特定のalbumに含まれるTrack[]を取得
+export async function getAlbumTracks(album: string): Promise<Track[]> {
+  const db = await getDb()
+  const rows = await db.select<TrackRow[]>(
+    `SELECT * FROM tracks WHERE album = $1 ORDER BY artist, title`,
+    [album]
+  )
+  return rows.map(rowToTrack)
+}
+
 // 使わない。マイグレーション用
 export async function resetDb(): Promise<void> {
   const db = await getDb()

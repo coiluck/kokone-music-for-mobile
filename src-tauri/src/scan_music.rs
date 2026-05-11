@@ -106,7 +106,7 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
 
             // ===== 2. detect delete =====
             let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
-            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
+            delete_unmatched_tracks(&mut conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
                 .map_err(|e| e.to_string())?;
 
             let added = add_new_tracks_android(
@@ -127,7 +127,7 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
 
             // ===== 2. detect delete =====
             let _ = app_for_emit.emit("scan-progress", ScanProgress::empty("deleting"));
-            delete_unmatched_tracks(&conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
+            delete_unmatched_tracks(&mut conn, &scan_paths, ignore_mode, ignore_time, &app_for_emit)
                 .map_err(|e| e.to_string())?;
 
             let added = add_new_tracks(
@@ -323,7 +323,7 @@ fn enumerate_android_candidates(
 // ---------------------------------------------------------------------------
 #[cfg_attr(not(target_os = "android"), allow(unused_variables))]
 fn delete_unmatched_tracks(
-    conn: &Connection,
+    conn: &mut Connection,
     scan_folders: &[String],
     ignore_mode: bool,
     ignore_time: f64,
@@ -345,66 +345,117 @@ fn delete_unmatched_tracks(
             }
         };
 
-    // 全トラックの (id, path, duration_ms) を取得
-    let mut stmt = conn.prepare("SELECT id, path, duration_ms FROM tracks")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, Option<i64>>(2)?,
-        ))
-    })?;
+    // 削除対象 id の収集はトランザクションの外でやる
+    // (prepare 中の stmt の生存期間と tx の借用が衝突するのを避けるため)
+    let to_delete: Vec<i64> = {
+        let mut stmt = conn.prepare("SELECT id, path, duration_ms FROM tracks")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+            ))
+        })?;
 
-    // 削除対象 id を収集
-    let mut to_delete: Vec<i64> = Vec::new();
-    let ignore_ms = (ignore_time * 1000.0) as i64;
+        let mut v: Vec<i64> = Vec::new();
+        let ignore_ms = (ignore_time * 1000.0) as i64;
 
-    for row in rows {
-        let (id, path, duration_ms) = row?;
+        for row in rows {
+            let (id, path, duration_ms) = row?;
 
-        // (a) スキャンフォルダ外 or 実ファイルが存在しない
-        let in_scan_folder = scan_folders.iter().any(|f| path.starts_with(f));
+            // (a) スキャンフォルダ外 or 実ファイルが存在しない
+            let in_scan_folder = scan_folders.iter().any(|f| path.starts_with(f));
 
-        #[cfg(not(target_os = "android"))]
-        let exists = Path::new(&path).is_file();
-        #[cfg(target_os = "android")]
-        let exists = if media_query_ok {
-            media_paths.contains(&path)
-        } else {
-            // MediaStore 取得に失敗した場合は誤削除を避けるため「存在する」とみなす。
-            true
-        };
+            #[cfg(not(target_os = "android"))]
+            let exists = Path::new(&path).is_file();
+            #[cfg(target_os = "android")]
+            let exists = if media_query_ok {
+                media_paths.contains(&path)
+            } else {
+                // MediaStore 取得に失敗した場合は誤削除を避けるため「存在する」とみなす。
+                true
+            };
 
-        if !in_scan_folder || !exists {
-            to_delete.push(id);
-            continue;
-        }
+            if !in_scan_folder || !exists {
+                v.push(id);
+                continue;
+            }
 
-        // (b) ignoreMode が ON で、duration_ms が基準秒数未満
-        if ignore_mode {
-            if let Some(d) = duration_ms {
-                if d < ignore_ms {
-                    to_delete.push(id);
-                    continue;
+            // (b) ignoreMode が ON で、duration_ms が基準秒数未満
+            if ignore_mode {
+                if let Some(d) = duration_ms {
+                    if d < ignore_ms {
+                        v.push(id);
+                        continue;
+                    }
                 }
             }
         }
-    }
-    drop(stmt);
+        v
+    };
 
     if to_delete.is_empty() {
         return Ok(0);
     }
 
-    // チャンクに分けて DELETE（SQLITE_MAX_VARIABLE_NUMBER 対策）
+    // tracks / history / playlists を同じトランザクションで更新する。
+    // 途中で失敗して playlist だけ虫食いになるのを避けるため。
+    let tx = conn.transaction()?;
+
     let mut deleted: u64 = 0;
+
+    // チャンクに分けて DELETE（SQLITE_MAX_VARIABLE_NUMBER 対策）
+    // history.track_id が tracks.id を参照しているため、FK 制約違反を避けるべく
+    // 参照元の history を先に消してから tracks を消す。
     for chunk in to_delete.chunks(500) {
         let placeholders = vec!["?"; chunk.len()].join(",");
-        let sql = format!("DELETE FROM tracks WHERE id IN ({})", placeholders);
         let params_vec: Vec<&dyn rusqlite::ToSql> =
             chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
-        deleted += conn.execute(&sql, params_vec.as_slice())? as u64;
+
+        let history_sql = format!("DELETE FROM history WHERE track_id IN ({})", placeholders);
+        tx.execute(&history_sql, params_vec.as_slice())?;
+
+        let tracks_sql = format!("DELETE FROM tracks WHERE id IN ({})", placeholders);
+        deleted += tx.execute(&tracks_sql, params_vec.as_slice())? as u64;
     }
+
+    // playlists.tracks (JSON 配列) からも削除対象 id を除去する。
+    //
+    // 削除対象を temp テーブルに入れて、JSON1 の json_each で配列を展開し、
+    // NOT IN で残すものだけ json_group_array で再構築する。
+    // 空配列で json_group_array が NULL になるケースは COALESCE で '[]' にフォールバック。
+    tx.execute(
+        "CREATE TEMP TABLE IF NOT EXISTS _deleted_track_ids (id INTEGER PRIMARY KEY)",
+        [],
+    )?;
+    // 前回スキャンの残骸が残っているとマズいので毎回クリア
+    tx.execute("DELETE FROM _deleted_track_ids", [])?;
+    {
+        let mut stmt = tx.prepare("INSERT INTO _deleted_track_ids (id) VALUES (?1)")?;
+        for id in &to_delete {
+            stmt.execute(params![id])?;
+        }
+    }
+
+    // 削除対象 id を含む playlist だけ UPDATE する (全 playlist 舐めないよう EXISTS でフィルタ)
+    tx.execute(
+        "UPDATE playlists
+            SET tracks = COALESCE(
+                (SELECT json_group_array(value)
+                   FROM json_each(playlists.tracks)
+                  WHERE value NOT IN (SELECT id FROM _deleted_track_ids)),
+                '[]'
+            )
+          WHERE EXISTS (
+            SELECT 1 FROM json_each(playlists.tracks)
+             WHERE value IN (SELECT id FROM _deleted_track_ids)
+          )",
+        [],
+    )?;
+
+    tx.execute("DELETE FROM _deleted_track_ids", [])?;
+
+    tx.commit()?;
     Ok(deleted)
 }
 
