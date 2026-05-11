@@ -7,6 +7,8 @@ import ArtistlistsPage from './pages/ArtistlistsPage'
 import ArtistPage from './pages/ArtistPage'
 import TagsPage from './pages/TagsPage'
 import TagsDetailsPage from './pages/TagsDetailsPage'
+import AlbumPage from './pages/AlbumPage'
+import AlbumDetailsPage from './pages/AlbumDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
 import IconEditPage from './pages/sub/IconEditPage'
@@ -19,12 +21,14 @@ export const router = createBrowserRouter([
     element: <App />,          // サイドバー＋ミニプレイヤーの共通レイアウト
     children: [
       { index: true,           element: <LibraryPage /> },
+      { path: 'tags/',         element: <TagsPage /> },
+      { path: 'tags/:listName', element: <TagsDetailsPage /> },
       { path: 'playlists/',     element: <PlaylistsPage /> },
       { path: 'playlists/:name', element: <PlaylistsDetailsPage /> },
       { path: 'artist/',       element: <ArtistlistsPage /> },
       { path: 'artist/:name',  element: <ArtistPage /> },
-      { path: 'tags/',  element: <TagsPage /> },
-      { path: 'tags/:listName',  element: <TagsDetailsPage /> },
+      { path: 'album/',        element: <AlbumPage /> },
+      { path: 'album/:name',   element: <AlbumDetailsPage /> },
       // subのページ
       { path: '/icon-edit/:kind/:name', element: <IconEditPage  /> },
     ]
@@ -39,6 +43,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '/settings',
-    element: <SettingsLayout />, // MiniPlayerを隠すラッパー
+    element: <SettingsLayout />,
   },
 ])

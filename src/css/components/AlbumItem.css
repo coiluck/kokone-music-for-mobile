@@ -1,4 +1,4 @@
-.ai-component-container {
+.album-item-component-container {
   width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -9,17 +9,17 @@
   transition: all 0.3s ease;
 }
 @media (hover: hover) {
-  .ai-component-container:hover {
+  .album-item-component-container:hover {
     background-color: rgb(from var(--color-text) r g b / 0.15);
   }
 }
 @media (hover: none) {
-  .ai-component-container {
+  .album-item-component-container {
     padding: .5rem 0;
   }
 }
 
-.ai-component-icon-container {
+.album-item-component-icon-container {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -31,7 +31,7 @@
   opacity: .5;
 }
 
-.ai-component-text-container {
+.album-item-component-text-container {
   display: flex;
   flex-direction: column;
   text-wrap: nowrap;
@@ -41,10 +41,10 @@
   gap: 2px;
 }
 
-.ai-component-title {
+.album-item-component-title {
   font-size: 1rem;
 }
-.ai-component-info {
+.album-item-component-info {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -52,6 +52,6 @@
   font-size: .7rem;
 }
 
-.ai-component-actions-container {
+.album-item-component-actions-container {
   opacity: .5;
 }

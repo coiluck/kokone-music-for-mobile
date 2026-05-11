@@ -92,6 +92,12 @@ export default function App() {
             <span className="app-sidebar-item-label">{t.playlist}</span>
           </div>
         </NavLink>
+        <NavLink to="/tags" className={({ isActive }) => isActive ? 'nav-active' : ''}>
+          <div className="app-sidebar-item">
+            <Icon name="tags" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
+            <span className="app-sidebar-item-label">{t.tags}</span>
+          </div>
+        </NavLink>
         <NavLink to="/artist" className={({ isActive }) => isActive ? 'nav-active' : ''}>
           <div className="app-sidebar-item">
             <Icon name="artist" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
@@ -102,12 +108,6 @@ export default function App() {
           <div className="app-sidebar-item">
             <Icon name="album" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
             <span className="app-sidebar-item-label">{t.album}</span>
-          </div>
-        </NavLink>
-        <NavLink to="/tags" className={({ isActive }) => isActive ? 'nav-active' : ''}>
-          <div className="app-sidebar-item">
-            <Icon name="tags" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
-            <span className="app-sidebar-item-label">{t.tags}</span>
           </div>
         </NavLink>
       </nav>

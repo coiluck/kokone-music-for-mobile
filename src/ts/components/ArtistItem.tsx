@@ -85,7 +85,7 @@ export default function ArtistItem({ artistName, artistTracksNumber }: ArtistIte
       </div>
       <div
         ref={actionsBtnRef}
-        className="ai-component-actions"
+        className="ai-component-actions-container"
         onClick={e => { e.stopPropagation(); setMenuOpen(o => !o) }}
       >
         <Icon name="ellipsis" mode={null} folder="images/ArtistItem/" />

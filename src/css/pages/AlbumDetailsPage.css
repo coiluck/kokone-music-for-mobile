@@ -1,0 +1,64 @@
+.album-details-page-topbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem .5rem; /* 左右はMusicItemと合わせる */
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+}
+@media (hover: none) {
+  .album-details-page-topbar {
+    padding: 1rem 0;
+  }
+}
+
+.album-details-page-topbar-left {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+.album-details-page-topbar-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.album-details-page-topbar-icon-container {
+  padding: 1rem;
+  border-radius: 50%;
+  background-color: rgb(from var(--color-text) r g b / 0.15);
+  opacity: .5;
+}
+.album-details-page-topbar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-details-page-topbar-text-title {
+  font-size: 1.5rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+}
+.album-details-page-topbar-text-meta {
+  font-size: .8rem;
+  opacity: .8;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.album-details-page-topbar-right.play_all {
+  background-color: var(--color-accent);
+  border-radius: 50%;
+  padding: .5rem;
+  cursor: pointer;
+}
