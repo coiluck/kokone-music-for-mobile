@@ -1,6 +1,0 @@
-cargo:rerun-if-changed=permissions
-cargo:PERMISSION_FILES_PATH=C:\Users\Voytec\Desktop\Kokone Music\tauri-plugin-android-media\target\debug\build\tauri-plugin-android-media-3bd417dd5af099bd\out\tauri-plugin-android-media-permission-files
-cargo:rerun-if-env-changed=REMOVE_UNUSED_COMMANDS
-cargo:rustc-check-cfg=cfg(mobile)
-cargo:rustc-check-cfg=cfg(desktop)
-cargo:rustc-cfg=desktop
