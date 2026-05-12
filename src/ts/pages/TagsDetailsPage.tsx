@@ -11,6 +11,12 @@ import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/TagsDetailsPage.css'
 import { useSettingsStore } from '../lib/settingsStore'
 
+function sortByTitle(tracks: Track[]): Track[] {
+  return [...tracks].sort((a, b) =>
+    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
+  )
+}
+
 export default function TagsDetailsPage() {
   const { listName } = useParams<{ listName: string }>()
   const navigate = useNavigate()
@@ -46,7 +52,7 @@ export default function TagsDetailsPage() {
       setIcon(targetList.icon)
 
       const tracks = await getTagListTracks(targetList.positive_tags, targetList.negative_tags)
-      setTracks(tracks)
+      setTracks(sortByTitle(tracks))
     }
     fetchData()
   }, [listName])
@@ -162,7 +168,7 @@ export default function TagsDetailsPage() {
                       setPositiveTags(next)
                       await setTaglistPositiveTags(listId, next)
                       const updatedTracks = await getTagListTracks(next, negativeTags)
-                      setTracks(updatedTracks)
+                      setTracks(sortByTitle(updatedTracks))
                     }}
                   >
                     {tag}
@@ -185,7 +191,7 @@ export default function TagsDetailsPage() {
                       setPositiveTags(next)
                       await setTaglistPositiveTags(listId, next)
                       const updatedTracks = await getTagListTracks(next, negativeTags)
-                      setTracks(updatedTracks)
+                      setTracks(sortByTitle(updatedTracks))
                     }
                     if (posInputRef.current) {
                       posInputRef.current.value = '';
@@ -211,7 +217,7 @@ export default function TagsDetailsPage() {
                       setNegativeTags(next)
                       await setTaglistNegativeTags(listId, next)
                       const updatedTracks = await getTagListTracks(positiveTags, next)
-                      setTracks(updatedTracks)
+                      setTracks(sortByTitle(updatedTracks))
                     }}
                   >
                     {tag}
@@ -234,7 +240,7 @@ export default function TagsDetailsPage() {
                       setNegativeTags(next)
                       await setTaglistNegativeTags(listId, next)
                       const updatedTracks = await getTagListTracks(positiveTags, next)
-                      setTracks(updatedTracks)
+                      setTracks(sortByTitle(updatedTracks))
                     }
                     if (negInputRef.current) {
                       negInputRef.current.value = '';

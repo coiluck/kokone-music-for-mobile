@@ -11,6 +11,12 @@ import { Icon } from '../components/Icon'
 import '../../css/pages/PlaylistsDetailsPage.css'
 import { usePlayerStore } from '../lib/playerStore'
 
+function sortByTitle(tracks: Track[]): Track[] {
+  return [...tracks].sort((a, b) =>
+    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
+  )
+}
+
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const playlistName = name ? decodeURIComponent(name) : ''
@@ -24,15 +30,15 @@ export default function PlaylistsDetailsPage() {
 
   useEffect(() => {
     if (playlistName === '__history__') {
-      getHistory().then(setTracks)
+      getHistory().then(t => setTracks(sortByTitle(t)))
     } else if (playlistName === '__recommended__') {
-      getRecommended().then(setTracks)
+      getRecommended().then(t => setTracks(sortByTitle(t)))
     } else {
       getPlaylists().then(playlists => {
         const pl = playlists.find(p => p.name === playlistName)
         if (!pl) return
         setIcon(pl.icon)
-        getPlaylistTracks(pl.trackIds).then(setTracks)
+        getPlaylistTracks(pl.trackIds).then(t => setTracks(sortByTitle(t)))
       })
     }
   }, [playlistName])
