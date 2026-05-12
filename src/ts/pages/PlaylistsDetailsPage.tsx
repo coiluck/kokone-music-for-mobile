@@ -18,6 +18,7 @@ export default function PlaylistsDetailsPage() {
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)
   const navigate = useNavigate()
   const isPlaying = usePlayerStore(s => s.currentTrack)
+  const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const [tracks, setTracks] = useState<Track[]>([])
 
@@ -75,7 +76,7 @@ export default function PlaylistsDetailsPage() {
           className="playlists-details-button-right shuffle"
           onClick={handleShuffle}
         >
-          <Icon name="shuffle" mode={null} size={20} folder='/images/PlaylistsPage/' />
+          <Icon name="shuffle" mode={iconStyle} size={20} folder='/images/PlaylistsPage/' />
         </div>
         <div
           className="playlists-details-button-right play_all"

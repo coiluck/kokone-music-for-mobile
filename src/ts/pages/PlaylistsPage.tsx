@@ -34,6 +34,7 @@ export default function PlaylistsPage() {
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
+  const iconStyle = useSettingsStore(s => s.iconStyle)
 
   useEffect(() => {
     getPlaylists().then(data => {
@@ -112,12 +113,13 @@ export default function PlaylistsPage() {
         <div className="playlists-page-user-list-header">
           <span className="playlists-page-user-list-header-title">{playlists.length} {t.count}</span>
           <span className="playlists-page-user-list-header-icon-container" onClick={() => { setIsAdding(true); inputRef.current?.focus() }}>
-            <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
+            <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />
           </span>
         </div>
 
         <div
           className={`playlists-page-user-list-add-container${isAdding ? ' is-open' : ''}`}
+          onClick={e => e.stopPropagation()}
         >
           <input
             ref={inputRef}

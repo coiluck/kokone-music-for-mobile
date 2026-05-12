@@ -5,6 +5,7 @@ import { taglist, getTagslists, addTagslists, deleteTagsLists, renameTagsLists }
 import { showMessage } from '../components/Message'
 import TagsItem from '../components/TagsItem'
 import { Icon } from '../components/Icon'
+import { useSettingsStore } from '../lib/settingsStore'
 import { useMappedTranslations } from '../lib/i18n'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import '../../css/pages/TagsPage.css'
@@ -17,6 +18,7 @@ export default function TagsPage() {
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
+  const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const t = useMappedTranslations({
     count: 'tags.page.count',
@@ -46,7 +48,7 @@ export default function TagsPage() {
       showMessage(t.nameExists);
       return
     }
-    
+
     const created = await addTagslists(name)
     setTagList(prev => {
       const next = [...prev, created]
@@ -87,12 +89,13 @@ export default function TagsPage() {
       <div className="tags-header">
         <span className="tags-header-title">{tagList.length} {t.count}</span>
         <span className="tags-header-icon-container" onClick={() => { setIsAdding(true); inputRef.current?.focus() }}>
-          <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
+          <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />
         </span>
       </div>
 
       <div
         className={`tags-add-container${isAdding ? ' is-open' : ''}`}
+        onClick={e => e.stopPropagation()}
       >
         <input
           ref={inputRef}
