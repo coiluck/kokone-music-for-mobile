@@ -8,6 +8,7 @@ import PlaylistItem from '../components/PlaylistItem'
 import { showMessage } from '../components/Message'
 import '../../css/pages/PlaylistsPage.css'
 import { usePlayerStore } from '../lib/playerStore'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 
 const RESERVED_NAMES = ['__history__', '__recommended__'];
 
@@ -27,17 +28,22 @@ export default function PlaylistsPage() {
   })
   const lang = useSettingsStore(s => s.lang)
   const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const navigate = useNavigate()
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     getPlaylists().then(data => {
       const sorted = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
       setPlaylists(sorted)
+      setLoaded(true)
     })
   }, [])
+
+  useScrollRestoration(pageRef, { ready: loaded })
 
   const handleAdd = async () => {
     const name = inputRef.current?.value.trim()
@@ -85,7 +91,7 @@ export default function PlaylistsPage() {
   }
 
   return (
-    <div className="page fade-in">
+    <div className="page fade-in" ref={pageRef}>
       {isAdding && (
         <div className="playlists-page-overlay" onClick={() => setIsAdding(false)} />
       )}

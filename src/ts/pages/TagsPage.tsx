@@ -6,14 +6,17 @@ import { showMessage } from '../components/Message'
 import TagsItem from '../components/TagsItem'
 import { Icon } from '../components/Icon'
 import { useMappedTranslations } from '../lib/i18n'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 import '../../css/pages/TagsPage.css'
 
 export default function TagsPage() {
   const navigate = useNavigate()
   const [isAdding, setIsAdding] = useState(false)
   const [tagList, setTagList] = useState<taglist[]>([])
+  const [loaded, setLoaded] = useState(false)
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   const t = useMappedTranslations({
     count: 'tags.page.count',
@@ -27,8 +30,11 @@ export default function TagsPage() {
     getTagslists().then(data => {
       const sorted = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
       setTagList(sorted)
+      setLoaded(true)
     })
   }, [])
+
+  useScrollRestoration(pageRef, { ready: loaded })
 
   const handleAdd = async() => {
     const name = inputRef.current?.value.trim()
@@ -73,7 +79,7 @@ export default function TagsPage() {
   }
 
   return (
-    <div className="page fade-in">
+    <div className="page fade-in" ref={pageRef}>
       {isAdding && (
         <div className="tags-overlay" onClick={() => setIsAdding(false)} />
       )}

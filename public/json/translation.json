@@ -91,6 +91,7 @@
   "album.item.tracksNumber": { "ja": "曲", "en": "tracks" },
   "album.item.add-to-queue": { "ja": "再生キューに追加", "en": "Add to Queue" },
   "album.item.overwrite-queue": { "ja": "再生キューを上書き", "en": "Overwrite Queue" },
+  "album.details.tracksNumber": { "ja": "曲", "en": "tracks" },
   "message.error.mi.edit-info": { "ja": "情報の編集に失敗しました", "en": "Failed to edit info" },
   "message.error.pl.reserved-name": { "ja": "予約語が使われています", "en": "Reserved words cannot be used." },
   "message.error.pl.name-exists": { "ja": "すでに同じ名前のプレイリストが存在します", "en": "A playlist with the same name already exists." },

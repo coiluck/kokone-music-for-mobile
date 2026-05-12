@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { getAllTracks, type Track } from '../lib/db'
 import { useScanStore } from '../lib/scanStore'
 import { usePlayerStore } from '../lib/playerStore'
 import ArtistItem from '../components/ArtistItem'
 import { useMappedTranslations } from '../lib/i18n'
+import { loadVirtualizerInitial, saveVirtualizerState } from '../lib/scrollRestoration'
 import '../../css/pages/ArtistlistsPage.css'
 
 const INDICATOR_ITEM_HEIGHT = 20
@@ -58,6 +60,7 @@ export default function ArtistlistsPage() {
   const [visibleChars, setVisibleChars] = useState<string[]>([])
   const [miniPlayerHeightPx, setMiniPlayerHeightPx] = useState(0)
   const scanVersion = useScanStore(s => s.scanVersion)
+  const { pathname } = useLocation()
 
   const t = useMappedTranslations({
     count: 'artist.list.count',
@@ -115,6 +118,14 @@ export default function ArtistlistsPage() {
     return result
   }, [artists])
 
+  // useVirtualizer の constructor 時点で読み込まないと意味がないので useMemo
+  // で pathname 単位に固定する。measurementsCache も復元しないと measureElement
+  // ベースのレイアウトが正しい位置に items を並べてくれず、復元が崩れる。
+  const initialRestoration = useMemo(
+    () => loadVirtualizerInitial(pathname),
+    [pathname],
+  )
+
   const virtualizer = useVirtualizer({
     count: artists.length,
     getScrollElement: () => listRef.current,
@@ -123,7 +134,22 @@ export default function ArtistlistsPage() {
     paddingStart: SCROLL_OFFSET,
     paddingEnd: miniPlayerHeightPx,
     getItemKey: i => artists[i]?.name ?? i,
+    initialOffset: initialRestoration.initialOffset,
+    initialMeasurementsCache: initialRestoration.initialMeasurementsCache,
+    onChange: instance => {
+      if (!instance.isScrolling) {
+        saveVirtualizerState(pathname, instance.scrollOffset, instance.measurementsCache)
+      }
+    },
   })
+
+  // unmount 時 (= ページ離脱時) は isScrolling のタイミングに頼れないので
+  // 必ず最後の状態を flush する。
+  useEffect(() => {
+    return () => {
+      saveVirtualizerState(pathname, virtualizer.scrollOffset, virtualizer.measurementsCache)
+    }
+  }, [pathname, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
 

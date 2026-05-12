@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
   addScanFolder,
@@ -14,6 +14,7 @@ import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg, ThemeSettings } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS } from '../lib/settingsStore'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
 
 export interface SettingsStore {
@@ -72,6 +73,8 @@ export default function SettingsPage() {
     github:         'settings.github',
   })
   const [folders, setFolders] = useState<string[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const pageRef = useRef<HTMLDivElement>(null)
 
   // Android 用フォルダ選択モーダル
   const onAndroid = isAndroid()
@@ -105,7 +108,10 @@ export default function SettingsPage() {
   const setIsTrailingSilence = useSettingsStore(s => s.setIsTrailingSilence)
 
   useEffect(() => {
-    getSetting('scan-folders', []).then(setFolders)
+    getSetting<string[]>('scan-folders', []).then(v => {
+      setFolders(v)
+      setLoaded(true)
+    })
     getSetting('accentColor', '#ff7f7e').then(setAccentColor)
     getSetting('bgColor',     '#0a0f1e').then(setBgColor)
     getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
@@ -113,6 +119,8 @@ export default function SettingsPage() {
     getSetting<ThemeSettings['font']>('font', 'noto-sans-ja').then(setFont)
     // icon / ignore / lang などの他ページでも使う設定は zustand ストアで管理
   }, [])
+
+  useScrollRestoration(pageRef, { ready: loaded })
 
   const handleColorChange = async <K extends 'accentColor' | 'bgColor' | 'bgMildColor' | 'textColor'>(
     key: K,
@@ -201,7 +209,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className='page fade-in'>
+    <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
         <div className='settings-section'>
           <div className='settings-section-label'>App</div>

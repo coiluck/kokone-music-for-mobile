@@ -60,6 +60,7 @@ export default function SearchPage() {
   }, [scanVersion, query, tags, load])
 
   useEffect(() => {
+    if (initialTags.length > 0) return;
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [location.key])
