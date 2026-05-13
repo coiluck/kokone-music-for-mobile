@@ -86,39 +86,41 @@ export default function TagsPage() {
         <div className="tags-overlay" onClick={() => setIsAdding(false)} />
       )}
 
-      <div className="tags-header">
-        <span className="tags-header-title">{tagList.length} {t.count}</span>
-        <span className="tags-header-icon-container" onClick={() => { setIsAdding(true); inputRef.current?.focus() }}>
-          <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />
-        </span>
-      </div>
+      <div className="tags-list">
+        <div className="tags-header">
+          <span className="tags-header-title">{tagList.length} {t.count}</span>
+          <span className="tags-header-icon-container" onClick={() => { setIsAdding(true); inputRef.current?.focus() }}>
+            <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />
+          </span>
+        </div>
 
-      <div
-        className={`tags-add-container${isAdding ? ' is-open' : ''}`}
-        onClick={e => e.stopPropagation()}
-      >
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder={t.placeholder}
-          onKeyDown={e => { if (e.key === 'Enter') void handleAdd() }}
-        />
-        <span onClick={() => void handleAdd()}>{t.add}</span>
-      </div>
+        <div
+          className={`tags-add-container${isAdding ? ' is-open' : ''}`}
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={t.placeholder}
+            onKeyDown={e => { if (e.key === 'Enter') void handleAdd() }}
+          />
+          <span onClick={() => void handleAdd()}>{t.add}</span>
+        </div>
 
-      <div className="tags-main-container" style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
-        {tagList.map(tl => (
-          <div
-            key={tl.id}
-            onClick={() => navigate(`/tags/${encodeURIComponent(tl.name)}`)}
-          >
-            <TagsItem
-              tagsList={tl}
-              onDelete={handleDelete}
-              onRename={handleRename}
-            />
-          </div>
-        ))}
+        <div className="tags-main-container" style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
+          {tagList.map(tl => (
+            <div
+              key={tl.id}
+              onClick={() => navigate(`/tags/${encodeURIComponent(tl.name)}`)}
+            >
+              <TagsItem
+                tagsList={tl}
+                onDelete={handleDelete}
+                onRename={handleRename}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
     </div>
