@@ -41,7 +41,6 @@ export default function QueuePage() {
   const t = useMappedTranslations({
     title: 'queue.title',
     shuffle: 'queue.item.shuffle',
-    duplicateClear: 'queue.item.duplicate-clear',
     allClear: 'queue.item.all-clear',
   })
 
@@ -77,18 +76,12 @@ export default function QueuePage() {
       onClick: () => handleShuffle(),
     },
     {
-      key: 'duplicate-clear',
-      label: t.duplicateClear,
-      separatorBefore: true,
-      onClick: () => handleClearDuplicates(),
-    },
-    {
       key: 'all-clear',
       label: t.allClear,
+      separatorBefore: true,
       onClick: () => handleClearAll(),
     },
   ]
-
 
   const sensors = useSensors(
     // pointer は 5px 動いてから drag 開始 (誤操作防止)

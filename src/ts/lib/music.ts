@@ -256,6 +256,10 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   }
 
   enqueue(track: Track): void {
+    // すでにある曲を enqueue しない
+    if (this.currentTrack?.id === track.id) return
+    if (this.queue.some(t => t.id === track.id)) return
+
     this.rememberTrack(track)
     this.queue.push(track)
     this.syncQueue()
@@ -457,7 +461,14 @@ class DesktopMusicPlayer implements MusicPlayer {
   }
 
   setQueue(tracks: Track[]): void { this.queue = [...tracks]; this.syncQueue() }
-  enqueue(track: Track): void { this.queue.push(track); this.syncQueue() }
+  enqueue(track: Track): void {
+    // すでにある曲を enqueue しない
+    if (this.currentTrack?.id === track.id) return
+    if (this.queue.some(t => t.id === track.id)) return
+
+    this.queue.push(track);
+    this.syncQueue()
+  }
   removeFromQueue(index: number): void {
     if (index < 0 || index >= this.queue.length) return
     this.queue.splice(index, 1); this.syncQueue()

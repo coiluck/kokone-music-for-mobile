@@ -46,7 +46,6 @@
   "search.count": { "ja": "曲", "en": "tracks" },
   "queue.title": { "ja": "再生待機リスト", "en": "Playback Queue" },
   "queue.item.shuffle": { "ja": "シャッフル", "en": "Shuffle" },
-  "queue.item.duplicate-clear": { "ja": "重複をクリア", "en": "Clear Duplicates" },
   "queue.item.all-clear": { "ja": "すべてクリア", "en": "Clear All" },
   "playlists.page.count": { "ja": "プレイリスト", "en": "playlists" },
   "playlists.page.add.placeholder": { "ja": "プレイリスト名", "en": "Playlist Name" },
