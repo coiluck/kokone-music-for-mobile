@@ -30,9 +30,9 @@ export default function PlaylistsDetailsPage() {
 
   useEffect(() => {
     if (playlistName === '__history__') {
-      getHistory().then(t => setTracks(sortByTitle(t)))
+      getHistory().then(t => setTracks(t))
     } else if (playlistName === '__recommended__') {
-      getRecommended().then(t => setTracks(sortByTitle(t)))
+      getRecommended().then(t => setTracks(t))
     } else {
       getPlaylists().then(playlists => {
         const pl = playlists.find(p => p.name === playlistName)
@@ -122,7 +122,7 @@ export default function PlaylistsDetailsPage() {
             className="playlists-details-button-right play_all"
             onClick={handlePlayAll}
           >
-            <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
+            <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />
           </div>
         </div>
       </div>

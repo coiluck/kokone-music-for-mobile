@@ -129,7 +129,7 @@ export default function TagsDetailsPage() {
               className="tags-details-button-right play_all"
               onClick={handlePlayAll}
             >
-              <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
+              <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />
             </div>
           </div>
         </div>

@@ -94,7 +94,7 @@ export default function AlbumDetailsPage() {
             className="album-details-page-topbar-right play_all"
             onClick={handlePlayAll}
           >
-            <Icon name="play_all" mode={null} size={20} folder='/images/PlaylistsPage/' />
+            <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />
           </div>
         </div>
       </div>

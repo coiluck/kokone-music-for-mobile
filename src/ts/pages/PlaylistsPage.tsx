@@ -102,10 +102,25 @@ export default function PlaylistsPage() {
           className="playlists-page-default-list-item"
           onClick={() => navigate(`/playlists/${encodeURIComponent('__history__')}`)}
         >
-          {DISPLAY_NAMES['__history__'][lang]}
+          <div className="playlists-page-default-list-item-icon-container">
+            <div className="playlists-page-default-list-item-icon-jacket history" />
+            <div className="playlists-page-default-list-item-icon-cd" />
+          </div>
+          <span className="playlists-page-default-list-item-text">
+            {DISPLAY_NAMES['__history__'][lang]}
+          </span>
         </div>
-        <div className="playlists-page-default-list-item" onClick={() => navigate(`/playlists/${encodeURIComponent('__recommended__')}`)}>
-          {DISPLAY_NAMES['__recommended__'][lang]}
+        <div
+          className="playlists-page-default-list-item"
+          onClick={() => navigate(`/playlists/${encodeURIComponent('__recommended__')}`)}
+        >
+          <div className="playlists-page-default-list-item-icon-container">
+            <div className="playlists-page-default-list-item-icon-jacket recommended" />
+            <div className="playlists-page-default-list-item-icon-cd" />
+          </div>
+          <span className="playlists-page-default-list-item-text">
+            {DISPLAY_NAMES['__recommended__'][lang]}
+          </span>
         </div>
       </div>
 
