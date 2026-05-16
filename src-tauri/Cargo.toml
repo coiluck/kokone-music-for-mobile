@@ -45,3 +45,5 @@ num_cpus = "1"
 tauri-plugin-android-media = { path = "../tauri-plugin-android-media" }
 tauri-plugin-os = "2.3.2"
 
+# 曲データを cloudflare D1に送るときのため
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }

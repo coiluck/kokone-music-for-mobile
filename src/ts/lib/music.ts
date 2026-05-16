@@ -5,16 +5,13 @@
 //   desktop  : 従来どおり HTMLAudioElement + Web Audio (LUFS 補正は AudioNode 側)
 //   Android  : ネイティブの MusicPlaybackService に再生・キュー・進行を委譲。
 //              JS は queue / current track の表示用ミラーだけを保持する。
-//
-// 共通インターフェース MusicPlayer を実装する 2 クラスを用意し、起動時に
-// プラットフォームを見て切り替える。export している musicPlayer の型は
-// 共通インターフェースなので呼び出し側は特に変更不要。
 
 import { invoke, addPluginListener, type PluginListener } from '@tauri-apps/api/core'
 import { platform } from '@tauri-apps/plugin-os'
 import { type Track, musicPlay } from './db'
 import { usePlayerStore } from './playerStore'
 import { useSettingsStore } from './settingsStore'
+import { sendPlayHistory } from './historySender'
 
 const TARGET_LUFS = -14.0
 const NORM_TIME_CONSTANT_SEC = 0.05
@@ -169,6 +166,7 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
             musicPlay(this.currentTrack.id).catch(e =>
               console.error('[NativePlayer] musicPlay failed:', e)
             )
+            sendPlayHistory(this.currentTrack.title, this.currentTrack.artist ?? null)
           }
           this.syncQueue()
         }
@@ -510,6 +508,7 @@ class DesktopMusicPlayer implements MusicPlayer {
     } else {
       store._setIsPlaying(true); store._setDuration(this.active.durationSec * 1000); store._setPosition(0)
       musicPlay(track.id).catch(e => console.error('[MusicPlayer] musicPlay failed:', e))
+      sendPlayHistory(track.title, track.artist ?? null)
     }
     this.updateMediaSession(track)
   }

@@ -6,6 +6,25 @@ export const AVAILABLE_LANGS = ['en', 'ja'] as const
 export const DEFAULT_LANG: Lang = AVAILABLE_LANGS[0] // 'en'
 export type Lang = typeof AVAILABLE_LANGS[number]
 
+export type HistoryBackend = 'firebase' | 'cloudflare-d1'
+
+export interface FirebaseConfig {
+  // Firestore REST API へ直接 POST する想定。
+  //   POST https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{collection}?key={apiKey}
+  projectId: string
+  apiKey: string
+  collection: string
+}
+
+export interface CloudflareD1Config {
+  // 任意の Cloudflare Worker エンドポイントへ JSON POST する想定。
+  //   POST {endpoint}
+  //   Header: Authorization: Bearer {apiToken}
+  //   Body:   { title, artist, playedAt }
+  endpoint: string
+  apiToken: string
+}
+
 interface SettingsState {
   iconStyle: 'fill' | 'outline'
   setIconStyle: (style: 'fill' | 'outline') => Promise<void>
@@ -29,6 +48,30 @@ interface SettingsState {
   setIsNormalizeVolume: (value: boolean) => Promise<void>
   setIsTrailingSilence: (value: boolean) => Promise<void>
   loadPlaySettings: () => Promise<void>
+
+  // 開発者モード
+  isDeveloperMode: boolean
+  isSendHistory: boolean
+  historyBackend: HistoryBackend
+  firebaseConfig: FirebaseConfig
+  cloudflareD1Config: CloudflareD1Config
+  setIsDeveloperMode: (value: boolean) => Promise<void>
+  setIsSendHistory: (value: boolean) => Promise<void>
+  setHistoryBackend: (value: HistoryBackend) => Promise<void>
+  setFirebaseConfig: (value: FirebaseConfig) => Promise<void>
+  setCloudflareD1Config: (value: CloudflareD1Config) => Promise<void>
+  loadDeveloperSettings: () => Promise<void>
+}
+
+const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
+  projectId: '',
+  apiKey: '',
+  collection: 'play_history',
+}
+
+const DEFAULT_CLOUDFLARE_D1_CONFIG: CloudflareD1Config = {
+  endpoint: '',
+  apiToken: '',
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -118,6 +161,61 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       masterVolume: masterVolume ?? 1,
       isNormalizeVolume: isNormalizeVolume ?? true,
       isTrailingSilence: isTrailingSilence ?? true,
+    })
+  },
+
+  // ---- 開発者モード ----
+  isDeveloperMode: false,
+  isSendHistory: false,
+  historyBackend: 'firebase',
+  firebaseConfig: DEFAULT_FIREBASE_CONFIG,
+  cloudflareD1Config: DEFAULT_CLOUDFLARE_D1_CONFIG,
+
+  setIsDeveloperMode: async (value) => {
+    set({ isDeveloperMode: value })
+    await invoke('settings_set', { key: 'isDeveloperMode', value })
+  },
+
+  setIsSendHistory: async (value) => {
+    set({ isSendHistory: value })
+    await invoke('settings_set', { key: 'isSendHistory', value })
+  },
+
+  setHistoryBackend: async (value) => {
+    set({ historyBackend: value })
+    await invoke('settings_set', { key: 'historyBackend', value })
+  },
+
+  setFirebaseConfig: async (value) => {
+    set({ firebaseConfig: value })
+    await invoke('settings_set', { key: 'firebaseConfig', value })
+  },
+
+  setCloudflareD1Config: async (value) => {
+    set({ cloudflareD1Config: value })
+    await invoke('settings_set', { key: 'cloudflareD1Config', value })
+  },
+
+  loadDeveloperSettings: async () => {
+    const [
+      isDeveloperMode,
+      isSendHistory,
+      historyBackend,
+      firebaseConfig,
+      cloudflareD1Config,
+    ] = await Promise.all([
+      invoke<boolean | null>('settings_get', { key: 'isDeveloperMode' }),
+      invoke<boolean | null>('settings_get', { key: 'isSendHistory' }),
+      invoke<HistoryBackend | null>('settings_get', { key: 'historyBackend' }),
+      invoke<FirebaseConfig | null>('settings_get', { key: 'firebaseConfig' }),
+      invoke<CloudflareD1Config | null>('settings_get', { key: 'cloudflareD1Config' }),
+    ])
+    set({
+      isDeveloperMode: isDeveloperMode ?? false,
+      isSendHistory: isSendHistory ?? false,
+      historyBackend: historyBackend ?? 'firebase',
+      firebaseConfig: firebaseConfig ?? DEFAULT_FIREBASE_CONFIG,
+      cloudflareD1Config: cloudflareD1Config ?? DEFAULT_CLOUDFLARE_D1_CONFIG,
     })
   },
 }))

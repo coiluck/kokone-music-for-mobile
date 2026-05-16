@@ -13,7 +13,7 @@ import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg, ThemeSettings } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
-import { useSettingsStore, AVAILABLE_LANGS } from '../lib/settingsStore'
+import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
 
@@ -33,6 +33,9 @@ export interface SettingsStore {
   masterVolume: number, // 0 to 2
   isNormalizeVolume: boolean,
   isTrailingSilence: boolean,
+  // 開発者モード
+  isDeveloperMode: boolean,
+  isSendHistory: boolean,
 }
 
 type Lang = typeof AVAILABLE_LANGS[number]
@@ -68,6 +71,11 @@ export default function SettingsPage() {
     masterVolume:   'settings.masterVolume',
     isNormalizeVolume: 'settings.isNormalizeVolume',
     isTrailingSilence: 'settings.isTrailingSilence',
+    // ---
+    isDeveloperMode: 'settings.isDeveloperMode',
+    isSendHistory: 'settings.isSendHistory',
+    historyBackend: 'settings.historyBackend',
+    // ---
     other:          'settings.other',
     version:        'settings.version',
     github:         'settings.github',
@@ -106,6 +114,18 @@ export default function SettingsPage() {
   const setIsNormalizeVolume = useSettingsStore(s => s.setIsNormalizeVolume)
   const isTrailingSilence    = useSettingsStore(s => s.isTrailingSilence)
   const setIsTrailingSilence = useSettingsStore(s => s.setIsTrailingSilence)
+
+  // 開発者モード設定
+  const isDeveloperMode      = useSettingsStore(s => s.isDeveloperMode)
+  const setIsDeveloperMode   = useSettingsStore(s => s.setIsDeveloperMode)
+  const isSendHistory        = useSettingsStore(s => s.isSendHistory)
+  const setIsSendHistory     = useSettingsStore(s => s.setIsSendHistory)
+  const historyBackend       = useSettingsStore(s => s.historyBackend)
+  const setHistoryBackend    = useSettingsStore(s => s.setHistoryBackend)
+  const firebaseConfig       = useSettingsStore(s => s.firebaseConfig)
+  const setFirebaseConfig    = useSettingsStore(s => s.setFirebaseConfig)
+  const cloudflareD1Config   = useSettingsStore(s => s.cloudflareD1Config)
+  const setCloudflareD1Config = useSettingsStore(s => s.setCloudflareD1Config)
 
   useEffect(() => {
     getSetting<string[]>('scan-folders', []).then(v => {
@@ -399,6 +419,107 @@ export default function SettingsPage() {
                 <span className="slider"></span>
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* 開発者モード */}
+        <div className='settings-section'>
+          <div className='settings-section-label'>{t.isDeveloperMode}</div>
+          <div className='settings-section-content'>
+            <div className='settings-section-content-item'>
+              <p>{t.isDeveloperMode}</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={isDeveloperMode}
+                  onChange={e => setIsDeveloperMode(e.target.checked)}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {isDeveloperMode && (
+              <>
+                <div className='settings-section-content-item'>
+                  <p>{t.isSendHistory}</p>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={isSendHistory}
+                      onChange={e => setIsSendHistory(e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+
+                <div className='settings-section-content-item' style={{ opacity: isSendHistory ? 1 : 0.4 }}>
+                  <p>{t.historyBackend}</p>
+                  <select
+                    value={historyBackend}
+                    disabled={!isSendHistory}
+                    onChange={e => setHistoryBackend(e.target.value as HistoryBackend)}
+                  >
+                    <option value="firebase">Firebase</option>
+                    <option value="cloudflare-d1">Cloudflare D1</option>
+                  </select>
+                </div>
+
+                {isSendHistory && historyBackend === 'firebase' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className='settings-section-content-item'>
+                      <p>Project ID</p>
+                      <input
+                        type="text"
+                        value={firebaseConfig.projectId}
+                        placeholder="my-firebase-project"
+                        onChange={e => setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value })}
+                      />
+                    </div>
+                    <div className='settings-section-content-item'>
+                      <p>API Key</p>
+                      <input
+                        type="password"
+                        value={firebaseConfig.apiKey}
+                        placeholder="AIza..."
+                        onChange={e => setFirebaseConfig({ ...firebaseConfig, apiKey: e.target.value })}
+                      />
+                    </div>
+                    <div className='settings-section-content-item'>
+                      <p>Collection</p>
+                      <input
+                        type="text"
+                        value={firebaseConfig.collection}
+                        placeholder="play_history"
+                        onChange={e => setFirebaseConfig({ ...firebaseConfig, collection: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {isSendHistory && historyBackend === 'cloudflare-d1' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                    <div className='settings-section-content-item'>
+                      <p>Endpoint URL</p>
+                      <input
+                        type="text"
+                        value={cloudflareD1Config.endpoint}
+                        placeholder="https://your-worker.workers.dev/history"
+                        onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, endpoint: e.target.value })}
+                      />
+                    </div>
+                    <div className='settings-section-content-item'>
+                      <p>API Token</p>
+                      <input
+                        type="password"
+                        value={cloudflareD1Config.apiToken}
+                        placeholder="(optional) Bearer token"
+                        onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, apiToken: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 

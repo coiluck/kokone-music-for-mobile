@@ -16,6 +16,7 @@ async function bootstrap() {
     useSettingsStore.getState().loadScanIgnoreSettings(),
     useSettingsStore.getState().loadLang(),
     useSettingsStore.getState().loadPlaySettings(),
+    useSettingsStore.getState().loadDeveloperSettings(),
   ])
 
   runStartupScan()
