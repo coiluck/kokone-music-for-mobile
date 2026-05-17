@@ -42,3 +42,7 @@ tauri-plugin-android-media/android/.tauri/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# sign
+keystore.properties
+release-keystore.jks
