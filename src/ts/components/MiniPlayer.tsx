@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useRef, useCallback } from 'react'
 import { usePlayerStore } from '../lib/playerStore'
+import { useTrackStore } from '../lib/trackStore'
 import { musicPlayer } from '../lib/music'
 import { Icon } from './Icon'
 import { useSettingsStore } from '../lib/settingsStore'
@@ -17,10 +18,19 @@ export default function MiniPlayer() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const currentTrack = usePlayerStore(s => s.currentTrack)
-  const isPlaying    = usePlayerStore(s => s.isPlaying)
-  const positionMs   = usePlayerStore(s => s.positionMs)
-  const durationMs   = usePlayerStore(s => s.durationMs)
+  // 再生エンジンの状態 (id, 再生位置など) は playerStore から取る
+  // 表示用のメタデータ (title/artist/tags) は trackStore から取る
+  const playerTrack = usePlayerStore(s => s.currentTrack)
+  const isPlaying   = usePlayerStore(s => s.isPlaying)
+  const positionMs  = usePlayerStore(s => s.positionMs)
+  const durationMs  = usePlayerStore(s => s.durationMs)
+
+  // trackStore にあれば最新を使い、無ければ playerStore のスナップショットに fallback する。
+  // (hydrate 前や、何らかの理由で trackStore に無いトラックを再生している場合)
+  const trackFromStore = useTrackStore(s =>
+    playerTrack != null ? s.tracksById[playerTrack.id] : undefined
+  )
+  const displayTrack = trackFromStore ?? playerTrack
 
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
@@ -88,7 +98,7 @@ export default function MiniPlayer() {
     })
   }
 
-  if (!currentTrack) {
+  if (!displayTrack) {
     return <div className="player-component-container empty"></div>
   }
 
@@ -106,21 +116,21 @@ export default function MiniPlayer() {
 
         <div className="player-component-info">
           <div className="player-component-info-title">
-            {currentTrack.title ?? currentTrack.path.split('/').pop()}
+            {displayTrack.title ?? displayTrack.path.split('/').pop()}
           </div>
           <div className="player-component-info-meta">
           <span
             className="player-component-info-meta-artist"
             onClick={(e) => {
               e.stopPropagation()
-              if (currentTrack.artist) handleOpenArtist(currentTrack.artist)
+              if (displayTrack.artist) handleOpenArtist(displayTrack.artist)
             }}
           >
-            {currentTrack.artist ?? '—'}
+            {displayTrack.artist ?? '—'}
           </span>
-            {currentTrack.tags.length !== 0 && (
+            {displayTrack.tags.length !== 0 && (
               <div className="player-component-info-meta-tag-container">
-                {currentTrack.tags.map(tag => (
+                {displayTrack.tags.map(tag => (
                   <span
                     key={tag}
                     className="player-component-info-meta-tag"

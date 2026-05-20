@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { Track, Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist, updateTrack } from "../lib/db"
+import { Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist, updateTrack } from "../lib/db"
+import { useTrackStore } from "../lib/trackStore"
 import { usePlayerStore } from "../lib/playerStore"
 import { useSettingsStore } from '../lib/settingsStore'
 import { musicPlayer } from "../lib/music"
@@ -14,64 +15,41 @@ import { ListIcon } from "./ListIcon"
 import { showMessage } from "./Message"
 
 interface Props {
-  track: Track
-  onPlay: (track: Track) => void
+  trackId: number
+  onPlay: (trackId: number) => void
   onRemove?: () => void
 }
 
-export default function MusicItem({ track, onPlay, onRemove }: Props) {
+export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
-  const isItemPlaying = usePlayerStore(s => s.currentTrack?.id === track.id)
-  const isItemPausing = usePlayerStore(s => s.currentTrack?.id === track.id && !s.isPlaying)
+  // 自分の ID のレコードだけを購読する
+  const track = useTrackStore(s => s.tracksById[trackId])
+  const updateTrackLocal = useTrackStore(s => s.updateTrackLocal)
+
+  const isItemPlaying = usePlayerStore(s => s.currentTrack?.id === trackId)
+  const isItemPausing = usePlayerStore(s => s.currentTrack?.id === trackId && !s.isPlaying)
 
   const actionsBtnRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [selectPlaylistOpen, setSelectPlaylistOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
 
-  // プレイリストの選択状態を管理するためのState
+  // プレイリストの選択状態
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<Set<number>>(new Set())
   const [selectedPlaylistIds, setSelectedPlaylistIds] = useState<Set<number>>(new Set())
 
-  const [localTrack, setLocalTrack] = useState<Track>(track)
-  const sortedTags = useMemo(
-    () => [...localTrack.tags].sort((a, b) => a.localeCompare(b, 'ja')),
-    [localTrack.tags]
-  )
+  // 編集モーダル内のタグ一時状態（保存するまで store には反映しない）
+  const [editingTags, setEditingTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
   const artistInputRef = useRef<HTMLInputElement>(null)
-  const [tagInput, setTagInput] = useState('')
 
-  const handleSaveEdit = async () => {
-    const title = titleInputRef.current?.value.trim() ?? track.title
-    const artist = artistInputRef.current?.value.trim() ?? track.artist
-    try {
-      await invoke('edit_track_metadata', {
-        payload: {
-          path: track.path,
-          title,
-          artist,
-        },
-      })
-
-      // DB更新（tagsもここで反映）
-      await updateTrack(track.id, {
-        title,
-        artist,
-        tags: localTrack.tags,
-      })
-
-      setLocalTrack(prev => ({ ...prev, title, artist }))
-    } catch (e) {
-      showMessage(`${t.editInfoError}: ${e}`, 'infinity')
-    }
-  }
-
-  useEffect(() => {
-    setLocalTrack(track)
-  }, [track])
+  const sortedTags = useMemo(
+    () => track ? [...track.tags].sort((a, b) => a.localeCompare(b, 'ja')) : [],
+    [track?.tags]
+  )
 
   const t = useMappedTranslations({
     editInfoTitle: 'music.item.edit-info.title',
@@ -89,19 +67,27 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
     addToPlaylist: 'music.item.actions.add-to-playlist',
     count: 'music.item.count',
     editInfoError: 'message.error.mi.edit-info',
+    addToPlaylistError: 'message.error.mi.add-to-playlist',
   })
 
-  // プレイリスト追加モーダルが開かれたらデータを取得・ソートしてStateにセット
+  // 編集モーダルが開かれたタイミングで現在の tags をコピー
+  useEffect(() => {
+    if (editOpen && track) {
+      setEditingTags([...track.tags])
+      setTagInput('')
+    }
+  }, [editOpen, track])
+
+  // プレイリスト追加モーダルが開かれたらデータを取得
   useEffect(() => {
     if (selectPlaylistOpen) {
       getPlaylists().then(data => {
         const sorted = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
         setPlaylists(sorted)
 
-        // 既にこの曲が含まれているプレイリストを選択状態
         const initialIds = new Set<number>()
         sorted.forEach(pl => {
-          if (pl.trackIds.includes(track.id)) {
+          if (pl.trackIds.includes(trackId)) {
             initialIds.add(pl.id)
           }
         })
@@ -109,9 +95,41 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
         setSelectedPlaylistIds(new Set(initialIds))
       })
     }
-  }, [selectPlaylistOpen, track.id])
+  }, [selectPlaylistOpen, trackId])
 
-  // プレイリストのクリックでチェック状態をトグル
+  // track が削除された等で消えた場合は何も描画しない
+  if (!track) return null
+
+  const handleSaveEdit = async () => {
+    const title = titleInputRef.current?.value.trim() || track.title
+    const artist = artistInputRef.current?.value.trim() || track.artist
+    try {
+      await invoke('edit_track_metadata', {
+        payload: {
+          path: track.path,
+          title,
+          artist,
+        },
+      })
+
+      // DB 更新
+      await updateTrack(track.id, {
+        title,
+        artist,
+        tags: editingTags,
+      })
+
+      // store 更新（title が変われば trackOrder も再計算される）
+      updateTrackLocal(track.id, {
+        title,
+        artist,
+        tags: editingTags,
+      })
+    } catch (e) {
+      showMessage(`${t.editInfoError}: ${e}`, 'infinity')
+    }
+  }
+
   const togglePlaylist = (id: number) => {
     setSelectedPlaylistIds(prev => {
       const next = new Set(prev)
@@ -121,7 +139,6 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
     })
   }
 
-  // 保存ボタン押下時の処理
   const handleSavePlaylists = async () => {
     const promises: Promise<void>[] = []
 
@@ -130,16 +147,18 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
       const isSelected = selectedPlaylistIds.has(pl.id)
 
       if (!wasSelected && isSelected) {
-        // 新たに選択された
-        promises.push(addTrackToPlaylist(pl.id, track.id))
+        promises.push(addTrackToPlaylist(pl.id, trackId))
       } else if (wasSelected && !isSelected) {
-        // 選択が解除された
-        promises.push(removeTrackFromPlaylist(pl.id, track.id))
+        promises.push(removeTrackFromPlaylist(pl.id, trackId))
       }
     }
 
-    await Promise.all(promises)
-    setSelectPlaylistOpen(false)
+    try {
+      await Promise.all(promises)
+      setSelectPlaylistOpen(false)
+    } catch (e) {
+      showMessage(`${t.addToPlaylistError}: ${e}`, 'infinity')
+    }
   }
 
   const menuItems: ActionMenuItem[] = [
@@ -154,7 +173,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
       key: 'play-next',
       label: t.playNext,
       onClick: () => {
-        const current = musicPlayer.getQueue().filter(t => t.id !== track.id)
+        const current = musicPlayer.getQueue().filter(q => q.id !== track.id)
         musicPlayer.setQueue([track, ...current])
       },
     },
@@ -174,7 +193,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
   return (
     <div
       className="mi-component-container"
-      onClick={() => { if (!isItemPlaying) onPlay(track); }}
+      onClick={() => { if (!isItemPlaying) onPlay(trackId); }}
     >
       <div className={`mi-component-icon-container ${isItemPlaying ? 'playing' : ''}`}>
         {isItemPlaying ? (
@@ -190,10 +209,10 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
         )}
       </div>
       <div className="mi-component-text-container">
-        <span className={`mi-component-title ${isItemPlaying ? 'playing' : ''}`}>{localTrack.title}</span>
+        <span className={`mi-component-title ${isItemPlaying ? 'playing' : ''}`}>{track.title}</span>
         <div className="mi-component-info">
           <div className="mi-component-info-left">
-            <span className="mi-component-artist">{localTrack.artist}</span>
+            <span className="mi-component-artist">{track.artist}</span>
             {track.duration_ms != null && (
               <>
                 <span className="mi-component-separator">・</span>
@@ -203,7 +222,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
               </>
             )}
           </div>
-          {localTrack.tags.length > 0 && (
+          {track.tags.length > 0 && (
             <div className="mi-component-tag-container">
               {sortedTags.map(tag => (
                 <span key={tag} className="mi-component-tag-item">
@@ -308,7 +327,7 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
                 type="text"
                 placeholder={t.editInfoNamePlaceholder}
                 ref={titleInputRef}
-                defaultValue={localTrack.title}
+                defaultValue={track.title}
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -319,24 +338,20 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
                 type="text"
                 placeholder={t.editInfoArtistPlaceholder}
                 ref={artistInputRef}
-                defaultValue={localTrack.artist ?? ''}
+                defaultValue={track.artist ?? ''}
                 onClick={e => e.stopPropagation()}
               />
             </div>
             <div className="ei-component-field">
               <label className="ei-component-field-label">{t.editInfoTags}</label>
-              {/* タグ一覧 */}
               <div className="mi-component-tags-input-container">
                 <div className="mi-component-tags-container">
-                  {localTrack.tags.map(tag => (
+                  {editingTags.map(tag => (
                     <span
                       key={tag}
                       className="mi-component-tags-item"
                       onClick={() => {
-                        setLocalTrack(prev => ({
-                          ...prev,
-                          tags: prev.tags.filter(t => t !== tag)
-                        }));
+                        setEditingTags(prev => prev.filter(x => x !== tag))
                       }}
                     >
                       {tag}
@@ -354,8 +369,8 @@ export default function MusicItem({ track, onPlay, onRemove }: Props) {
                     if (e.key === 'Enter') {
                       e.preventDefault()
                       const newTag = tagInput.trim()
-                      if (newTag && !localTrack.tags.includes(newTag)) {
-                        setLocalTrack(prev => ({ ...prev, tags: [...prev.tags, newTag] }))
+                      if (newTag && !editingTags.includes(newTag)) {
+                        setEditingTags(prev => [...prev, newTag])
                       }
                       setTagInput('')
                     }

@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { getAllTracks, type Track } from '../lib/db'
-import { useScanStore } from '../lib/scanStore'
+import { useTrackStore } from '../lib/trackStore'
 import { usePlayerStore } from '../lib/playerStore'
 import ArtistItem from '../components/ArtistItem'
 import { useMappedTranslations } from '../lib/i18n'
@@ -25,21 +24,6 @@ function getFirstChar(name: string): string {
   return Array.from(name)[0].toUpperCase()
 }
 
-function aggregateArtists(tracks: Track[]): ArtistEntry[] {
-  const map = new Map<string, number>()
-  for (const t of tracks) {
-    const name = t.artist ?? ''
-    map.set(name, (map.get(name) ?? 0) + 1)
-  }
-  const result: ArtistEntry[] = []
-  for (const [name, tracksNumber] of map) {
-    result.push({ name, tracksNumber })
-  }
-  return result.sort((a, b) =>
-    a.name.localeCompare(b.name, 'ja', { sensitivity: 'variant', numeric: true })
-  )
-}
-
 // CSS calc 値を実ピクセルに解決する（paddingEnd に数値で渡すため）
 function resolveMiniPlayerHeightPx(): number {
   const probe = document.createElement('div')
@@ -53,13 +37,14 @@ function resolveMiniPlayerHeightPx(): number {
 }
 
 export default function ArtistlistsPage() {
-  const [artists, setArtists] = useState<ArtistEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  // store から購読（hydrate は main.tsx で起動時 + scanVersion 変化時に行う）
+  const tracksById = useTrackStore(s => s.tracksById)
+  const loading = useTrackStore(s => s.loading)
+
   const [activeChar, setActiveChar] = useState<string | null>(null)
   const [currentChar, setCurrentChar] = useState<string | null>(null)
   const [visibleChars, setVisibleChars] = useState<string[]>([])
   const [miniPlayerHeightPx, setMiniPlayerHeightPx] = useState(0)
-  const scanVersion = useScanStore(s => s.scanVersion)
   const { pathname } = useLocation()
 
   const t = useMappedTranslations({
@@ -77,17 +62,6 @@ export default function ArtistlistsPage() {
   const activeCharTimerRef = useRef<number | null>(null)
   const pointerHandledRef = useRef(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const result = await getAllTracks()
-    setArtists(aggregateArtists(result))
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [scanVersion, load])
-
   useEffect(() => {
     if (isMiniPlayerVisible) {
       setMiniPlayerHeightPx(resolveMiniPlayerHeightPx())
@@ -96,27 +70,36 @@ export default function ArtistlistsPage() {
     }
   }, [isMiniPlayerVisible])
 
-  const charToFirstIndex = useMemo(() => {
-    const acc: Record<string, number> = {}
-    artists.forEach((a, i) => {
-      const ch = getFirstChar(a.name)
-      if (!(ch in acc)) acc[ch] = i
-    })
-    return acc
-  }, [artists])
+  // tracksById からアーティスト一覧を集計し、
+  // インジケータ用の allChars / charToFirstIndex も 1 パスで構築する
+  const { artists, allChars, charToFirstIndex } = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const track of Object.values(tracksById)) {
+      const name = track.artist ?? ''
+      counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+    const list: ArtistEntry[] = []
+    for (const [name, tracksNumber] of counts) {
+      list.push({ name, tracksNumber })
+    }
+    list.sort((a, b) =>
+      a.name.localeCompare(b.name, 'ja', { sensitivity: 'variant', numeric: true })
+    )
 
-  const allChars = useMemo(() => {
     const seen = new Set<string>()
-    const result: string[] = []
-    for (const a of artists) {
+    const chars: string[] = []
+    const firstIndex: Record<string, number> = {}
+    list.forEach((a, i) => {
       const ch = getFirstChar(a.name)
       if (!seen.has(ch)) {
         seen.add(ch)
-        result.push(ch)
+        chars.push(ch)
+        firstIndex[ch] = i
       }
-    }
-    return result
-  }, [artists])
+    })
+
+    return { artists: list, allChars: chars, charToFirstIndex: firstIndex }
+  }, [tracksById])
 
   // useVirtualizer の constructor 時点で読み込まないと意味がないので useMemo
   // で pathname 単位に固定する。measurementsCache も復元しないと measureElement

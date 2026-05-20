@@ -1,5 +1,6 @@
 import Database from '@tauri-apps/plugin-sql'
 import type { PlaylistIcon as PlaylistIconData } from './playlistIcon'
+import { generateRecommend } from './recommend'
 
 export interface Track {
   id: number
@@ -43,11 +44,6 @@ interface TaglistRow extends Omit<taglist, 'positive_tags' | 'negative_tags' | '
   positive_tags: string
   negative_tags: string
   icon: string | null
-}
-
-export interface history {
-  track_id: number
-  played_at: number
 }
 
 let _db: Database | null = null
@@ -116,8 +112,20 @@ function parseJsonArray<T>(json: string, guard: (v: unknown) => v is T): T[] {
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isNumber = (v: unknown): v is number => typeof v === 'number'
 
+// ランダムなhue (0-359)のidenticonアイコンを生成
+function createDefaultIcon(): PlaylistIconData {
+  const hue = Math.floor(Math.random() * 360)
+  return { kind: 'auto', hue }
+}
 
-// dbのtagsをstringに変換
+// iconカラム (JSON文字列 or null) をPlaylistIconDataに復元する
+function parseIconJson(json: string | null): PlaylistIconData {
+  if (!json) return createDefaultIcon()
+  try { return JSON.parse(json) as PlaylistIconData }
+  catch { return createDefaultIcon() }
+}
+
+// dbの行をTrackに変換
 function rowToTrack(row: TrackRow): Track {
   return { ...row, tags: parseJsonArray(row.tags, isString) }
 }
@@ -195,7 +203,7 @@ export async function getHistory() {
 // ここからおすすめ用
 
 // 再生回数の集計（曲ごと）
-export async function getPlayCounts(limit = 200): Promise<Map<number, number>> {
+async function getPlayCounts(limit = 100): Promise<Map<number, number>> {
   const db = await getDb()
   const rows = await db.select<{ track_id: number; cnt: number }[]>(
     `SELECT track_id, COUNT(*) as cnt
@@ -209,7 +217,7 @@ export async function getPlayCounts(limit = 200): Promise<Map<number, number>> {
 }
 
 // タグの出現回数（履歴上のタグ集計）
-export async function getHistoryTagCounts(limit = 500): Promise<Map<string, number>> {
+async function getHistoryTagCounts(limit = 500): Promise<Map<string, number>> {
   const db = await getDb()
   const rows = await db.select<{ tags: string; cnt: number }[]>(
     `SELECT t.tags, COUNT(*) as cnt
@@ -235,7 +243,7 @@ export async function getHistoryTagCounts(limit = 500): Promise<Map<string, numb
 }
 
 // アーティストの出現回数
-export async function getHistoryArtistCounts(limit = 200): Promise<Map<string, number>> {
+async function getHistoryArtistCounts(limit = 200): Promise<Map<string, number>> {
   const db = await getDb()
   const rows = await db.select<{ artist: string; cnt: number }[]>(
     `SELECT t.artist, COUNT(*) as cnt
@@ -250,7 +258,7 @@ export async function getHistoryArtistCounts(limit = 200): Promise<Map<string, n
 }
 
 // 直近200件の履歴での順位（同じtrackは最新の順位を採用）
-export async function getRecentTrackRanks(limit = 200): Promise<Map<number, number>> {
+async function getRecentTrackRanks(limit = 200): Promise<Map<number, number>> {
   const db = await getDb()
   const rows = await db.select<{ track_id: number }[]>(
     `SELECT track_id FROM history ORDER BY played_at DESC LIMIT $1`,
@@ -262,8 +270,6 @@ export async function getRecentTrackRanks(limit = 200): Promise<Map<number, numb
   })
   return map
 }
-
-import { generateRecommend } from './recommend'
 
 export async function getRecommended(): Promise<Track[]> {
   const [allTracks, playCounts, historyTagCounts, historyArtistCounts, recentRanks] =
@@ -295,19 +301,12 @@ export async function musicPlay(trackId: number): Promise<void> {
 
 // ここからプレイリスト用
 
-// ランダムなhue (0-359)のidenticonアイコンを生成
-function createDefaultIcon(): PlaylistIconData {
-  const hue = Math.floor(Math.random() * 360)
-  return { kind: 'auto', hue }
-}
-
 function rowToPlaylist(row: PlaylistRow): Playlist {
-  let icon: PlaylistIconData = createDefaultIcon()
-  if (row.icon) {
-    try { icon = JSON.parse(row.icon) as PlaylistIconData }
-    catch { icon = createDefaultIcon() }
+  return {
+    ...row,
+    trackIds: parseJsonArray(row.tracks, isNumber),
+    icon: parseIconJson(row.icon),
   }
-  return { ...row, trackIds: parseJsonArray(row.tracks, isNumber), icon }
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
@@ -409,36 +408,13 @@ export async function setPlaylistIcon(
   )
 }
 
-// hueだけ差し替え（サイコロボタン用）
-export async function setPlaylistIconHue(id: number, hue: number): Promise<void> {
-  const db = await getDb()
-  const rows = await db.select<{ icon: string | null }[]>(
-    'SELECT icon FROM playlists WHERE id = $1',
-    [id]
-  )
-  if (rows.length === 0 || !rows[0].icon) return
-  try {
-    const icon = JSON.parse(rows[0].icon) as PlaylistIconData
-    icon.hue = hue
-    await db.execute(
-      'UPDATE playlists SET icon = $1 WHERE id = $2',
-      [JSON.stringify(icon), id]
-    )
-  } catch { /* noop */ }
-}
-
 // ここからtag用
 function rowToTaglist(row: TaglistRow): taglist {
-  let icon: PlaylistIconData = createDefaultIcon()
-  if (row.icon) {
-    try { icon = JSON.parse(row.icon) as PlaylistIconData }
-    catch { icon = createDefaultIcon() }
-  }
   return {
     ...row,
     positive_tags: parseJsonArray(row.positive_tags, isString),
     negative_tags: parseJsonArray(row.negative_tags, isString),
-    icon,
+    icon: parseIconJson(row.icon),
   }
 }
 
@@ -496,14 +472,13 @@ export async function setTaglistIcon(
 }
 
 export async function getTagListTracks(pos_tags: string[], neg_tags: string[]): Promise<Track[]> {
+  if (pos_tags.length === 0) return []
   const db = await getDb()
   const rows = await db.select<TrackRow[]>(
     'SELECT * FROM tracks ORDER BY artist, album NULLS LAST, title'
   )
   const posSet = new Set(pos_tags)
   const negSet = new Set(neg_tags)
-
-  if (pos_tags.length === 0) return []
 
   return rows
     .map(rowToTrack)
@@ -568,14 +543,4 @@ export async function getAlbumTracks(album: string): Promise<Track[]> {
     [album]
   )
   return rows.map(rowToTrack)
-}
-
-// 使わない。マイグレーション用
-export async function resetDb(): Promise<void> {
-  const db = await getDb()
-  await db.execute('DROP TABLE IF EXISTS history')
-  await db.execute('DROP TABLE IF EXISTS playlists')
-  await db.execute('DROP TABLE IF EXISTS taglists')
-  await db.execute('DROP TABLE IF EXISTS tracks')
-  await initDb()
 }

@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { getAllTracks, type Track } from '../lib/db'
-import { useScanStore } from '../lib/scanStore'
+import { useTrackStore } from '../lib/trackStore'
 import { musicPlayer } from '../lib/music'
 import { usePlayerStore } from '../lib/playerStore'
 import MusicItem from '../components/MusicItem'
@@ -13,23 +12,14 @@ import '../../css/pages/LibraryPage.css'
 const INDICATOR_ITEM_HEIGHT = 20
 const ESTIMATED_ITEM_HEIGHT = 61.78
 const SCROLL_OFFSET = 8
-// MiniPlayer の高さ（CSS の calc(24px + .8rem + 20px + .5rem) と一致させる）
 const MINI_PLAYER_HEIGHT_CSS = 'calc(24px + .8rem + 20px + .5rem)'
 
 function getFirstChar(title: string): string {
-  if (!title) return '#' // titleは!nullだけど
+  if (!title) return '#'
   return Array.from(title)[0].toUpperCase()
 }
 
-function sortByTitle(tracks: Track[]): Track[] {
-  return [...tracks].sort((a, b) =>
-    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
-  )
-}
-
-// CSS calc 値を実ピクセルに解決する（paddingEnd に数値で渡すため）
 function resolveMiniPlayerHeightPx(): number {
-  // 一時要素を生成して計算済み高さを取り出す
   const probe = document.createElement('div')
   probe.style.position = 'absolute'
   probe.style.visibility = 'hidden'
@@ -41,13 +31,15 @@ function resolveMiniPlayerHeightPx(): number {
 }
 
 export default function LibraryPage() {
-  const [tracks, setTracks] = useState<Track[]>([])
-  const [loading, setLoading] = useState(true)
+  // store から購読（hydrate は main.tsx で起動時 + scanVersion 変化時に行う）
+  const trackOrder = useTrackStore(s => s.trackOrder)
+  const tracksById = useTrackStore(s => s.tracksById)
+  const loading = useTrackStore(s => s.loading)
+
   const [activeChar, setActiveChar] = useState<string | null>(null)
   const [currentChar, setCurrentChar] = useState<string | null>(null)
   const [visibleChars, setVisibleChars] = useState<string[]>([])
   const [miniPlayerHeightPx, setMiniPlayerHeightPx] = useState(0)
-  const scanVersion = useScanStore(s => s.scanVersion)
   const { pathname } = useLocation()
 
   const t = useMappedTranslations({
@@ -63,21 +55,8 @@ export default function LibraryPage() {
   const lastDraggedCharRef = useRef<string | null>(null)
   const isDraggingRef = useRef(false)
   const activeCharTimerRef = useRef<number | null>(null)
-  // pointer 経由でジャンプを処理した直後の onClick を抑止するフラグ
   const pointerHandledRef = useRef(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const result = await getAllTracks()
-    setTracks(sortByTitle(result))
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [scanVersion, load])
-
-  // MiniPlayer の表示状態に応じて、末尾余白の実ピクセル値を更新
   useEffect(() => {
     if (isMiniPlayerVisible) {
       setMiniPlayerHeightPx(resolveMiniPlayerHeightPx())
@@ -86,57 +65,47 @@ export default function LibraryPage() {
     }
   }, [isMiniPlayerVisible])
 
-  const charToFirstIndex = useMemo(() => {
-    const acc: Record<string, number> = {}
-    tracks.forEach((t, i) => {
-      const ch = getFirstChar(t.title)
-      if (!(ch in acc)) acc[ch] = i
-    })
-    return acc
-  }, [tracks])
-
-  const allChars = useMemo(() => {
+  // インジケータ用に、trackOrder を1パス走査して
+  // allChars と charToFirstIndex を同時に構築する
+  const { allChars, charToFirstIndex } = useMemo(() => {
     const seen = new Set<string>()
-    const result: string[] = []
-    for (const t of tracks) {
-      const ch = getFirstChar(t.title)
+    const chars: string[] = []
+    const firstIndex: Record<string, number> = {}
+    trackOrder.forEach((id, i) => {
+      const track = tracksById[id]
+      if (!track) return
+      const ch = getFirstChar(track.title)
       if (!seen.has(ch)) {
         seen.add(ch)
-        result.push(ch)
+        chars.push(ch)
+        firstIndex[ch] = i
       }
-    }
-    return result
-  }, [tracks])
+    })
+    return { allChars: chars, charToFirstIndex: firstIndex }
+  }, [trackOrder, tracksById])
 
-  // useVirtualizer の constructor 時点で読み込まないと意味がないので useMemo
-  // で pathname 単位に固定する。measurementsCache も復元しないと measureElement
-  // ベースのレイアウトが正しい位置に items を並べてくれず、復元が崩れる。
   const initialRestoration = useMemo(
     () => loadVirtualizerInitial(pathname),
     [pathname],
   )
 
   const virtualizer = useVirtualizer({
-    count: tracks.length,
+    count: trackOrder.length,
     getScrollElement: () => listRef.current,
     estimateSize: () => ESTIMATED_ITEM_HEIGHT,
     overscan: 8,
     paddingStart: SCROLL_OFFSET,
-    // MiniPlayer の裏に最後の曲が隠れないよう、末尾に余白を確保
     paddingEnd: miniPlayerHeightPx,
-    getItemKey: i => tracks[i]?.id ?? i,
+    getItemKey: i => trackOrder[i] ?? i,
     initialOffset: initialRestoration.initialOffset,
     initialMeasurementsCache: initialRestoration.initialMeasurementsCache,
     onChange: instance => {
-      // スクロール停止時の安定した状態だけを保存する
       if (!instance.isScrolling) {
         saveVirtualizerState(pathname, instance.scrollOffset, instance.measurementsCache)
       }
     },
   })
 
-  // unmount 時 (= ページ離脱時) は isScrolling のタイミングに頼れないので
-  // 必ず最後の状態を flush する。
   useEffect(() => {
     return () => {
       saveVirtualizerState(pathname, virtualizer.scrollOffset, virtualizer.measurementsCache)
@@ -177,7 +146,7 @@ export default function LibraryPage() {
   }, [recalc])
 
   useEffect(() => {
-    if (tracks.length === 0 || virtualItems.length === 0) return
+    if (trackOrder.length === 0 || virtualItems.length === 0) return
     if (isDraggingRef.current) return
     const listEl = listRef.current
     if (!listEl) return
@@ -193,11 +162,12 @@ export default function LibraryPage() {
       }
     }
 
-    const t = tracks[topIndex]
-    if (!t) return
-    const ch = getFirstChar(t.title)
+    const id = trackOrder[topIndex]
+    const track = tracksById[id]
+    if (!track) return
+    const ch = getFirstChar(track.title)
     setCurrentChar(prev => (prev === ch ? prev : ch))
-  }, [virtualItems, tracks])
+  }, [virtualItems, trackOrder, tracksById])
 
   const jumpToChar = useCallback(
     (ch: string, smooth: boolean) => {
@@ -213,7 +183,6 @@ export default function LibraryPage() {
 
   const handleIndicatorClick = useCallback(
     (ch: string) => {
-      // pointer 経由で既にジャンプ済みなら何もしない（クリック発火を抑止）
       if (pointerHandledRef.current) {
         pointerHandledRef.current = false
         return
@@ -259,7 +228,6 @@ export default function LibraryPage() {
       const ch = getCharAtY(e.clientY)
       if (ch == null) return
 
-      // この後に発火する onClick を 1 回だけ抑止する
       pointerHandledRef.current = true
 
       isDraggingRef.current = true
@@ -320,18 +288,27 @@ export default function LibraryPage() {
   }, [])
 
   const handlePlay = useCallback(
-    (track: Track) => {
-      const i = tracks.findIndex(t => t.id === track.id)
+    (trackId: number) => {
+      // store の最新状態を直接参照（クロージャの古い値を使わない）
+      const state = useTrackStore.getState()
+      const order = state.trackOrder
+      const byId = state.tracksById
+
+      const i = order.indexOf(trackId)
+      const track = byId[trackId]
+      if (!track) return
+
       if (i === -1) {
         void musicPlayer.play(track)
         return
       }
       // クリック曲の後ろ → 先頭からクリック曲の一個前まで、で一周分
-      const queue = [...tracks.slice(i + 1), ...tracks.slice(0, i)]
+      const queueIds = [...order.slice(i + 1), ...order.slice(0, i)]
+      const queue = queueIds.map(id => byId[id]).filter(Boolean)
       musicPlayer.setQueue(queue)
       void musicPlayer.play(track)
     },
-    [tracks]
+    []
   )
 
   const totalSize = virtualizer.getTotalSize()
@@ -339,12 +316,12 @@ export default function LibraryPage() {
   return (
     <div className="page fade-in" style={{ paddingRight: 0, paddingBottom: 0 }}>
       <div className="library-toolbar">
-        <span className="library-count">{tracks.length} {t.count}</span>
+        <span className="library-count">{trackOrder.length} {t.count}</span>
       </div>
 
       {loading ? (
         <p className="library-empty">{t.loading}</p>
-      ) : tracks.length === 0 ? (
+      ) : trackOrder.length === 0 ? (
         <p className="library-empty">
           {t.empty}
         </p>
@@ -359,8 +336,8 @@ export default function LibraryPage() {
               }}
             >
               {virtualItems.map(vi => {
-                const track = tracks[vi.index]
-                if (!track) return null
+                const id = trackOrder[vi.index]
+                if (id == null) return null
                 return (
                   <div
                     key={vi.key}
@@ -374,14 +351,13 @@ export default function LibraryPage() {
                       transform: `translateY(${vi.start}px)`,
                     }}
                   >
-                    <MusicItem track={track} onPlay={handlePlay} />
+                    <MusicItem trackId={id} onPlay={handlePlay} />
                   </div>
                 )
               })}
             </div>
           </div>
 
-          {/* スクロールインジケーター */}
           <div
             ref={indicatorRef}
             className="library-indicator"
