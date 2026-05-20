@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMappedTranslations } from '../../lib/i18n'
 import { usePlayerStore } from '../../lib/playerStore'
+import { useTrackStore } from '../../lib/trackStore'
 import { musicPlayer } from '../../lib/music'
 import MusicItem from '../../components/MusicItem'
 import type { Track } from '../../lib/db'
@@ -108,9 +109,12 @@ export default function QueuePage() {
     musicPlayer.removeFromQueue(index)
   }
 
-  const handlePlay = (track: Track) => {
+  const handlePlay = (trackId: number) => {
+    const track = useTrackStore.getState().tracksById[trackId]
+    if (!track) return
+
     // クリックされた曲が queue 内のどこにいるか
-    const index = queue.findIndex(t => t.id === track.id)
+    const index = queue.findIndex(t => t.id === trackId)
     if (index === -1) {
       musicPlayer.play(track)
       return
@@ -190,7 +194,7 @@ export default function QueuePage() {
             {queue.map((track, index) => (
               <SortableQueueItem
                 key={track.id}
-                track={track}
+                trackId={track.id}
                 onPlay={handlePlay}
                 onRemove={() => handleRemoveFromQueue(index)}
               />
@@ -203,12 +207,12 @@ export default function QueuePage() {
 }
 
 interface SortableQueueItemProps {
-  track: Track
-  onPlay: (track: Track) => void
+  trackId: number
+  onPlay: (trackId: number) => void
   onRemove: () => void
 }
 
-function SortableQueueItem({ track, onPlay, onRemove }: SortableQueueItemProps) {
+function SortableQueueItem({ trackId, onPlay, onRemove }: SortableQueueItemProps) {
   const {
     attributes,
     listeners,
@@ -216,7 +220,7 @@ function SortableQueueItem({ track, onPlay, onRemove }: SortableQueueItemProps) 
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: track.id })
+  } = useSortable({ id: trackId })
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(
@@ -244,7 +248,7 @@ function SortableQueueItem({ track, onPlay, onRemove }: SortableQueueItemProps) 
         <Icon name="hamburger" mode={null} size={24} folder='/images/QueuePage/' className='queue-page-item-handle-icon' />
       </div>
       <div className="queue-page-item-content">
-        <MusicItem track={track} onPlay={onPlay} onRemove={onRemove} />
+        <MusicItem trackId={trackId} onPlay={onPlay} onRemove={onRemove} />
       </div>
     </div>
   )

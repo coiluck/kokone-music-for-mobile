@@ -101,5 +101,6 @@
   "message.error.tag.name-exists": { "ja": "すでに同じ名前のリストが存在します", "en": "A list with the same name already exists." },
   "message.error.tag.name-null": { "ja": "リスト名を入力してください", "en": "Enter a list name." },
   "message.error.addToQueue": { "ja": "再生キューへの追加に失敗しました", "en": "Failed to add to queue." },
-  "message.error.overwriteQueue": { "ja": "再生キューの上書きに失敗しました", "en": "Failed to overwrite queue." }
+  "message.error.overwriteQueue": { "ja": "再生キューの上書きに失敗しました", "en": "Failed to overwrite queue." },
+  "message.error.mi.add-to-playlist": { "ja": "プレイリストへの追加に失敗しました", "en": "Failed to add to playlist." }
 }

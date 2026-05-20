@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { getAlbumTracks, type Track } from '../lib/db'
+import { useTrackStore } from '../lib/trackStore'
 import MusicItem from '../components/MusicItem'
 import { useMappedTranslations } from '../lib/i18n'
 import { usePlayerStore } from '../lib/playerStore'
@@ -10,11 +11,22 @@ import { formatTime } from '../components/MiniPlayer'
 import { useSettingsStore } from '../lib/settingsStore'
 import '../../css/pages/AlbumDetailsPage.css'
 
+function sortByTitle(tracks: Track[]): Track[] {
+  return [...tracks].sort((a, b) =>
+    (a.title ?? '').localeCompare(b.title ?? '', 'ja', {
+      sensitivity: 'variant',
+      numeric: true,
+    })
+  )
+}
+
 export default function AlbumDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const albumName = name ? decodeURIComponent(name) : ''
 
-  const [tracks, setTracks] = useState<Track[]>([])
+  const [trackIds, setTrackIds] = useState<number[]>([])
+  const tracksById = useTrackStore(s => s.tracksById)
+
   const t = useMappedTranslations({
     tracksNumber: 'album.details.tracksNumber',
   })
@@ -23,52 +35,61 @@ export default function AlbumDetailsPage() {
   const isMiniPlayerVisible = usePlayerStore(s => s.currentTrack)
 
   useEffect(() => {
-    getAlbumTracks(albumName).then(tracks => {
-      tracks.sort((a, b) =>
-        (a.title ?? '').localeCompare(b.title ?? '', 'ja', {
-          sensitivity: 'variant',
-          numeric: true,
-        })
-      )
-      setTracks(tracks)
+    getAlbumTracks(albumName).then(fetched => {
+      const sorted = sortByTitle(fetched)
+      setTrackIds(sorted.map(t => t.id))
     })
   }, [albumName])
 
-  const totalDurationMs = tracks.reduce((sum, t) => sum + (t.duration_ms ?? 0), 0)
+  const totalDurationMs = useMemo(
+    () => trackIds.reduce((sum, id) => sum + (tracksById[id]?.duration_ms ?? 0), 0),
+    [trackIds, tracksById]
+  )
 
   const handlePlay = useCallback(
-    (track: Track) => {
-      const i = tracks.findIndex(t => t.id === track.id)
+    (trackId: number) => {
+      const byId = useTrackStore.getState().tracksById
+      const track = byId[trackId]
+      if (!track) return
+
+      const i = trackIds.indexOf(trackId)
       if (i === -1) {
         void musicPlayer.play(track)
         return
       }
-      const queue = [...tracks.slice(i + 1), ...tracks.slice(0, i)]
+      const queueIds = [...trackIds.slice(i + 1), ...trackIds.slice(0, i)]
+      const queue = queueIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
       musicPlayer.setQueue(queue)
       void musicPlayer.play(track)
     },
-    [tracks]
+    [trackIds]
   )
 
   const handleShuffle = useCallback(() => {
-    if (tracks.length === 0) return
+    if (trackIds.length === 0) return
+    const byId = useTrackStore.getState().tracksById
     // Fisher-Yates
-    const shuffled = [...tracks]
+    const shuffled = [...trackIds]
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
-    const [first, ...rest] = shuffled
-    musicPlayer.setQueue(rest)
-    void musicPlayer.play(first)
-  }, [tracks])
-
-  const handlePlayAll = useCallback(() => {
+    const tracks = shuffled.map(id => byId[id]).filter((t): t is Track => Boolean(t))
     if (tracks.length === 0) return
     const [first, ...rest] = tracks
     musicPlayer.setQueue(rest)
     void musicPlayer.play(first)
-  }, [tracks])
+  }, [trackIds])
+
+  const handlePlayAll = useCallback(() => {
+    if (trackIds.length === 0) return
+    const byId = useTrackStore.getState().tracksById
+    const tracks = trackIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
+    if (tracks.length === 0) return
+    const [first, ...rest] = tracks
+    musicPlayer.setQueue(rest)
+    void musicPlayer.play(first)
+  }, [trackIds])
 
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>
@@ -79,7 +100,7 @@ export default function AlbumDetailsPage() {
           </div>
           <div className="album-details-page-topbar-text">
             <p className="album-details-page-topbar-text-title">{albumName}</p>
-            <p className="album-details-page-topbar-text-meta">{tracks.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
+            <p className="album-details-page-topbar-text-meta">{trackIds.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
           </div>
         </div>
 
@@ -99,8 +120,8 @@ export default function AlbumDetailsPage() {
         </div>
       </div>
       <div style={{ marginBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}>
-        {tracks.map(track => (
-          <MusicItem key={track.id} track={track} onPlay={handlePlay} />
+        {trackIds.map(id => (
+          <MusicItem key={id} trackId={id} onPlay={handlePlay} />
         ))}
       </div>
     </div>

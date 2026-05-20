@@ -1,12 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getAllTracks, searchTracks, type Track } from '../../lib/db'
+import { useTrackStore } from '../../lib/trackStore'
 import { useScanStore } from '../../lib/scanStore'
 import { musicPlayer } from '../../lib/music'
 import { usePlayerStore } from '../../lib/playerStore'
 import { useMappedTranslations } from '../../lib/i18n'
 import MusicItem from '../../components/MusicItem'
 import '../../../css/pages/sub/SearchPage.css'
+
+function sortByTitle(tracks: Track[]): Track[] {
+  return [...tracks].sort((a, b) =>
+    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
+  )
+}
 
 export default function SearchPage() {
   const navigate = useNavigate()
@@ -25,7 +32,7 @@ export default function SearchPage() {
   const scrollTop = (location.state?.scrollTop as number | undefined) ?? 0
   const initialTags = (location.state?.initialTags as string[] | undefined) ?? []
 
-  const [tracks, setTracks] = useState<Track[]>([])
+  const [trackIds, setTrackIds] = useState<number[]>([])
   const [query, setQuery] = useState('')
   const [tags, setTags] = useState<string[]>(initialTags)
   const [loading, setLoading] = useState(false)
@@ -51,7 +58,8 @@ export default function SearchPage() {
     const result = q.trim() || currentTags.length > 0
       ? await searchTracks(q, currentTags)
       : await getAllTracks()
-    setTracks(result)
+    const sorted = sortByTitle(result)
+    setTrackIds(sorted.map(x => x.id))
     setLoading(false)
   }, [])
 
@@ -92,6 +100,12 @@ export default function SearchPage() {
     setQuery('')
   }
 
+  const handlePlay = useCallback((trackId: number) => {
+    const track = useTrackStore.getState().tracksById[trackId]
+    if (!track) return
+    void musicPlayer.play(track)
+  }, [])
+
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>
       <div className="search-page-header">
@@ -130,11 +144,11 @@ export default function SearchPage() {
         </button>
       </div>
 
-      <span className="search-page-music-count">{tracks.length} {t.count}</span>
+      <span className="search-page-music-count">{trackIds.length} {t.count}</span>
 
       {loading ? (
         <p className="library-empty">{t.loading}</p>
-      ) : tracks.length === 0 ? (
+      ) : trackIds.length === 0 ? (
         <p className="library-empty">
           {query || tags.length > 0 ? t.noItem : t.noWord}
         </p>
@@ -143,8 +157,8 @@ export default function SearchPage() {
           className="search-page-music-item-container"
           style={{ paddingBottom: isMiniPlayerVisible ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}
         >
-          {tracks.map((track, i) => (
-            <MusicItem key={track.id ?? i} track={track} onPlay={() => void musicPlayer.play(track)} />
+          {trackIds.map(id => (
+            <MusicItem key={id} trackId={id} onPlay={handlePlay} />
           ))}
         </div>
       )}
