@@ -48,7 +48,14 @@
   gap: .25rem;
   font-size: .7rem;
   opacity: .7;
-  min-width: 0;
+  padding-right: 1rem;
+  mask-image: linear-gradient(to right, var(--color-bg) calc(100% - 1rem), transparent 100%);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .player-component-info-meta-artist {
@@ -57,18 +64,9 @@
 }
 
 .player-component-info-meta-tag-container {
-  flex: 1;
   display: flex;
   flex-direction: row;
   gap: .25rem;
-  min-width: 0;
-  mask-image: linear-gradient(to right, var(--color-bg) calc(100% - 1rem), transparent 100%);
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 .player-component-info-meta-tag {
