@@ -1,0 +1,72 @@
+.select-component-container {
+  position: relative;
+  /* トリガーが中身の幅にフィットするように（折り返し防止の前提） */
+  display: inline-block;
+}
+
+.select-component-container.disabled {
+  pointer-events: none;
+}
+
+.select-component-trigger {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .25rem .5rem;
+  border-radius: .5rem;
+  border: 1px solid var(--color-text);
+  cursor: pointer;
+}
+
+.select-component-trigger-text {
+  white-space: nowrap;
+}
+
+.select-component-option-container {
+  position: absolute;
+  top: calc(100% + .5rem);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  /* トリガーと同じ幅以上に保ちつつ、長い option では伸びる */
+  min-width: 100%;
+  width: max-content;
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  background-color: rgb(from var(--color-bg-mild) r g b / 0.6);
+  backdrop-filter: blur(10px);
+  box-shadow: 4px 4px rgb(from var(--color-accent) r g b / 0.8);
+  transition: scale 0.2s;
+  z-index: 1;
+}
+
+.select-component-option {
+  position: relative;
+  padding: 1rem .5rem;
+  padding-left: 1.75rem;
+  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.select-component-option:hover {
+  background-color: rgb(from var(--color-accent) r g b / 0.15);
+}
+.select-component-option:last-child {
+  border-bottom: none;
+}
+.select-component-option.selected {
+  color: var(--color-accent);
+}
+.select-component-option.selected::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: .5rem;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-accent);
+  clip-path: polygon(78.75% 20.00%, 82.03% 20.31%, 84.06% 22.03%, 84.84% 23.75%, 84.38% 27.34%, 44.06% 82.81%, 41.09% 84.84%, 37.50% 84.38%, 15.78% 62.81%, 15.00% 61.09%, 15.47% 57.50%, 18.75% 55.00%, 22.66% 55.63%, 39.38% 72.03%, 75.78% 22.03%, 78.75% 20.00%);
+}

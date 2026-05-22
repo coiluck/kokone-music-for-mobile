@@ -225,11 +225,12 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         trigger("playbackEvent", obj)
     }
 
-    private fun emitPosition(positionMs: Long, durationMs: Long) {
+    private fun emitPosition(positionMs: Long, durationMs: Long, fromSeek: Boolean = false) {
         val obj = JSObject()
         obj.put("type", "positionChanged")
         obj.put("positionMs", positionMs)
         obj.put("durationMs", durationMs)
+        if (fromSeek) obj.put("fromSeek", true)
         trigger("playbackEvent", obj)
     }
 
@@ -728,9 +729,11 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun playbackSeek(invoke: Invoke) {
-        val args = invoke.parseArgs(PlaybackSeekArg::class.java)
+      val args = invoke.parseArgs(PlaybackSeekArg::class.java)
         withController { c ->
             c.seekTo(args.positionMs)
+            val dur = if (c.duration == C.TIME_UNSET) 0L else c.duration
+            emitPosition(args.positionMs, dur, fromSeek = true)
             invoke.resolve(JSObject())
         }
     }
