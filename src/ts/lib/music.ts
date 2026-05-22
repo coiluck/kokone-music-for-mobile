@@ -51,6 +51,9 @@ interface NativePlaybackEvent {
   isPlaying?: boolean
   positionMs?: number
   durationMs?: number
+  // playbackSeek 完了直後にネイティブが送る position イベントだけ true。
+  // 通常の positionRunnable (250ms 周期) 由来の position と区別するためのフラグ。
+  fromSeek?: boolean
   message?: string
 }
 
@@ -63,6 +66,13 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
 
   private pluginListener: Promise<PluginListener | null>
   private unsubscribeSettings: () => void
+
+  // seek 抑制フラグ。
+  // seek() を呼んでからネイティブが「seek を反映した」確定通知 (fromSeek=true の
+  // positionChanged) を返すまでの間、通常の positionChanged を無視する。
+  // これがないと seekTo 完了前に positionRunnable が古い位置を送り続け、
+  // シークバーが「シーク前の位置に巻き戻ってから飛ぶ」バックジャンプを起こす。
+  private awaitingSeekEcho = false
 
   constructor() {
     // 設定購読: 音量・正規化フラグの変化をネイティブに転送する。
@@ -121,6 +131,9 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
     const store = usePlayerStore.getState()
     switch (ev.type) {
       case 'trackChanged': {
+        // 曲が変われば seek 抑制は無効。新しい曲の position 0 は正しい値なので、
+        // 抑制を残すと曲頭表示が古いシーク位置に固まってしまう。
+        this.awaitingSeekEcho = false
         if (ev.item == null) {
           this.currentTrack = null
           store._setCurrentTrack(null)
@@ -177,7 +190,17 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
         break
       }
       case 'positionChanged': {
-        if (ev.positionMs != null) store._setPosition(ev.positionMs)
+        if (ev.positionMs != null) {
+          if (ev.fromSeek) {
+            // seek が反映された確定通知。抑制を解除し、以後は通常更新に戻す。
+            this.awaitingSeekEcho = false
+            store._setPosition(ev.positionMs)
+          } else if (!this.awaitingSeekEcho) {
+            // 通常の positionRunnable 由来。抑制中でなければ反映する。
+            store._setPosition(ev.positionMs)
+          }
+          // awaitingSeekEcho 中の通常 position は無視 (巻き戻り防止)。
+        }
         if (ev.durationMs != null && ev.durationMs > 0) store._setDuration(ev.durationMs)
         break
       }
@@ -228,7 +251,13 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   }
 
   seek(ms: number): void {
-    void invoke('music_native_seek', { positionMs: Math.max(0, Math.floor(ms)) })
+    const target = Math.max(0, Math.floor(ms))
+    // 楽観的更新: ネイティブの結果を待たずに UI を即座に seek 先へ動かす。
+    // 同時に抑制フラグを立て、ネイティブの fromSeek 確定通知が来るまで
+    // positionRunnable 由来の古い position で巻き戻らないようにする。
+    this.awaitingSeekEcho = true
+    usePlayerStore.getState()._setPosition(target)
+    void invoke('music_native_seek', { positionMs: target })
   }
 
   async prev(): Promise<void> {
