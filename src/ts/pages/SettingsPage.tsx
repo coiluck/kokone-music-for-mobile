@@ -16,6 +16,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
+import Select from '../components/Select'
 
 export interface SettingsStore {
   // 外観
@@ -236,10 +237,11 @@ export default function SettingsPage() {
           <div className='settings-section-content'>
             <div className='settings-section-content-item'>
               <p>{t.language}</p>
-              <select value={lang} onChange={e => setLang(e.target.value as Lang)}>
-                <option value="ja">日本語 / Japanese</option>
-                <option value="en">English</option>
-              </select>
+              <Select
+                options={[{ value: 'en', label: 'English' }, { value: 'ja', label: '日本語 / Japanese' }]}
+                value={lang}
+                onChange={v => setLang(v as Lang)}
+              />
             </div>
           </div>
         </div>
@@ -454,14 +456,12 @@ export default function SettingsPage() {
 
                 <div className='settings-section-content-item' style={{ opacity: isSendHistory ? 1 : 0.4 }}>
                   <p>{t.historyBackend}</p>
-                  <select
+                  <Select
+                    options={[{ value: 'firebase', label: 'Firebase' }, { value: 'cloudflare-d1', label: 'Cloudflare D1' }]}
                     value={historyBackend}
+                    onChange={v => setHistoryBackend(v as HistoryBackend)}
                     disabled={!isSendHistory}
-                    onChange={e => setHistoryBackend(e.target.value as HistoryBackend)}
-                  >
-                    <option value="firebase">Firebase</option>
-                    <option value="cloudflare-d1">Cloudflare D1</option>
-                  </select>
+                  />
                 </div>
 
                 {isSendHistory && historyBackend === 'firebase' && (
