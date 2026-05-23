@@ -20,6 +20,8 @@
   "settings.play": { "ja": "再生", "en": "Play" },
   "settings.masterVolume": { "ja": "アプリ音量", "en": "Master Volume" },
   "settings.isNormalizeVolume": { "ja": "音量の正規化", "en": "Loudness Normalization" },
+  "settings.calcLoudnessForExistingTracks": { "ja": "起動時に未解析曲を解析", "en": "Analyze unprocessed tracks on startup" },
+  "settings.calcLoudnessForNewTracks": { "ja": "新規曲を解析", "en": "Analyze new tracks" },
   "settings.isTrailingSilence": { "ja": "曲末の無音をカット", "en": "Trim Trailing Silence" },
   "settings.isDeveloperMode": { "ja": "開発者モード", "en": "Developer Mode" },
   "settings.isSendHistory": { "ja": "履歴を送信", "en": "Send Play History" },

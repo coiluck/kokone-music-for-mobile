@@ -74,6 +74,24 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
+    // LUFS 解析の対象を決める 2 設定 (未設定なら true)。
+    //   calcLoudnessForNewTracks      : 今回追加された新規曲を解析するか
+    //   calcLoudnessForExistingTracks : 以前から lufs=NULL の既存曲を解析するか
+    let calc_new = config
+        .get("calcLoudnessForNewTracks")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let calc_existing = config
+        .get("calcLoudnessForExistingTracks")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    // 新規/既存を振り分ける cutoff。scan 開始時刻 (insert より必ず前) を境にする。
+    let scan_start_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
     let db_path = app
         .path()
         .app_data_dir()
@@ -165,23 +183,26 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
     // ===== 4. calc LUFS : バックグラウンドで LUFS を計算して書き戻し =====
     // add の完了通知後、解析は別タスクで非同期に走らせる。
     // フロントは scan-progress("analyzing") と scan-analyze-completed で状況を受け取る。
-    spawn_lufs_analysis(app_for_bg, db_path_for_bg);
+    //
+    // 2 設定の組み合わせで解析対象を決める:
+    //   新規 ON / 既存 ON  → 全 lufs=NULL
+    //   新規 ON / 既存 OFF → 今回追加分のみ
+    //   新規 OFF / 既存 ON → 以前から残っている分のみ
+    //   両方 OFF           → 解析しない (完了だけ通知)
+    let scope = match (calc_new, calc_existing) {
+        (true, true) => Some(LufsScope::All),
+        (true, false) => Some(LufsScope::NewOnly(scan_start_secs)),
+        (false, true) => Some(LufsScope::ExistingOnly(scan_start_secs)),
+        (false, false) => None,
+    };
+    match scope {
+        Some(s) => spawn_lufs_analysis(app_for_bg, db_path_for_bg, s),
+        None => {
+            let _ = app_for_bg.emit("scan-analyze-completed", ());
+        }
+    }
 
     Ok(added)
-}
-
-/// 起動時などに、LUFS が NULL のまま残っているトラックを拾って解析する。
-/// 新規スキャンと独立して呼べるよう、別コマンドとして公開する。
-#[tauri::command]
-pub async fn music_analyze_pending(app: AppHandle) -> Result<(), String> {
-    let db_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("music.db");
-
-    spawn_lufs_analysis(app, db_path);
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -750,26 +771,208 @@ fn load_existing_keys(
 // 4. calc LUFS : バックグラウンドで LUFS / trailing_silence_ms を計算
 //
 // 並列度 = max(論理CPU数 / 2, 4)。rayon の thread pool を使う。
-// LUFS が NULL のトラックを全件拾って解析し、UPDATE する。
+// LUFS が NULL のトラックを拾って解析し、UPDATE する。
+// 対象は LufsScope で絞る (新規曲のみ / 既存曲のみ / 両方)。
 // ---------------------------------------------------------------------------
+
+/// LUFS 解析の対象範囲。スキャン開始時刻 (unix 秒) を境に新規/既存を振り分ける。
+/// 新規トラックは insert 時に scanned_at が現在時刻になるため、scan 開始時刻を
+/// cutoff にすれば「今回追加された曲」と「以前から残っている曲」を区別できる。
+#[derive(Clone, Copy)]
+enum LufsScope {
+    /// 新規・既存の両方 (lufs IS NULL すべて)
+    All,
+    /// 今回のスキャンで追加された新規トラックのみ (scanned_at >= cutoff)
+    NewOnly(i64),
+    /// スキャン以前から残っている既存トラックのみ (scanned_at < cutoff)
+    ExistingOnly(i64),
+}
+
+impl LufsScope {
+    /// `WHERE` 条件式と、そこに束縛する cutoff (あれば) を返す。
+    /// 条件式は固定の enum から組み立てるため SQL インジェクションの余地はない。
+    fn where_clause(&self) -> (&'static str, Option<i64>) {
+        match self {
+            LufsScope::All => ("lufs IS NULL", None),
+            LufsScope::NewOnly(c) => ("lufs IS NULL AND scanned_at >= ?1", Some(*c)),
+            LufsScope::ExistingOnly(c) => ("lufs IS NULL AND scanned_at < ?1", Some(*c)),
+        }
+    }
+}
+
+/// scope に応じて lufs=NULL トラックの (id, path) 一覧を取得する。
+fn fetch_pending_tracks(db_path: &Path, scope: LufsScope) -> Result<Vec<(i64, String)>, String> {
+    let conn = open_db(db_path)?;
+    let (cond, cutoff) = scope.where_clause();
+    let sql = format!("SELECT id, path FROM tracks WHERE {cond}");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let map_row =
+        |row: &rusqlite::Row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?));
+    let pending: Vec<(i64, String)> = if let Some(c) = cutoff {
+        stmt.query_map(params![c], map_row)
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect()
+    } else {
+        stmt.query_map([], map_row)
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
+    Ok(pending)
+}
+
 // Android では scoped storage により Rust 側から直接 fopen できないため、
-// 現状 LUFS 解析はスキップする (将来的には Kotlin 側で fd を取得して
-// 解析する仕組みに置き換える予定)。即座に「完了」イベントだけ発火する。
+// Kotlin 側 (ContentResolver.openFileDescriptor → detachFd) で取得した生 fd を
+// analyze_fd に渡して解析する。fd 取得は JNI 経由なので、スレッド attach 問題を
+// 避けるため解析は逐次で行う (デスクトップ版の rayon 並列とは異なる)。
 #[cfg(target_os = "android")]
-fn spawn_lufs_analysis(app: AppHandle, _db_path: PathBuf) {
+fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf, scope: LufsScope) {
     tauri::async_runtime::spawn_blocking(move || {
-        let _ = app.emit("scan-analyze-completed", ());
+        let app_for_recover = app.clone();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_lufs_analysis_android(app, db_path, scope)
+        }));
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => log::warn!("LUFS analysis failed: {e}"),
+            Err(_) => {
+                log::error!("LUFS analysis panicked");
+                let _ = app_for_recover.emit("scan-analyze-completed", ());
+            }
+        }
     });
 }
 
+#[cfg(target_os = "android")]
+fn run_lufs_analysis_android(
+    app: AppHandle,
+    db_path: PathBuf,
+    scope: LufsScope,
+) -> Result<(), String> {
+    use crate::audio_analysis::analyze_fd;
+
+    // 解析対象（scope に該当する lufs=NULL トラック）を取得
+    let pending = fetch_pending_tracks(&db_path, scope)?;
+
+    if pending.is_empty() {
+        let _ = app.emit("scan-analyze-completed", ());
+        return Ok(());
+    }
+
+    let total = pending.len() as u64;
+
+    // path → MediaStore audio_id を一括解決 (fd 取得に必要)。
+    let paths: Vec<String> = pending.iter().map(|(_, p)| p.clone()).collect();
+    let id_map = crate::android_media::audio_ids_for_paths(&app, paths)?;
+
+    // (id, lufs, trailing_silence_ms) を貯めて最後にまとめて UPDATE する。
+    let mut results: Vec<(i64, Option<f64>, Option<i64>)> = Vec::with_capacity(pending.len());
+    let mut last_emit = Instant::now()
+        .checked_sub(EMIT_INTERVAL)
+        .unwrap_or_else(Instant::now);
+
+    for (done, (id, path)) in pending.iter().enumerate() {
+        let done = done as u64 + 1;
+
+        let (lufs, ts_ms) = match id_map.get(path) {
+            Some(&audio_id) => {
+                let ext = Path::new(path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
+                match crate::android_media::open_audio_fd(&app, audio_id) {
+                    // analyze_fd は fd の所有権を引き取り drop 時に close する。
+                    // 内部 panic がプロセスを巻き込まないよう catch_unwind で守る。
+                    Ok(fd) => {
+                        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            analyze_fd(fd, ext)
+                        }));
+                        match res {
+                            Ok(Ok(a)) => (Some(a.lufs), Some(a.trailing_silence_ms as i64)),
+                            Ok(Err(e)) => {
+                                log::warn!("analyze_fd failed for {path}: {e}");
+                                (None, None)
+                            }
+                            Err(_) => {
+                                log::error!("analyze_fd panicked for {path}");
+                                (None, None)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("open_audio_fd failed for {path}: {e}");
+                        (None, None)
+                    }
+                }
+            }
+            None => {
+                log::warn!("no MediaStore id for {path}, skipping LUFS");
+                (None, None)
+            }
+        };
+
+        results.push((*id, lufs, ts_ms));
+
+        // 進捗通知（スロットル）
+        if last_emit.elapsed() >= EMIT_INTERVAL || done == total {
+            let _ = app.emit(
+                "scan-progress",
+                ScanProgress {
+                    process_step: "analyzing".into(),
+                    scan_current: 0,
+                    scan_total: 0,
+                    add_current: 0,
+                    add_total: 0,
+                    analyze_current: done,
+                    analyze_total: total,
+                    current_file: Path::new(path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_string(),
+                },
+            );
+            last_emit = Instant::now();
+        }
+    }
+
+    // 解析結果をまとめて DB に書き戻す。
+    // lufs が None のものは NULL のまま残し、次回スキャンで再試行できるようにする。
+    let mut conn = open_db(&db_path)?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    {
+        let mut stmt = tx
+            .prepare(
+                "UPDATE tracks
+                 SET lufs = COALESCE(?1, lufs),
+                     trailing_silence_ms = COALESCE(?2, trailing_silence_ms)
+                 WHERE id = ?3",
+            )
+            .map_err(|e| e.to_string())?;
+        for (id, lufs, ts) in results.iter() {
+            if lufs.is_none() && ts.is_none() {
+                continue; // どちらも取れなかった → そのまま NULL を温存
+            }
+            if let Err(e) = stmt.execute(params![lufs, ts, id]) {
+                log::warn!("UPDATE lufs failed for id={id}: {e}");
+            }
+        }
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+
+    let _ = app.emit("scan-analyze-completed", ());
+    Ok(())
+}
+
 #[cfg(not(target_os = "android"))]
-fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf) {
+fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf, scope: LufsScope) {
     tauri::async_runtime::spawn_blocking(move || {
         // analyze_audio は内部で std::fs::File::open を使うため、
         // 何らかの理由で panic した場合にプロセスを巻き込まないよう catch_unwind で守る。
         let app_for_recover = app.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_lufs_analysis(app, db_path)
+            run_lufs_analysis(app, db_path, scope)
         }));
         match result {
             Ok(Ok(())) => {}
@@ -783,26 +986,9 @@ fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf) {
 }
 
 #[cfg(not(target_os = "android"))]
-fn run_lufs_analysis(app: AppHandle, db_path: PathBuf) -> Result<(), String> {
-    // 解析対象（LUFS が NULL のトラック）を取得
-    let pending: Vec<(i64, String)> = {
-        let conn = open_db(&db_path)?;
-        let mut stmt = conn
-            .prepare("SELECT id, path FROM tracks WHERE lufs IS NULL")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut v = Vec::new();
-        for r in rows {
-            if let Ok(t) = r {
-                v.push(t);
-            }
-        }
-        v
-    };
+fn run_lufs_analysis(app: AppHandle, db_path: PathBuf, scope: LufsScope) -> Result<(), String> {
+    // 解析対象（scope に該当する lufs=NULL トラック）を取得
+    let pending = fetch_pending_tracks(&db_path, scope)?;
 
     if pending.is_empty() {
         let _ = app.emit("scan-analyze-completed", ());

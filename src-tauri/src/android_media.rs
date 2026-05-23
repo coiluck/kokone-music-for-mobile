@@ -7,7 +7,9 @@
 // すべて Kotlin 側 (ContentResolver.openFileDescriptor 経由) で行う。
 
 #[cfg(target_os = "android")]
-use tauri_plugin_android_media::{AndroidMediaExt, AudioHashRequest};
+use tauri_plugin_android_media::{
+    AndroidMediaExt, AudioHashRequest, AudioIdsForPathsRequest, OpenAudioFdRequest,
+};
 use tauri::{AppHandle, Runtime};
 
 pub use tauri_plugin_android_media::AudioMeta as AndroidAudioMeta;
@@ -39,6 +41,39 @@ pub fn audio_hash<R: Runtime>(
     app.android_media()
         .audio_hash(AudioHashRequest { audio_id, is_mp3 })
         .map(|res| res.hash)
+        .map_err(|e| e.to_string())
+}
+
+/// 指定された Audio ID のファイルを開き、生の fd を返す。
+/// Kotlin 側で `detachFd()` 済みなので、この fd を閉じる責任は呼び出し側にある
+/// (audio_analysis::analyze_fd が File::from_raw_fd で受け取り drop 時に close する)。
+/// 取得失敗時は Err。
+#[cfg(target_os = "android")]
+pub fn open_audio_fd<R: Runtime>(app: &AppHandle<R>, audio_id: i64) -> Result<i32, String> {
+    let fd = app
+        .android_media()
+        .open_audio_fd(OpenAudioFdRequest { audio_id })
+        .map(|res| res.fd)
+        .map_err(|e| e.to_string())?;
+    if fd < 0 {
+        return Err(format!("openAudioFd returned invalid fd for id={audio_id}"));
+    }
+    Ok(fd)
+}
+
+/// path のリストを MediaStore audio_id に解決する (見つかった path だけ map に乗る)。
+/// LUFS 解析時に DB の path から fd 取得用の audio_id を引くために使う。
+#[cfg(target_os = "android")]
+pub fn audio_ids_for_paths<R: Runtime>(
+    app: &AppHandle<R>,
+    paths: Vec<String>,
+) -> Result<std::collections::HashMap<String, i64>, String> {
+    if paths.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    app.android_media()
+        .audio_ids_for_paths(AudioIdsForPathsRequest { paths })
+        .map(|res| res.ids)
         .map_err(|e| e.to_string())
 }
 

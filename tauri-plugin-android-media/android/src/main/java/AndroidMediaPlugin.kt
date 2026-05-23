@@ -39,6 +39,11 @@ class AudioHashArgs {
 }
 
 @InvokeArg
+class OpenAudioFdArgs {
+    var audioId: Long = 0
+}
+
+@InvokeArg
 class AudioIdsForPathsArg {
     var paths: Array<String> = emptyArray()
 }
@@ -430,6 +435,28 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         }
         val ret = JSObject()
         ret.put("hash", hash)
+        invoke.resolve(ret)
+    }
+
+    // -----------------------------------------------------------------------
+    // Open fd (LUFS 解析用に Rust 側へ生 fd を渡す)
+    //
+    // detachFd() で ParcelFileDescriptor から所有権を切り離し、生の int fd を返す。
+    // 以降この fd を閉じる責任は呼び出し側 (Rust の File::from_raw_fd) に移る。
+    // 失敗時は -1 を返す。
+    // -----------------------------------------------------------------------
+    @Command
+    fun openAudioFd(invoke: Invoke) {
+        val args = invoke.parseArgs(OpenAudioFdArgs::class.java)
+        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, args.audioId)
+        val fd = try {
+            activity.contentResolver.openFileDescriptor(uri, "r")?.detachFd() ?: -1
+        } catch (e: Exception) {
+            android.util.Log.w("AndroidMediaPlugin", "openAudioFd failed for id=${args.audioId}", e)
+            -1
+        }
+        val ret = JSObject()
+        ret.put("fd", fd)
         invoke.resolve(ret)
     }
 
