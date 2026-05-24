@@ -123,6 +123,7 @@ pub struct PlaybackSeekRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackVolumeRequest {
     pub volume: f32,
+    pub normalize: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

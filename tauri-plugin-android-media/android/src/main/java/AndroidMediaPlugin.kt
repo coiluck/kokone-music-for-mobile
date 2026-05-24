@@ -92,6 +92,7 @@ class PlaybackSeekArg {
 @InvokeArg
 class PlaybackVolumeArg {
     var volume: Float = 1.0f
+    var normalize: Boolean = true
 }
 
 @TauriPlugin(
@@ -108,7 +109,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var masterVolume: Float = 1.0f
 
     // 4Hz position 通知用 (UI のシークバー駆動)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -181,7 +181,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            applyVolume()
             val idx = controller?.currentMediaItemIndex ?: -1
             emitTrackChanged(mediaItem, idx)
         }
@@ -254,8 +253,9 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     // -----------------------------------------------------------------------
     // QueueItem -> MediaItem
-    //   gain は MediaItem の extras に乗せておき、トラック切替時に取り出して
-    //   master volume と合成する。
+    //   gain (LUFS 正規化係数) は MediaItem の extras に乗せておく。
+    //   音量適用 (master × gain) はサービス側が担う: 減衰は Player.volume、
+    //   増幅 (>1.0) は LoudnessEnhancer。controller 側では volume を触らない。
     // -----------------------------------------------------------------------
 
     private fun toMediaItem(arg: PlaybackQueueItemArg): MediaItem {
@@ -275,15 +275,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
                     .build()
             )
             .build()
-    }
-
-    private fun applyVolume() {
-        val c = controller ?: return
-        val gain = c.currentMediaItem
-            ?.mediaMetadata
-            ?.extras
-            ?.getFloat("gain", 1.0f) ?: 1.0f
-        c.volume = (masterVolume * gain).coerceIn(0f, 1f)
     }
 
     // -----------------------------------------------------------------------
@@ -653,7 +644,6 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 }
             }
-            applyVolume()
             invoke.resolve(JSObject())
         }
     }
@@ -768,11 +758,11 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun playbackSetVolume(invoke: Invoke) {
         val args = invoke.parseArgs(PlaybackVolumeArg::class.java)
-        masterVolume = args.volume.coerceIn(0f, 4f)
-        withController { _ ->
-            applyVolume()
-            invoke.resolve(JSObject())
-        }
+        // master volume / 正規化 ON/OFF はサービスへ直接渡す (同一プロセス)。
+        // サービス側で Player.volume(減衰) と LoudnessEnhancer(増幅) に振り分ける。
+        MusicPlaybackService.setMasterVolume(args.volume)
+        MusicPlaybackService.setNormalizeEnabled(args.normalize)
+        invoke.resolve(JSObject())
     }
 
     @Command

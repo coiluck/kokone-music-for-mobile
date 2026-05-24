@@ -115,16 +115,15 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   }
 
   private pushVolume(masterVolume: number, isNormalize: boolean): void {
-    // LUFS 補正は曲ごとに setQueue で渡しているので、ネイティブの master だけ更新。
-    // 正規化 OFF にしたい場合は、setQueue 時に gain=1.0 で入れ直す形にしたいが、
-    // 簡略化のため master のみ送る。ON/OFF 切替は次の setQueue から効く。
-    void invoke('music_native_set_volume', { volume: masterVolume }).catch(err => {
+    // master volume と正規化 ON/OFF をネイティブへ。曲ごとの LUFS ゲインは
+    // setQueue 時に extras で渡してあり、ネイティブ側が isNormalize=false のときは
+    // 曲ゲインを無視するので、再生中でも即時に切り替わる。
+    void invoke('music_native_set_volume', {
+      volume: masterVolume,
+      normalize: isNormalize,
+    }).catch(err => {
       console.error('[NativePlayer] set_volume failed:', err)
     })
-    if (!isNormalize) {
-      // 正規化 OFF を即時反映したい場合はここで現キューを gain=1 で再構築するなど。
-      // 今は次の setQueue まで待つ仕様。
-    }
   }
 
   private onNativeEvent(ev: NativePlaybackEvent): void {
