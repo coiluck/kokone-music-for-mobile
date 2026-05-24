@@ -25,7 +25,6 @@ const NORMALIZE_S24: f32 = 8388608.0; // 2^23
 const TRAILING_SILENCE_MARGIN_MS: u64 = 500;
 
 pub fn analyze_audio(file_path: &str) -> Result<AnalysisResult, Box<dyn std::error::Error>> {
-    // ファイルを開いてsymphoniaでプローブ
     let file = File::open(file_path)?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
@@ -37,6 +36,33 @@ pub fn analyze_audio(file_path: &str) -> Result<AnalysisResult, Box<dyn std::err
         hint.with_extension(ext);
     }
 
+    analyze_media_source(mss, hint)
+}
+
+/// 生の fd からファイルを開いて解析する (Android の scoped storage 向け)。
+/// fd の所有権はこの関数に移り、`File` の drop 時に close される。
+/// `ext` は symphonia のフォーマット推定用ヒント (拡張子)。
+#[cfg(target_os = "android")]
+pub fn analyze_fd(fd: i32, ext: &str) -> Result<AnalysisResult, Box<dyn std::error::Error>> {
+    use std::os::fd::FromRawFd;
+
+    // SAFETY: fd は Kotlin の detachFd() で所有権を切り離した有効な読み取り fd。
+    // File が所有権を引き取り、drop 時に close する。
+    let file = unsafe { File::from_raw_fd(fd) };
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if !ext.is_empty() {
+        hint.with_extension(ext);
+    }
+
+    analyze_media_source(mss, hint)
+}
+
+fn analyze_media_source(
+    mss: MediaSourceStream,
+    hint: Hint,
+) -> Result<AnalysisResult, Box<dyn std::error::Error>> {
     let probed = symphonia::default::get_probe().format(
         &hint,
         mss,
@@ -153,7 +179,12 @@ pub fn analyze_audio(file_path: &str) -> Result<AnalysisResult, Box<dyn std::err
         }
     }
 
-    let lufs = ebu.loudness_global().unwrap_or(-14.0);
+    if total_samples == 0 {
+        return Err("no audio samples decoded".into());
+    }
+
+    let lufs = ebu.loudness_global()?;
+
     let trailing_silence_ms =
         calc_trailing_silence(total_samples, last_loud_sample_idx, sample_rate);
 

@@ -44,6 +44,12 @@ impl<R: Runtime> AndroidMedia<R> {
             .map_err(Into::into)
     }
 
+    pub fn open_audio_fd(&self, payload: OpenAudioFdRequest) -> Result<OpenAudioFdResponse> {
+        self.0
+            .run_mobile_plugin::<OpenAudioFdResponse>("openAudioFd", payload)
+            .map_err(Into::into)
+    }
+
     pub fn audio_ids_for_paths(
         &self,
         payload: AudioIdsForPathsRequest,

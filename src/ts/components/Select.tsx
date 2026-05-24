@@ -54,9 +54,7 @@ export default function Select<T extends string>({
         <div className="select-component-trigger-text">
           {selectedLabel}
         </div>
-        <div className="select-component-trigger-icon-container">
-          <div className="select-component-trigger-icon" />
-        </div>
+        <div className={`select-component-trigger-icon ${isOpen ? 'open' : ''}`} />
       </div>
       {isOpen && (
         <div className="select-component-option-container">

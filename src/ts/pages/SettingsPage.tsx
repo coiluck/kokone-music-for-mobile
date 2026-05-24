@@ -68,9 +68,12 @@ export default function SettingsPage() {
     ignoreMode:     'settings.ignoreMode',
     ignoreTime:     'settings.ignoreTime',
     scanNow:        'settings.scanNow',
+    // ---
     play:           'settings.play',
     masterVolume:   'settings.masterVolume',
     isNormalizeVolume: 'settings.isNormalizeVolume',
+    calcLoudnessForExistingTracks: 'settings.calcLoudnessForExistingTracks',
+    calcLoudnessForNewTracks: 'settings.calcLoudnessForNewTracks',
     isTrailingSilence: 'settings.isTrailingSilence',
     // ---
     isDeveloperMode: 'settings.isDeveloperMode',
@@ -113,6 +116,10 @@ export default function SettingsPage() {
   const setMasterVolume      = useSettingsStore(s => s.setMasterVolume)
   const isNormalizeVolume    = useSettingsStore(s => s.isNormalizeVolume)
   const setIsNormalizeVolume = useSettingsStore(s => s.setIsNormalizeVolume)
+  const calcLoudnessForExistingTracks = useSettingsStore(s => s.calcLoudnessForExistingTracks)
+  const setCalcLoudnessForExistingTracks = useSettingsStore(s => s.setCalcLoudnessForExistingTracks)
+  const calcLoudnessForNewTracks = useSettingsStore(s => s.calcLoudnessForNewTracks)
+  const setCalcLoudnessForNewTracks = useSettingsStore(s => s.setCalcLoudnessForNewTracks)
   const isTrailingSilence    = useSettingsStore(s => s.isTrailingSilence)
   const setIsTrailingSilence = useSettingsStore(s => s.setIsTrailingSilence)
 
@@ -417,6 +424,31 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={isTrailingSilence}
                   onChange={e => setIsTrailingSilence(e.target.checked)}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+            <div style={{ height: '1px', backgroundColor: 'rgb(from var(--color-text) r g b / 0.2)' }}></div>
+            <div className='settings-section-content-item'>
+              <p>{t.calcLoudnessForExistingTracks}</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={calcLoudnessForExistingTracks}
+                  onChange={e => setCalcLoudnessForExistingTracks(e.target.checked)}
+                  disabled={!isNormalizeVolume}
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.calcLoudnessForNewTracks}</p>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={calcLoudnessForNewTracks}
+                  onChange={e => setCalcLoudnessForNewTracks(e.target.checked)}
+                  disabled={!isNormalizeVolume}
                 />
                 <span className="slider"></span>
               </label>

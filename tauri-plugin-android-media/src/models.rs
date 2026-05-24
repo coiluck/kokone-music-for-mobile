@@ -35,6 +35,20 @@ pub struct HashResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OpenAudioFdRequest {
+    pub audio_id: i64,
+}
+
+/// Kotlin が `detachFd()` で切り離した生 fd。所有権は呼び出し側へ移る。
+/// 取得失敗時は -1。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAudioFdResponse {
+    pub fd: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryAudioMetadataResponse {
     pub items: Vec<AudioMeta>,
 }
@@ -109,6 +123,7 @@ pub struct PlaybackSeekRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackVolumeRequest {
     pub volume: f32,
+    pub normalize: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

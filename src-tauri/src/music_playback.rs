@@ -252,9 +252,13 @@ pub async fn music_native_seek(app: AppHandle, position_ms: i64) -> Result<(), S
 
 #[cfg(target_os = "android")]
 #[tauri::command]
-pub async fn music_native_set_volume(app: AppHandle, volume: f32) -> Result<(), String> {
+pub async fn music_native_set_volume(
+    app: AppHandle,
+    volume: f32,
+    normalize: bool,
+) -> Result<(), String> {
     app.android_media()
-        .playback_set_volume(tauri_plugin_android_media::PlaybackVolumeRequest { volume })
+        .playback_set_volume(tauri_plugin_android_media::PlaybackVolumeRequest { volume, normalize })
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -314,4 +318,8 @@ pub async fn music_native_seek(_app: AppHandle, _position_ms: i64) -> Result<(),
 
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
-pub async fn music_native_set_volume(_app: AppHandle, _volume: f32) -> Result<(), String> { Ok(()) }
+pub async fn music_native_set_volume(
+    _app: AppHandle,
+    _volume: f32,
+    _normalize: bool,
+) -> Result<(), String> { Ok(()) }
