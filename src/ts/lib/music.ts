@@ -64,6 +64,12 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   private currentTrack: Track | null = null
   private trackById: Map<number, Track> = new Map()
 
+  // 末尾無音カット用。ネイティブから来た現曲の実尺と設定フラグを保持する。
+  private nativeDurationMs: number | null = null
+  private isTrailingSilence: boolean
+  // 無音到達で next() を呼んだ後、次曲の trackChanged が来るまで再発火を抑止する。
+  private advancingSilence = false
+
   private pluginListener: Promise<PluginListener | null>
   private unsubscribeSettings: () => void
 
@@ -77,12 +83,18 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
   constructor() {
     // 設定購読: 音量・正規化フラグの変化をネイティブに転送する。
     const s = useSettingsStore.getState()
+    this.isTrailingSilence = s.isTrailingSilence
     this.pushVolume(s.masterVolume, s.isNormalizeVolume)
     this.unsubscribeSettings = useSettingsStore.subscribe((state, prev) => {
       const volChanged = state.masterVolume !== prev.masterVolume
       const normChanged = state.isNormalizeVolume !== prev.isNormalizeVolume
       if (volChanged || normChanged) {
         this.pushVolume(state.masterVolume, state.isNormalizeVolume)
+      }
+      if (state.isTrailingSilence !== prev.isTrailingSilence) {
+        this.isTrailingSilence = state.isTrailingSilence
+        // 設定変更を MiniPlayer の表示長へ即時反映する
+        usePlayerStore.getState()._setDuration(this.effectiveDurationMs())
       }
     })
 
@@ -114,6 +126,15 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
     usePlayerStore.getState()._setQueue([...this.queue])
   }
 
+  // isTrailingSilence が ON のとき、末尾無音を除いた有効再生長 (ms) を返す。
+  // OFF または無音情報が無い場合は実尺をそのまま返す。
+  private effectiveDurationMs(): number | null {
+    if (this.nativeDurationMs == null || this.nativeDurationMs <= 0) return this.nativeDurationMs
+    const silence = this.isTrailingSilence ? (this.currentTrack?.trailing_silence_ms ?? 0) : 0
+    const eff = this.nativeDurationMs - silence
+    return eff > 0 ? eff : this.nativeDurationMs
+  }
+
   private pushVolume(masterVolume: number, isNormalize: boolean): void {
     // master volume と正規化 ON/OFF をネイティブへ。曲ごとの LUFS ゲインは
     // setQueue 時に extras で渡してあり、ネイティブ側が isNormalize=false のときは
@@ -133,8 +154,10 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
         // 曲が変われば seek 抑制は無効。新しい曲の position 0 は正しい値なので、
         // 抑制を残すと曲頭表示が古いシーク位置に固まってしまう。
         this.awaitingSeekEcho = false
+        this.advancingSilence = false
         if (ev.item == null) {
           this.currentTrack = null
+          this.nativeDurationMs = null
           store._setCurrentTrack(null)
           store._setIsPlaying(false)
           store._setPosition(0)
@@ -173,7 +196,8 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
           store._setCurrentTrack(this.currentTrack)
           store._setIsPlaying(true)
           store._setPosition(0)
-          store._setDuration(ev.durationMs != null ? ev.durationMs : null)
+          this.nativeDurationMs = ev.durationMs != null ? ev.durationMs : null
+          store._setDuration(this.effectiveDurationMs())
           if (this.currentTrack) {
             musicPlay(this.currentTrack.id).catch(e =>
               console.error('[NativePlayer] musicPlay failed:', e)
@@ -189,7 +213,20 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
         break
       }
       case 'positionChanged': {
+        if (ev.durationMs != null && ev.durationMs > 0) {
+          this.nativeDurationMs = ev.durationMs
+          store._setDuration(this.effectiveDurationMs())
+        }
         if (ev.positionMs != null) {
+          const effMs = this.effectiveDurationMs()
+          // 末尾無音に到達したら次の曲へ。advancingSilence で再発火を抑止し、
+          // 次曲の trackChanged で解除する。
+          if (!this.advancingSilence && this.isTrailingSilence && effMs != null &&
+              (this.currentTrack?.trailing_silence_ms ?? 0) > 0 && ev.positionMs >= effMs) {
+            this.advancingSilence = true
+            void this.next()
+            break
+          }
           if (ev.fromSeek) {
             // seek が反映された確定通知。抑制を解除し、以後は通常更新に戻す。
             this.awaitingSeekEcho = false
@@ -200,11 +237,12 @@ class NativeAndroidMusicPlayer implements MusicPlayer {
           }
           // awaitingSeekEcho 中の通常 position は無視 (巻き戻り防止)。
         }
-        if (ev.durationMs != null && ev.durationMs > 0) store._setDuration(ev.durationMs)
         break
       }
       case 'queueEnded': {
         this.currentTrack = null
+        this.nativeDurationMs = null
+        this.advancingSilence = false
         store._setCurrentTrack(null)
         store._setIsPlaying(false)
         store._setPosition(0)
@@ -410,6 +448,8 @@ class DesktopMusicPlayer implements MusicPlayer {
       }
       if (state.isTrailingSilence !== prev.isTrailingSilence) {
         this.isTrailingSilence = state.isTrailingSilence
+        // 設定変更を MiniPlayer の表示長へ即時反映する
+        usePlayerStore.getState()._setDuration(this.effectiveDurationMs())
       }
     })
   }
@@ -534,7 +574,7 @@ class DesktopMusicPlayer implements MusicPlayer {
     if (track === null) {
       store._setIsPlaying(false); store._setPosition(0); store._setDuration(null)
     } else {
-      store._setIsPlaying(true); store._setDuration(this.active.durationSec * 1000); store._setPosition(0)
+      store._setIsPlaying(true); store._setDuration(this.effectiveDurationMs()); store._setPosition(0)
       musicPlay(track.id).catch(e => console.error('[MusicPlayer] musicPlay failed:', e))
       sendPlayHistory(track.title, track.artist ?? null)
     }
@@ -564,12 +604,31 @@ class DesktopMusicPlayer implements MusicPlayer {
       duration: audio.duration, playbackRate: audio.playbackRate, position: audio.currentTime,
     })
   }
+  // isTrailingSilence が ON のとき、末尾無音を除いた有効再生長 (ms) を返す。
+  // OFF または無音情報が無い場合は実尺をそのまま返す。
+  private effectiveDurationMs(): number | null {
+    if (!this.currentTrack) return null
+    const fullMs = this.active.durationSec * 1000
+    if (fullMs <= 0) return null
+    const silence = this.isTrailingSilence ? (this.currentTrack.trailing_silence_ms ?? 0) : 0
+    const eff = fullMs - silence
+    return eff > 0 ? eff : fullMs
+  }
   private startPositionPoll(): void {
     if (this.positionPollId !== null) return
     this.positionPollId = setInterval(() => {
       if (this.active.audio.paused) return
       const sec = this.active.audio.currentTime
-      const clamped = Math.max(0, Math.min(this.active.durationSec, sec))
+      const effMs = this.effectiveDurationMs()
+      // 末尾無音に到達したら ended を待たずに次の曲へ
+      if (effMs != null && this.isTrailingSilence &&
+          (this.currentTrack?.trailing_silence_ms ?? 0) > 0 && sec * 1000 >= effMs) {
+        this.active.audio.pause()
+        void this.next().catch(e => console.error('[MusicPlayer] next failed:', e))
+        return
+      }
+      const effSec = effMs != null ? effMs / 1000 : this.active.durationSec
+      const clamped = Math.max(0, Math.min(effSec, sec))
       usePlayerStore.getState()._setPosition(clamped * 1000)
       this.updatePositionState()
     }, POSITION_POLL_MS)
