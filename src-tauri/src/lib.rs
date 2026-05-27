@@ -5,7 +5,7 @@ mod get_lang;
 mod android_media;
 mod music_playback;
 mod edit_track;
-mod historySender;
+mod history_sender;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,7 +34,7 @@ pub fn run() {
             music_playback::music_native_toggle_pause,
             music_playback::music_native_seek,
             music_playback::music_native_set_volume,
-            historySender::send_history_http,
+            history_sender::send_history_http,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
