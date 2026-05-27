@@ -3,8 +3,8 @@ import App from './App'
 import LibraryPage from './pages/LibraryPage'
 import PlaylistsPage from './pages/PlaylistsPage'
 import PlaylistsDetailsPage from './pages/PlaylistsDetailsPage'
-import ArtistlistsPage from './pages/ArtistlistsPage'
-import ArtistPage from './pages/ArtistPage'
+import ArtistsPage from './pages/ArtistsPage'
+import ArtistsDetailsPage from './pages/ArtistsDetailsPage'
 import TagsPage from './pages/TagsPage'
 import TagsDetailsPage from './pages/TagsDetailsPage'
 import AlbumPage from './pages/AlbumPage'
@@ -25,12 +25,12 @@ export const router = createBrowserRouter([
       { path: 'tags/:listName', element: <TagsDetailsPage /> },
       { path: 'playlists/',     element: <PlaylistsPage /> },
       { path: 'playlists/:name', element: <PlaylistsDetailsPage /> },
-      { path: 'artist/',       element: <ArtistlistsPage /> },
-      { path: 'artist/:name',  element: <ArtistPage /> },
+      { path: 'artist/',       element: <ArtistsPage /> },
+      { path: 'artist/:name',  element: <ArtistsDetailsPage /> },
       { path: 'album/',        element: <AlbumPage /> },
       { path: 'album/:name',   element: <AlbumDetailsPage /> },
       // subのページ
-      { path: '/icon-edit/:kind/:name', element: <IconEditPage  /> },
+      { path: '/icon-edit/:kind/:name', element: <IconEditPage /> },
     ]
   },
   {
