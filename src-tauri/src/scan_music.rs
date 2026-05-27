@@ -74,23 +74,17 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
-    // LUFS 解析の対象を決める 2 設定 (未設定なら true)。
-    //   calcLoudnessForNewTracks      : 今回追加された新規曲を解析するか
-    //   calcLoudnessForExistingTracks : 以前から lufs=NULL の既存曲を解析するか
-    let calc_new = config
-        .get("calcLoudnessForNewTracks")
+    // LUFS 解析を無効化するか。開発者モードが ON かつ
+    // disableAnalysingLoudness が true のときだけ無効化する (どちらも未設定なら false)。
+    let is_developer_mode = config
+        .get("isDeveloperMode")
         .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-    let calc_existing = config
-        .get("calcLoudnessForExistingTracks")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-
-    // 新規/既存を振り分ける cutoff。scan 開始時刻 (insert より必ず前) を境にする。
-    let scan_start_secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
+        .unwrap_or(false);
+    let disable_analysing = is_developer_mode
+        && config
+            .get("disableAnalysingLoudness")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
     let db_path = app
         .path()
@@ -184,22 +178,12 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
     // add の完了通知後、解析は別タスクで非同期に走らせる。
     // フロントは scan-progress("analyzing") と scan-analyze-completed で状況を受け取る。
     //
-    // 2 設定の組み合わせで解析対象を決める:
-    //   新規 ON / 既存 ON  → 全 lufs=NULL
-    //   新規 ON / 既存 OFF → 今回追加分のみ
-    //   新規 OFF / 既存 ON → 以前から残っている分のみ
-    //   両方 OFF           → 解析しない (完了だけ通知)
-    let scope = match (calc_new, calc_existing) {
-        (true, true) => Some(LufsScope::All),
-        (true, false) => Some(LufsScope::NewOnly(scan_start_secs)),
-        (false, true) => Some(LufsScope::ExistingOnly(scan_start_secs)),
-        (false, false) => None,
-    };
-    match scope {
-        Some(s) => spawn_lufs_analysis(app_for_bg, db_path_for_bg, s),
-        None => {
-            let _ = app_for_bg.emit("scan-analyze-completed", ());
-        }
+    // disableAnalysingLoudness が ON なら解析せず完了だけ通知。
+    // OFF (デフォルト) なら lufs=NULL のトラックをすべて解析する。
+    if disable_analysing {
+        let _ = app_for_bg.emit("scan-analyze-completed", ());
+    } else {
+        spawn_lufs_analysis(app_for_bg, db_path_for_bg, LufsScope::All);
     }
 
     Ok(added)
@@ -772,20 +756,14 @@ fn load_existing_keys(
 //
 // 並列度 = max(論理CPU数 / 2, 4)。rayon の thread pool を使う。
 // LUFS が NULL のトラックを拾って解析し、UPDATE する。
-// 対象は LufsScope で絞る (新規曲のみ / 既存曲のみ / 両方)。
+// 対象は LufsScope で絞る。
 // ---------------------------------------------------------------------------
 
-/// LUFS 解析の対象範囲。スキャン開始時刻 (unix 秒) を境に新規/既存を振り分ける。
-/// 新規トラックは insert 時に scanned_at が現在時刻になるため、scan 開始時刻を
-/// cutoff にすれば「今回追加された曲」と「以前から残っている曲」を区別できる。
+/// LUFS 解析の対象範囲。
 #[derive(Clone, Copy)]
 enum LufsScope {
-    /// 新規・既存の両方 (lufs IS NULL すべて)
+    /// lufs IS NULL のトラックすべて
     All,
-    /// 今回のスキャンで追加された新規トラックのみ (scanned_at >= cutoff)
-    NewOnly(i64),
-    /// スキャン以前から残っている既存トラックのみ (scanned_at < cutoff)
-    ExistingOnly(i64),
 }
 
 impl LufsScope {
@@ -794,8 +772,6 @@ impl LufsScope {
     fn where_clause(&self) -> (&'static str, Option<i64>) {
         match self {
             LufsScope::All => ("lufs IS NULL", None),
-            LufsScope::NewOnly(c) => ("lufs IS NULL AND scanned_at >= ?1", Some(*c)),
-            LufsScope::ExistingOnly(c) => ("lufs IS NULL AND scanned_at < ?1", Some(*c)),
         }
     }
 }

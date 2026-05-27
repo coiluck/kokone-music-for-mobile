@@ -56,8 +56,10 @@ fn fetch_track(app: &AppHandle, track_id: i64) -> Result<TrackForPlayback, Strin
     .map_err(|e| e.to_string())
 }
 
+#[cfg(target_os = "android")]
 const TARGET_LUFS: f64 = -14.0;
 
+#[cfg(target_os = "android")]
 fn lufs_to_gain(lufs: Option<f64>) -> f32 {
     match lufs {
         Some(v) if v.is_finite() => 10f64.powf((TARGET_LUFS - v) / 20.0) as f32,

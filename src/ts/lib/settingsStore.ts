@@ -43,13 +43,11 @@ interface SettingsState {
   // 再生設定
   masterVolume: number,
   isNormalizeVolume: boolean,
-  calcLoudnessForExistingTracks: boolean,
-  calcLoudnessForNewTracks: boolean,
+  disableAnalysingLoudness: boolean,
   isTrailingSilence: boolean,
   setMasterVolume: (value: number) => Promise<void>
   setIsNormalizeVolume: (value: boolean) => Promise<void>
-  setCalcLoudnessForExistingTracks: (value: boolean) => Promise<void>
-  setCalcLoudnessForNewTracks: (value: boolean) => Promise<void>
+  setDisableAnalysingLoudness: (value: boolean) => Promise<void>
   setIsTrailingSilence: (value: boolean) => Promise<void>
   loadPlaySettings: () => Promise<void>
 
@@ -138,8 +136,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   masterVolume: 1,
   isNormalizeVolume: true,
-  calcLoudnessForExistingTracks: true,
-  calcLoudnessForNewTracks: true,
+  disableAnalysingLoudness: false,
   isTrailingSilence: true,
 
   setMasterVolume: async (value) => {
@@ -152,14 +149,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     await invoke('settings_set', { key: 'isNormalizeVolume', value })
   },
 
-  setCalcLoudnessForExistingTracks: async (value) => {
-    set({ calcLoudnessForExistingTracks: value })
-    await invoke('settings_set', { key: 'calcLoudnessForExistingTracks', value })
-  },
-
-  setCalcLoudnessForNewTracks: async (value) => {
-    set({ calcLoudnessForNewTracks: value })
-    await invoke('settings_set', { key: 'calcLoudnessForNewTracks', value })
+  setDisableAnalysingLoudness: async (value) => {
+    set({ disableAnalysingLoudness: value })
+    await invoke('settings_set', { key: 'disableAnalysingLoudness', value })
   },
 
   setIsTrailingSilence: async (value) => {
@@ -168,18 +160,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   loadPlaySettings: async () => {
-    const [masterVolume, isNormalizeVolume, calcLoudnessForExistingTracks, calcLoudnessForNewTracks, isTrailingSilence] = await Promise.all([
+    const [masterVolume, isNormalizeVolume, disableAnalysingLoudness, isTrailingSilence] = await Promise.all([
       invoke<number | null>('settings_get', { key: 'masterVolume' }),
       invoke<boolean | null>('settings_get', { key: 'isNormalizeVolume' }),
-      invoke<boolean | null>('settings_get', { key: 'calcLoudnessForExistingTracks' }),
-      invoke<boolean | null>('settings_get', { key: 'calcLoudnessForNewTracks' }),
+      invoke<boolean | null>('settings_get', { key: 'disableAnalysingLoudness' }),
       invoke<boolean | null>('settings_get', { key: 'isTrailingSilence' }),
     ])
     set({
       masterVolume: masterVolume ?? 1,
       isNormalizeVolume: isNormalizeVolume ?? true,
-      calcLoudnessForExistingTracks: calcLoudnessForExistingTracks ?? true,
-      calcLoudnessForNewTracks: calcLoudnessForNewTracks ?? true,
+      disableAnalysingLoudness: disableAnalysingLoudness ?? false,
       isTrailingSilence: isTrailingSilence ?? true,
     })
   },

@@ -9,7 +9,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import { Icon } from '../components/Icon'
 import { formatTime } from '../components/MiniPlayer'
 import MusicItem from '../components/MusicItem'
-import '../../css/pages/ArtistPage.css'
+import '../../css/pages/ArtistsDetailsPage.css'
 
 function sortByTitle(tracks: Track[]): Track[] {
   return [...tracks].sort((a, b) =>
@@ -20,7 +20,7 @@ function sortByTitle(tracks: Track[]): Track[] {
   )
 }
 
-export default function ArtistPage() {
+export default function ArtistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const artistName = name ? decodeURIComponent(name) : ''
 
@@ -94,26 +94,26 @@ export default function ArtistPage() {
 
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>
-      <div className="artist-page-topbar">
-        <div className="artist-page-topbar-left">
-          <div className="artist-page-topbar-icon-container">
+      <div className="artist-details-page-topbar">
+        <div className="artist-details-page-topbar-left">
+          <div className="artist-details-page-topbar-icon-container">
             <Icon name="artist" mode={iconStyle} size={24} folder="/images/ArtistPage/" />
           </div>
-          <div className="artist-page-topbar-text">
-            <p className="artist-page-topbar-text-title">{artistName}</p>
-            <p className="artist-page-topbar-text-meta">{trackIds.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
+          <div className="artist-details-page-topbar-text">
+            <p className="artist-details-page-topbar-text-title">{artistName}</p>
+            <p className="artist-details-page-topbar-text-meta">{trackIds.length} {t.tracksNumber}・{formatTime(totalDurationMs)}</p>
           </div>
         </div>
 
-        <div className="artist-page-topbar-right">
+        <div className="artist-details-page-topbar-right">
           <div
-            className="artist-page-topbar-right shuffle"
+            className="artist-details-page-topbar-right shuffle"
             onClick={handleShuffle}
           >
             <Icon name="shuffle" mode={null} size={24} folder='/images/PlaylistsPage/' />
           </div>
           <div
-            className="artist-page-topbar-right play_all"
+            className="artist-details-page-topbar-right play_all"
             onClick={handlePlayAll}
           >
             <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />

@@ -148,7 +148,8 @@
 }
 
 /* 開発者モード */
-.settings-section-content-item input {
+.settings-section-content-item input[type="text"],
+.settings-section-content-item input[type="password"] {
   padding: .25rem .5rem;
   border-radius: .5rem;
   background: transparent;
@@ -156,7 +157,8 @@
   outline: none;
   transition: all 0.2s ease;
 }
-.settings-section-content-item input:focus {
+.settings-section-content-item input[type="text"]:focus,
+.settings-section-content-item input[type="password"]:focus {
   border-color: var(--color-accent);
 }
 /* on, off switch */

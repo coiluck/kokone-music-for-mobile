@@ -6,7 +6,7 @@ import { usePlayerStore } from '../lib/playerStore'
 import ArtistItem from '../components/ArtistItem'
 import { useMappedTranslations } from '../lib/i18n'
 import { loadVirtualizerInitial, saveVirtualizerState } from '../lib/scrollRestoration'
-import '../../css/pages/ArtistlistsPage.css'
+import '../../css/pages/ArtistsPage.css'
 
 const INDICATOR_ITEM_HEIGHT = 20
 const ESTIMATED_ITEM_HEIGHT = 61.78
@@ -36,7 +36,7 @@ function resolveMiniPlayerHeightPx(): number {
   return h
 }
 
-export default function ArtistlistsPage() {
+export default function ArtistsPage() {
   // store から購読（hydrate は main.tsx で起動時 + scanVersion 変化時に行う）
   const tracksById = useTrackStore(s => s.tracksById)
   const loading = useTrackStore(s => s.loading)
