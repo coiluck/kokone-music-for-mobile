@@ -37,6 +37,8 @@ pub struct HashResponse {
 #[serde(rename_all = "camelCase")]
 pub struct OpenAudioFdRequest {
     pub audio_id: i64,
+    /// true なら "rw" で開く (ID3 書き込み用)。false なら従来どおり "r" (読み取り)。
+    pub writable: bool,
 }
 
 /// Kotlin が `detachFd()` で切り離した生 fd。所有権は呼び出し側へ移る。
@@ -45,6 +47,23 @@ pub struct OpenAudioFdRequest {
 #[serde(rename_all = "camelCase")]
 pub struct OpenAudioFdResponse {
     pub fd: i32,
+}
+
+/// MediaStore 上のファイル名 (DISPLAY_NAME) を変更する。
+/// `display_name` は拡張子込みの希望ファイル名 (例 "新しいタイトル.mp3")。
+/// 同名衝突は Kotlin 側で末尾連番を付けて回避する。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameAudioFileRequest {
+    pub audio_id: i64,
+    pub display_name: String,
+}
+
+/// リネーム後の実パス (MediaStore の DATA 列)。失敗時は空文字。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameAudioFileResponse {
+    pub new_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

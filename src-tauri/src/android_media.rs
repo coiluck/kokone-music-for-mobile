@@ -9,6 +9,7 @@
 #[cfg(target_os = "android")]
 use tauri_plugin_android_media::{
     AndroidMediaExt, AudioHashRequest, AudioIdsForPathsRequest, OpenAudioFdRequest,
+    RenameAudioFileRequest,
 };
 use tauri::{AppHandle, Runtime};
 
@@ -52,13 +53,65 @@ pub fn audio_hash<R: Runtime>(
 pub fn open_audio_fd<R: Runtime>(app: &AppHandle<R>, audio_id: i64) -> Result<i32, String> {
     let fd = app
         .android_media()
-        .open_audio_fd(OpenAudioFdRequest { audio_id })
+        .open_audio_fd(OpenAudioFdRequest {
+            audio_id,
+            writable: false,
+        })
         .map(|res| res.fd)
         .map_err(|e| e.to_string())?;
     if fd < 0 {
         return Err(format!("openAudioFd returned invalid fd for id={audio_id}"));
     }
     Ok(fd)
+}
+
+/// 指定された Audio ID のファイルを書き込み可能 ("rw") で開き、生の fd を返す。
+/// ID3 タグ書き換え用。`open_audio_fd` と同様、fd を閉じる責任は呼び出し側にある
+/// (edit_track が File::from_raw_fd で受け取り drop 時に close する)。
+/// 取得失敗時 (権限拒否・読み取り専用ボリューム等で -1) は Err。
+#[cfg(target_os = "android")]
+pub fn open_audio_fd_rw<R: Runtime>(app: &AppHandle<R>, audio_id: i64) -> Result<i32, String> {
+    let fd = app
+        .android_media()
+        .open_audio_fd(OpenAudioFdRequest {
+            audio_id,
+            writable: true,
+        })
+        .map(|res| res.fd)
+        .map_err(|e| e.to_string())?;
+    if fd < 0 {
+        return Err(format!("openAudioFd(rw) returned invalid fd for id={audio_id}"));
+    }
+    Ok(fd)
+}
+
+/// ID3 タグの実ファイル書き込みに必要な権限を要求し、許可済みかどうかを返す。
+/// 未許可の場合 (Android 11+) は全ファイルアクセスの設定画面を開いた上で false を返す。
+/// edit_track の Android 分岐が書き込み前のゲートとして使う。
+#[cfg(target_os = "android")]
+pub fn request_manage_storage_permission<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
+    app.android_media()
+        .request_manage_storage_permission()
+        .map(|res| res.granted)
+        .map_err(|e| e.to_string())
+}
+
+/// MediaStore 上のファイル名を `display_name` (拡張子込み) に変更し、変更後の実パスを返す。
+/// 同名衝突は Kotlin 側で末尾連番を付けて回避する。失敗時は空文字が返る。
+/// edit_track の Android 分岐がタイトル変更時のリネームに使う。
+#[cfg(target_os = "android")]
+pub fn rename_audio_file<R: Runtime>(
+    app: &AppHandle<R>,
+    audio_id: i64,
+    display_name: String,
+) -> Result<String, String> {
+    app.android_media()
+        .rename_audio_file(RenameAudioFileRequest {
+            audio_id,
+            display_name,
+        })
+        .map(|res| res.new_path)
+        .map_err(|e| e.to_string())
 }
 
 /// path のリストを MediaStore audio_id に解決する (見つかった path だけ map に乗る)。

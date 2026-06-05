@@ -32,6 +32,15 @@ impl<R: Runtime> AndroidMedia<R> {
             .map_err(Into::into)
     }
 
+    /// ID3 タグの実ファイル書き込みに必要な権限を要求する。
+    /// 既に許可済みなら granted=true。未許可なら (Android 11+ では) 全ファイルアクセスの
+    /// 設定画面を開いて granted=false を返すので、ユーザーが許可後に再試行する。
+    pub fn request_manage_storage_permission(&self) -> Result<PermissionResponse> {
+        self.0
+            .run_mobile_plugin::<PermissionResponse>("requestManageStoragePermission", ())
+            .map_err(Into::into)
+    }
+
     pub fn query_audio_metadata(&self) -> Result<QueryAudioMetadataResponse> {
         self.0
             .run_mobile_plugin::<QueryAudioMetadataResponse>("queryAudioMetadata", ())
@@ -47,6 +56,15 @@ impl<R: Runtime> AndroidMedia<R> {
     pub fn open_audio_fd(&self, payload: OpenAudioFdRequest) -> Result<OpenAudioFdResponse> {
         self.0
             .run_mobile_plugin::<OpenAudioFdResponse>("openAudioFd", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn rename_audio_file(
+        &self,
+        payload: RenameAudioFileRequest,
+    ) -> Result<RenameAudioFileResponse> {
+        self.0
+            .run_mobile_plugin::<RenameAudioFileResponse>("renameAudioFile", payload)
             .map_err(Into::into)
     }
 
