@@ -373,19 +373,21 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
             <div className="ei-component-field">
               <label className="ei-component-field-label">{t.editInfoTags}</label>
               <div className="mi-component-tags-input-container">
-                <div className="mi-component-tags-container">
-                  {editingTags.map(tag => (
-                    <span
-                      key={tag}
-                      className="mi-component-tags-item"
-                      onClick={() => {
-                        setEditingTags(prev => prev.filter(x => x !== tag))
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                {editingTags.length > 0 && (
+                  <div className="mi-component-tags-container">
+                    {editingTags.map(tag => (
+                      <span
+                        key={tag}
+                        className="mi-component-tags-item"
+                        onClick={() => {
+                          setEditingTags(prev => prev.filter(x => x !== tag))
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <input
                   type="text"
                   enterKeyHint="enter"

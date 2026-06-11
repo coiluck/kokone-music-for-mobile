@@ -58,7 +58,7 @@
 
 .select-component-option {
   position: relative;
-  padding: 1rem .5rem;
+  padding: .75rem;
   padding-left: 1.75rem;
   border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
   cursor: pointer;
