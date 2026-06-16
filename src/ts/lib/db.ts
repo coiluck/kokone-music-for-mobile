@@ -174,13 +174,21 @@ export async function searchTracks(query: string, tags: string[] = []): Promise<
 
 export async function updateTrack(
   id: number,
-  data: { title: string; artist: string; tags: string[] }
+  data: { title: string; artist: string; tags: string[]; path?: string }
 ): Promise<void> {
   const db = await getDb()
-  await db.execute(
-    'UPDATE tracks SET title = $1, artist = $2, tags = $3 WHERE id = $4',
-    [data.title, data.artist, JSON.stringify(data.tags), id]
-  )
+  if (data.path !== undefined) {
+    // Android でタイトル変更に伴いファイル名が変わったとき、path も追従させる。
+    await db.execute(
+      'UPDATE tracks SET title = $1, artist = $2, tags = $3, path = $4 WHERE id = $5',
+      [data.title, data.artist, JSON.stringify(data.tags), data.path, id]
+    )
+  } else {
+    await db.execute(
+      'UPDATE tracks SET title = $1, artist = $2, tags = $3 WHERE id = $4',
+      [data.title, data.artist, JSON.stringify(data.tags), id]
+    )
+  }
 }
 
 export async function getHistory() {

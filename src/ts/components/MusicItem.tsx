@@ -67,7 +67,10 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
     addToPlaylist: 'music.item.actions.add-to-playlist',
     count: 'music.item.count',
     editInfoError: 'message.error.mi.edit-info',
+    storagePermissionError: 'message.error.mi.storage-permission',
     addToPlaylistError: 'message.error.mi.add-to-playlist',
+    renameInvalidChars: 'message.error.mi.rename-invalid-chars',
+    renameFailed: 'message.error.mi.rename-failed',
   })
 
   // 編集モーダルが開かれたタイミングで現在の tags をコピー
@@ -104,19 +107,28 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
     const title = titleInputRef.current?.value.trim() || track.title
     const artist = artistInputRef.current?.value.trim() || track.artist
     try {
-      await invoke('edit_track_metadata', {
-        payload: {
-          path: track.path,
-          title,
-          artist,
-        },
-      })
+      // タイトルが実際に変わったときだけファイル名のリネームを要求する (Android のみ)。
+      const res = await invoke<{ newPath: string | null; renameError: string | null }>(
+        'edit_track_metadata',
+        {
+          payload: {
+            path: track.path,
+            title,
+            artist,
+            renameToTitle: title !== track.title,
+          },
+        }
+      )
+
+      // リネーム成功時は新しいパスを DB/store にも反映する。
+      const newPath = res?.newPath ?? undefined
 
       // DB 更新
       await updateTrack(track.id, {
         title,
         artist,
         tags: editingTags,
+        path: newPath,
       })
 
       // store 更新（title が変われば trackOrder も再計算される）
@@ -124,9 +136,25 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
         title,
         artist,
         tags: editingTags,
+        ...(newPath ? { path: newPath } : {}),
       })
+
+      // タグ書き込みは成功したがリネームだけ失敗したケースを警告表示する。
+      if (res?.renameError) {
+        if (res.renameError.includes('INVALID_FILENAME_CHARS')) {
+          showMessage(t.renameInvalidChars, 'infinity')
+        } else {
+          showMessage(t.renameFailed, 'infinity')
+        }
+      }
     } catch (e) {
-      showMessage(`${t.editInfoError}: ${e}`, 'infinity')
+      // Android: 全ファイルアクセス未許可のとき edit_track_metadata がこのトークンを返す。
+      // 設定画面は Rust 側で既に開いているので、許可して再保存するよう案内する。
+      if (String(e).includes('NEED_STORAGE_PERMISSION')) {
+        showMessage(t.storagePermissionError, 'infinity')
+      } else {
+        showMessage(`${t.editInfoError}: ${e}`, 'infinity')
+      }
     }
   }
 
@@ -345,19 +373,21 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
             <div className="ei-component-field">
               <label className="ei-component-field-label">{t.editInfoTags}</label>
               <div className="mi-component-tags-input-container">
-                <div className="mi-component-tags-container">
-                  {editingTags.map(tag => (
-                    <span
-                      key={tag}
-                      className="mi-component-tags-item"
-                      onClick={() => {
-                        setEditingTags(prev => prev.filter(x => x !== tag))
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                {editingTags.length > 0 && (
+                  <div className="mi-component-tags-container">
+                    {editingTags.map(tag => (
+                      <span
+                        key={tag}
+                        className="mi-component-tags-item"
+                        onClick={() => {
+                          setEditingTags(prev => prev.filter(x => x !== tag))
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <input
                   type="text"
                   enterKeyHint="enter"

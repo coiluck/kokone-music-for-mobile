@@ -4,12 +4,16 @@ import android.Manifest
 import android.app.Activity
 import android.content.ComponentName
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -41,6 +45,13 @@ class AudioHashArgs {
 @InvokeArg
 class OpenAudioFdArgs {
     var audioId: Long = 0
+    var writable: Boolean = false
+}
+
+@InvokeArg
+class RenameAudioFileArgs {
+    var audioId: Long = 0
+    var displayName: String = ""
 }
 
 @InvokeArg
@@ -99,6 +110,7 @@ class PlaybackVolumeArg {
     permissions = [
         Permission(strings = [Manifest.permission.READ_MEDIA_AUDIO], alias = "audio33"),
         Permission(strings = [Manifest.permission.READ_EXTERNAL_STORAGE], alias = "audio"),
+        Permission(strings = [Manifest.permission.WRITE_EXTERNAL_STORAGE], alias = "storageWrite"),
     ]
 )
 class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
@@ -317,6 +329,68 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     // -----------------------------------------------------------------------
+    // ファイル書き込み権限 (ID3 タグ編集用)
+    //   Android 11+ (R+) : MANAGE_EXTERNAL_STORAGE (全ファイルアクセス) を設定画面で許可。
+    //   Android 9 以下 (<=28) : WRITE_EXTERNAL_STORAGE をランタイム要求。
+    //   Android 10 (API 29) は scoped storage で他アプリ作成ファイルを書けないため非対応。
+    // -----------------------------------------------------------------------
+
+    private fun hasManageStorageInternal(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(
+                activity, Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    @Command
+    fun requestManageStoragePermission(invoke: Invoke) {
+        if (hasManageStorageInternal()) {
+            val ret = JSObject()
+            ret.put("granted", true)
+            invoke.resolve(ret)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // 全ファイルアクセスはランタイムダイアログではなく設定画面で許可する。
+            // 起動しただけでは許可されないので granted=false を返し、
+            // ユーザーが許可して戻ってから再試行してもらう。
+            activity.runOnUiThread {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:${activity.packageName}")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    activity.startActivity(intent)
+                } catch (e: Exception) {
+                    try {
+                        activity.startActivity(
+                            Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (e2: Exception) {
+                        android.util.Log.w("AndroidMediaPlugin", "open all-files-access settings failed", e2)
+                    }
+                }
+            }
+            val ret = JSObject()
+            ret.put("granted", false)
+            invoke.resolve(ret)
+        } else {
+            requestPermissionForAlias("storageWrite", invoke, "manageStorageCallback")
+        }
+    }
+
+    @PermissionCallback
+    private fun manageStorageCallback(invoke: Invoke) {
+        val ret = JSObject()
+        ret.put("granted", hasManageStorageInternal())
+        invoke.resolve(ret)
+    }
+
+    // -----------------------------------------------------------------------
     // Audio metadata enumeration
     // -----------------------------------------------------------------------
 
@@ -440,8 +514,9 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
     fun openAudioFd(invoke: Invoke) {
         val args = invoke.parseArgs(OpenAudioFdArgs::class.java)
         val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, args.audioId)
+        val mode = if (args.writable) "rw" else "r"
         val fd = try {
-            activity.contentResolver.openFileDescriptor(uri, "r")?.detachFd() ?: -1
+            activity.contentResolver.openFileDescriptor(uri, mode)?.detachFd() ?: -1
         } catch (e: Exception) {
             android.util.Log.w("AndroidMediaPlugin", "openAudioFd failed for id=${args.audioId}", e)
             -1
@@ -449,6 +524,76 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         val ret = JSObject()
         ret.put("fd", fd)
         invoke.resolve(ret)
+    }
+
+    // -----------------------------------------------------------------------
+    // ファイル名のリネーム (タイトル編集時に DISPLAY_NAME を変更する)
+    //
+    // Q+ : DISPLAY_NAME を update するとシステムが実ファイルもリネームする
+    //      (MANAGE_EXTERNAL_STORAGE 許可済み前提)。
+    // pre-Q : DATA が真実なので実ファイルを直接 renameTo し、MediaStore も合わせる。
+    // 同名衝突は親フォルダ内で空きになるまで末尾連番 " (n)" を付けて回避する。
+    // 失敗時は newPath="" を返し、呼び出し側 (Rust) がリネーム失敗として扱う。
+    // -----------------------------------------------------------------------
+    @Command
+    fun renameAudioFile(invoke: Invoke) {
+        val args = invoke.parseArgs(RenameAudioFileArgs::class.java)
+        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, args.audioId)
+        val newPath = try {
+            renameAudioFileInternal(uri, args.displayName)
+        } catch (e: Exception) {
+            android.util.Log.w("AndroidMediaPlugin", "renameAudioFile failed for id=${args.audioId}", e)
+            ""
+        }
+        val ret = JSObject()
+        ret.put("newPath", newPath)
+        invoke.resolve(ret)
+    }
+
+    private fun renameAudioFileInternal(uri: Uri, desiredName: String): String {
+        val currentData = queryAudioData(uri) ?: return ""
+        val currentFile = java.io.File(currentData)
+        val parent = currentFile.parentFile ?: return ""
+
+        // desiredName を base + ext に分割し、衝突しない名前を決める
+        val dot = desiredName.lastIndexOf('.')
+        val base = if (dot > 0) desiredName.substring(0, dot) else desiredName
+        val ext = if (dot > 0) desiredName.substring(dot) else ""
+        var candidate = desiredName
+        var n = 1
+        while (java.io.File(parent, candidate).exists()) {
+            candidate = "$base ($n)$ext"
+            n++
+        }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DISPLAY_NAME, candidate)
+            }
+            val rows = activity.contentResolver.update(uri, values, null, null)
+            if (rows <= 0) "" else queryAudioData(uri) ?: ""
+        } else {
+            val newFile = java.io.File(parent, candidate)
+            if (!currentFile.renameTo(newFile)) return ""
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DATA, newFile.absolutePath)
+                put(MediaStore.Audio.Media.DISPLAY_NAME, candidate)
+            }
+            activity.contentResolver.update(uri, values, null, null)
+            newFile.absolutePath
+        }
+    }
+
+    private fun queryAudioData(uri: Uri): String? {
+        activity.contentResolver.query(
+            uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val idx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                if (idx >= 0) return cursor.getString(idx)
+            }
+        }
+        return null
     }
 
     // -----------------------------------------------------------------------

@@ -1,9 +1,10 @@
 [package]
 name = "kokone-music"
-version = "1.2.0"
+version = "1.2.1"
 description = "A Tauri App"
-authors = ["coilcuk"]
+authors = ["coiluck"]
 edition = "2021"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
