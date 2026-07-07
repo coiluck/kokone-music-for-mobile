@@ -95,9 +95,16 @@ export async function initDb(): Promise<void> {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS history (
       track_id  INTEGER NOT NULL REFERENCES tracks(id),
-      played_at INTEGER NOT NULL
+      played_at INTEGER NOT NULL,
+      listened_ms INTEGER NOT NULL DEFAULT 0
     )
   `)
+  // 既存インストールの history には listened_ms 列が無い。CREATE ... IF NOT EXISTS は
+  // 既存テーブルに列を足さないので、無ければ ALTER で追加する (冪等)。
+  const historyCols = await db.select<{ name: string }[]>('PRAGMA table_info(history)')
+  if (!historyCols.some(c => c.name === 'listened_ms')) {
+    await db.execute('ALTER TABLE history ADD COLUMN listened_ms INTEGER NOT NULL DEFAULT 0')
+  }
 }
 
 // 配列にする
@@ -298,12 +305,26 @@ export async function getRecommended(): Promise<Track[]> {
   })
 }
 
-export async function musicPlay(trackId: number): Promise<void> {
+// 再生開始時に history 行を作り、その rowid を返す。listened_ms は 0 で始め、
+// 実際に聴いた時間が確定するたび updateListenedMs で更新する。
+export async function startPlay(trackId: number): Promise<number> {
   const db = await getDb()
   const nowUNIX = Date.now()
-  await db.execute(
-    'INSERT INTO history (track_id, played_at) VALUES ($1, $2)',
+  const result = await db.execute(
+    'INSERT INTO history (track_id, played_at, listened_ms) VALUES ($1, $2, 0)',
     [trackId, nowUNIX]
+  )
+  return result.lastInsertId as number
+}
+
+// 再生セッションの累積リスニング時間 (ms) を history 行に反映する。
+// 再生中は定期的に、曲の切替・停止時には確定値で呼ばれる。途中で kill されても
+// 直近の値までは残る。
+export async function updateListenedMs(historyId: number, listenedMs: number): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE history SET listened_ms = $1 WHERE rowid = $2',
+    [Math.round(listenedMs), historyId]
   )
 }
 
