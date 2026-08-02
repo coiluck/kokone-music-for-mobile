@@ -101,10 +101,16 @@ export default function SearchPage() {
   }
 
   const handlePlay = useCallback((trackId: number) => {
-    const track = useTrackStore.getState().tracksById[trackId]
+    const byId = useTrackStore.getState().tracksById
+    const track = byId[trackId]
     if (!track) return
+
+    const i = trackIds.indexOf(trackId)
+    const queueIds = i === -1 ? [] : [...trackIds.slice(i + 1), ...trackIds.slice(0, i)]
+    const queue = queueIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
+    musicPlayer.setQueue(queue)
     void musicPlayer.play(track)
-  }, [])
+  }, [trackIds])
 
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>
