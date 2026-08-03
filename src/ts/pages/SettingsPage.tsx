@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { Link } from 'react-router-dom'
 import {
   addScanFolder,
   addScanFolderByPath,
@@ -56,6 +57,8 @@ async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export default function SettingsPage() {
   const t = useMappedTranslations({
+    stats: 'settings.stats',
+    statsDescription: 'settings.statsDescription',
     app: 'settings.app',
     language: 'settings.language',
     appearance: 'settings.appearance',
@@ -236,6 +239,22 @@ export default function SettingsPage() {
   return (
     <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
+
+        <Link to='/stats' className='settings-stats-link'>
+          <div className='settings-stats-icon'>
+            <span className='settings-stats-icon-bar' />
+            <span className='settings-stats-icon-bar' />
+            <span className='settings-stats-icon-bar' />
+          </div>
+          <div className='settings-stats-text-container'>
+            <span className='settings-stats-title'>{t.stats}</span>
+            <span className='settings-stats-description'>{t.statsDescription}</span>
+          </div>
+          <div className='settings-stats-arrow'>
+            <Icon name="back" mode={null} size={16} folder='/images/App/' />
+          </div>
+        </Link>
+
         <div className='settings-section'>
           <div className='settings-section-label'>App</div>
           <div className='settings-section-content'>

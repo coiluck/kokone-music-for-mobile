@@ -14,6 +14,7 @@ import SearchPage from './pages/sub/SearchPage'
 import IconEditPage from './pages/sub/IconEditPage'
 import SubLayout from './layouts/SubLayout'
 import SettingsLayout from './layouts/SettingsLayout'
+import StatsPage from './pages/sub/StatsPage'
 
 export const router = createBrowserRouter([
   {
@@ -44,5 +45,9 @@ export const router = createBrowserRouter([
   {
     path: '/settings',
     element: <SettingsLayout />,
+  },
+  {
+    path: '/stats',
+    element: <StatsPage />,
   },
 ])

@@ -5,6 +5,8 @@
   "page.album": { "ja": "Album", "en": "Album" },
   "page.tags": { "ja": "Tags", "en": "Tags"},
   "settings.title": { "ja": "設定", "en": "Settings" },
+  "settings.stats": { "ja": "統計", "en": "Stats" },
+  "settings.statsDescription": { "ja": "総再生時間や、よく聴く曜日・時間帯", "en": "Total listening time, days and hours you listen" },
   "settings.app": { "ja": "アプリ", "en": "App" },
   "settings.language": { "ja": "言語 / Language", "en": "Language" },
   "settings.appearance": { "ja": "外観", "en": "Appearance" },
