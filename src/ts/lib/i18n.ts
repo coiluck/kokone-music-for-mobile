@@ -2,7 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore, AVAILABLE_LANGS } from './settingsStore'
 
+// 型だけを取り出すための import。ビルド時に完全に消えるので実行時の影響はない
+import type translationJson from '../../../public/json/translation.json'
+
 type Lang = typeof AVAILABLE_LANGS[number]
+
+export type TranslationKey = keyof typeof translationJson
 
 interface TranslationItem extends Record<Lang, string> {}
 interface TranslationData {
@@ -28,7 +33,7 @@ async function loadTranslationData(): Promise<TranslationData> {
 
 const DEFAULT_LANG: Lang = AVAILABLE_LANGS[0]; // 'en'
 
-async function getTranslatedText(key: string, lang: Lang): Promise<string> {
+async function getTranslatedText(key: TranslationKey, lang: Lang): Promise<string> {
   const data = await loadTranslationData()
   const item = data[key]
   if (!item) {
@@ -38,23 +43,25 @@ async function getTranslatedText(key: string, lang: Lang): Promise<string> {
   return item[lang] ?? item[DEFAULT_LANG]
 }
 
-export function useMappedTranslations<T extends Record<string, string>>(
+export function useMappedTranslations<T extends Record<string, TranslationKey>>(
   mapping: T
-): T {
+): Record<keyof T, string> {
+  type Result = Record<keyof T, string>
+
   const localKeys = Object.keys(mapping) as (keyof T)[]
-  const translationKeys = Object.values(mapping) as string[]
+  const translationKeys = Object.values(mapping) as TranslationKey[]
 
   // ストアの lang を購読 → 変化したら自動で再翻訳
   const lang = useSettingsStore(s => s.lang)
 
-  const [translations, setTranslations] = useState<T>(
-    () => Object.fromEntries(localKeys.map(k => [k, ''])) as T
+  const [translations, setTranslations] = useState<Result>(
+    () => Object.fromEntries(localKeys.map(k => [k, ''])) as Result
   )
 
   useEffect(() => {
     Promise.all(translationKeys.map(key => getTranslatedText(key, lang))).then(values => {
       setTranslations(
-        Object.fromEntries(localKeys.map((k, i) => [k, values[i]])) as T
+        Object.fromEntries(localKeys.map((k, i) => [k, values[i]])) as Result
       )
     })
   }, [lang])
