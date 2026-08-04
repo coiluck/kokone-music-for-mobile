@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import ItemActionsMenu, { type ActionMenuItem } from "../../components/ItemActionsMenu"
+import PageHeader from '../../components/PageHeader'
 import '../../../css/pages/sub/QueuePage.css'
 
 export default function QueuePage() {
@@ -148,27 +149,21 @@ export default function QueuePage() {
 
   return (
     <div className="fade-in queue-page">
-      <div className="queue-page-header">
-        <div className="queue-page-header-left">
+      <PageHeader
+        title={t.title}
+        onBack={handleBack}
+        actions={
           <div
-            className="queue-page-back-button"
-            onClick={handleBack}
+            ref={actionsBtnRef}
+            onClick={e => {
+              e.stopPropagation()
+              setMenuOpen(o => !o)
+            }}
           >
-            <Icon name='back' mode={null} size={24} folder='/images/App/' />
+            <Icon name="ellipsis" mode={null} size={24} folder='/images/QueuePage/' />
           </div>
-          <p>{t.title}</p>
-        </div>
-        <div
-          className="queue-page-header-right"
-          ref={actionsBtnRef}
-          onClick={e => {
-            e.stopPropagation()
-            setMenuOpen(o => !o)
-          }}
-        >
-          <Icon name="ellipsis" mode={null} size={24} folder='/images/QueuePage/' />
-        </div>
-      </div>
+        }
+      />
 
       {menuOpen && (
         <ItemActionsMenu

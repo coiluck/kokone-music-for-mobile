@@ -13,7 +13,8 @@ import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
 import IconEditPage from './pages/sub/IconEditPage'
 import SubLayout from './layouts/SubLayout'
-import SettingsLayout from './layouts/SettingsLayout'
+import PageLayout from './layouts/PageLayout'
+import SettingsPage from './pages/SettingsPage'
 import StatsPage from './pages/sub/StatsPage'
 
 export const router = createBrowserRouter([
@@ -43,11 +44,11 @@ export const router = createBrowserRouter([
     ]
   },
   {
-    path: '/settings',
-    element: <SettingsLayout />,
-  },
-  {
-    path: '/stats',
-    element: <StatsPage />,
+    // サイドバー無し。ヘッダーは各ページが PageHeader で描く
+    element: <PageLayout />,
+    children: [
+      { path: '/settings', element: <SettingsPage /> },
+      { path: '/stats', element: <StatsPage /> },
+    ]
   },
 ])

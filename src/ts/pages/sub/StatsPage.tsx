@@ -9,6 +9,7 @@ import {
 } from '../../lib/db'
 import { useMappedTranslations } from '../../lib/i18n'
 import { useSettingsStore } from '../../lib/settingsStore'
+import PageHeader from '../../components/PageHeader'
 import '../../../css/pages/sub/StatsPage.css'
 
 // 翻訳文字列の {placeholder} を埋める
@@ -245,13 +246,7 @@ export default function StatsPage() {
 
   return (
     <>
-      <header className='app-header' style={{ justifyContent: 'flex-start', gap: '1rem' }}>
-        <button
-         className="app-header-button back"
-         onClick={() => navigate(-1)}
-        />
-        <p>{t.title}</p>
-      </header>
+      <PageHeader title={t.title} onBack={() => navigate(-1)} />
 
       <div className='page page-stats'>
         <section className='stats-section'>

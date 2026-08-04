@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   addScanFolder,
   addScanFolderByPath,
@@ -17,6 +17,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
+import PageHeader from '../components/PageHeader'
 import Select from '../components/Select'
 
 export interface SettingsStore {
@@ -57,6 +58,7 @@ async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export default function SettingsPage() {
   const t = useMappedTranslations({
+    title: 'settings.title',
     stats: 'settings.stats',
     statsDescription: 'settings.statsDescription',
     app: 'settings.app',
@@ -89,6 +91,10 @@ export default function SettingsPage() {
   const [folders, setFolders] = useState<string[]>([])
   const [loaded, setLoaded] = useState(false)
   const pageRef = useRef<HTMLDivElement>(null)
+
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from ?? '/'
 
   // Android 用フォルダ選択モーダル
   const onAndroid = isAndroid()
@@ -237,6 +243,9 @@ export default function SettingsPage() {
   }
 
   return (
+    <>
+      <PageHeader title={t.title} onBack={() => navigate(from)} />
+
     <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
 
@@ -654,5 +663,6 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

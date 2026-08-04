@@ -6,32 +6,6 @@
   height: 100%;
 }
 
-.queue-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
-}
-
-.queue-page-header-left {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-.queue-page-header-right {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.queue-page-back-button {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
 .queue-page-list {
   flex: 1;
   display: flex;
