@@ -1,19 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getAllTracks, searchTracks, type Track } from '../../lib/db'
-import { useTrackStore } from '../../lib/trackStore'
+import { getAllTracks, searchTracks } from '../../lib/db'
+import { sortByTitle } from '../../lib/trackStore'
+import { playFromList } from '../../lib/trackActions'
 import { useScanStore } from '../../lib/scanStore'
-import { musicPlayer } from '../../lib/music'
 import { usePlayerStore } from '../../lib/playerStore'
 import { useMappedTranslations } from '../../lib/i18n'
 import MusicItem from '../../components/MusicItem'
 import '../../../css/pages/sub/SearchPage.css'
-
-function sortByTitle(tracks: Track[]): Track[] {
-  return [...tracks].sort((a, b) =>
-    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
-  )
-}
 
 export default function SearchPage() {
   const navigate = useNavigate()
@@ -100,17 +94,10 @@ export default function SearchPage() {
     setQuery('')
   }
 
-  const handlePlay = useCallback((trackId: number) => {
-    const byId = useTrackStore.getState().tracksById
-    const track = byId[trackId]
-    if (!track) return
-
-    const i = trackIds.indexOf(trackId)
-    const queueIds = i === -1 ? [] : [...trackIds.slice(i + 1), ...trackIds.slice(0, i)]
-    const queue = queueIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
-    musicPlayer.setQueue(queue)
-    void musicPlayer.play(track)
-  }, [trackIds])
+  const handlePlay = useCallback(
+    (trackId: number) => playFromList(trackIds, trackId),
+    [trackIds]
+  )
 
   return (
     <div className="page fade-in" style={{ paddingBottom: 0 }}>

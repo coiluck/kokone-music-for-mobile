@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useMappedTranslations } from '../../lib/i18n'
 import { usePlayerStore } from '../../lib/playerStore'
 import { useTrackStore } from '../../lib/trackStore'
+import { shuffle } from '../../lib/trackActions'
 import { musicPlayer } from '../../lib/music'
 import MusicItem from '../../components/MusicItem'
 import type { Track } from '../../lib/db'
@@ -47,12 +48,7 @@ export default function QueuePage() {
   })
 
   const handleShuffle = () => {
-    const current = [...musicPlayer.getQueue()]
-    for (let i = current.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[current[i], current[j]] = [current[j], current[i]]
-    }
-    musicPlayer.setQueue(current)
+    musicPlayer.setQueue(shuffle(musicPlayer.getQueue()))
   }
 
   const handleClearDuplicates = () => {

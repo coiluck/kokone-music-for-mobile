@@ -1,22 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Track, getTagslists, getTagListTracks, setTaglistPositiveTags, setTaglistNegativeTags } from '../lib/db'
-import { useTrackStore } from '../lib/trackStore'
+import { getTagslists, getTagListTracks, setTaglistPositiveTags, setTaglistNegativeTags } from '../lib/db'
+import { sortByTitle } from '../lib/trackStore'
+import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
 import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { usePlayerStore } from '../lib/playerStore'
-import { musicPlayer } from '../lib/music'
 import MusicItem from '../components/MusicItem'
 import { Icon } from '../components/Icon'
 import { ListIcon } from '../components/ListIcon'
 import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/TagsDetailsPage.css'
 import { useSettingsStore } from '../lib/settingsStore'
-
-function sortByTitle(tracks: Track[]): Track[] {
-  return [...tracks].sort((a, b) =>
-    (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
-  )
-}
 
 export default function TagsDetailsPage() {
   const { listName } = useParams<{ listName: string }>()
@@ -65,45 +59,13 @@ export default function TagsDetailsPage() {
   }
 
   const handlePlay = useCallback(
-    (trackId: number) => {
-      const byId = useTrackStore.getState().tracksById
-      const track = byId[trackId]
-      if (!track) return
-
-      const i = trackIds.indexOf(trackId)
-      const queueIds = i === -1 ? [] : [...trackIds.slice(i + 1), ...trackIds.slice(0, i)]
-      const queue = queueIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
-      musicPlayer.setQueue(queue)
-      void musicPlayer.play(track)
-    },
+    (trackId: number) => playFromList(trackIds, trackId),
     [trackIds]
   )
 
-  const handlePlayAll = useCallback(() => {
-    if (trackIds.length === 0) return
-    const byId = useTrackStore.getState().tracksById
-    const tracks = trackIds.map(id => byId[id]).filter((t): t is Track => Boolean(t))
-    if (tracks.length === 0) return
-    const [first, ...rest] = tracks
-    musicPlayer.setQueue(rest)
-    void musicPlayer.play(first)
-  }, [trackIds])
+  const handlePlayAll = useCallback(() => playAll(trackIds), [trackIds])
 
-  const handleShuffle = useCallback(() => {
-    if (trackIds.length === 0) return
-    const byId = useTrackStore.getState().tracksById
-    // Fisher-Yates
-    const shuffled = [...trackIds]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    const tracks = shuffled.map(id => byId[id]).filter((t): t is Track => Boolean(t))
-    if (tracks.length === 0) return
-    const [first, ...rest] = tracks
-    musicPlayer.setQueue(rest)
-    void musicPlayer.play(first)
-  }, [trackIds])
+  const handleShuffle = useCallback(() => shufflePlay(trackIds), [trackIds])
 
   return (
     <div className='page fade-in'>
