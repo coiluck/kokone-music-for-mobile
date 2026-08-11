@@ -99,15 +99,3 @@ body {
     opacity: 1;
   }
 }
-.fade-out {
-  animation: FadeOut .3s;
-  animation-fill-mode: both;
-}
-@keyframes FadeOut {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}

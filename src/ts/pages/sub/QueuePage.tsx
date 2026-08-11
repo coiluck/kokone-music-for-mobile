@@ -6,7 +6,6 @@ import { useTrackStore } from '../../lib/trackStore'
 import { shuffle } from '../../lib/trackActions'
 import { musicPlayer } from '../../lib/music'
 import MusicItem from '../../components/MusicItem'
-import type { Track } from '../../lib/db'
 import { Icon } from '../../components/Icon'
 import {
   DndContext,
@@ -49,18 +48,6 @@ export default function QueuePage() {
 
   const handleShuffle = () => {
     musicPlayer.setQueue(shuffle(musicPlayer.getQueue()))
-  }
-
-  const handleClearDuplicates = () => {
-    const current = musicPlayer.getQueue()
-    const seen = new Set<number>()
-    const next: Track[] = []
-    for (const track of current) {
-      if (seen.has(track.id)) continue
-      seen.add(track.id)
-      next.push(track)
-    }
-    musicPlayer.setQueue(next)
   }
 
   const handleClearAll = () => {
