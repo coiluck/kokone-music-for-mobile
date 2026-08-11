@@ -80,43 +80,45 @@ export default function IconEditPage() {
 
   return (
     <div className="page fade-in" style={{ paddingBottom: '0' }}>
-      <div className="ie-page-header">
-        <span className="ie-page-header-title">{targetName}</span>
-      </div>
-
-      {/* プレビュー（大） */}
-      <div className="ie-page-preview">
-        <ListIcon
-          icon={buildIcon(selectedKind, hue)}
-          name={targetName}
-          size={160}
-        />
-      </div>
-
-      {/* サイコロボタン */}
-      <div className="ie-page-dice">
-        <div onClick={() => setHue(rollHue())} className="ie-page-dice-inner">
-          <Icon name="dice" mode={null} size={32} folder="/images/PlaylistsPage/" />
+      <div className="ie-page-scroll">
+        <div className="ie-page-header">
+          <span className="ie-page-header-title">{targetName}</span>
         </div>
-      </div>
 
-      {/* 候補一覧 */}
-      <div className="ie-page-candidate-grid">
-        {candidates.map((cand, i) => (
-          <div
-            key={i}
-            className={`ie-page-candidate-item${isSelected(cand) ? ' selected' : ''}`}
-            onClick={() => {
-              setSelectedKind(
-                cand.kind === 'auto'
-                  ? { kind: 'auto' }
-                  : { kind: 'svg', name: cand.name }
-              )
-            }}
-          >
-            <ListIcon icon={cand} name={targetName} size={80} />
+        {/* プレビュー（大） */}
+        <div className="ie-page-preview">
+          <ListIcon
+            icon={buildIcon(selectedKind, hue)}
+            name={targetName}
+            size={160}
+          />
+        </div>
+
+        {/* サイコロボタン */}
+        <div className="ie-page-dice">
+          <div onClick={() => setHue(rollHue())} className="ie-page-dice-inner">
+            <Icon name="dice" mode={null} size={32} folder="/images/PlaylistsPage/" />
           </div>
-        ))}
+        </div>
+
+        {/* 候補一覧 */}
+        <div className="ie-page-candidate-grid">
+          {candidates.map((cand, i) => (
+            <div
+              key={i}
+              className={`ie-page-candidate-item${isSelected(cand) ? ' selected' : ''}`}
+              onClick={() => {
+                setSelectedKind(
+                  cand.kind === 'auto'
+                    ? { kind: 'auto' }
+                    : { kind: 'svg', name: cand.name }
+                )
+              }}
+            >
+              <ListIcon icon={cand} name={targetName} size={80} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 確定ボタン */}
