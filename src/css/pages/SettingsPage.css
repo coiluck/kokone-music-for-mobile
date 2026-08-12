@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  margin-top: 2rem;
 }
 
 .settings-section {
@@ -344,4 +345,71 @@ input:checked + .slider:before {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* stats pageへのリンク */
+.settings-stats-link {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  background-color: var(--color-bg-mild);
+  border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+@media (hover: hover) {
+  .settings-stats-link:hover {
+    background-color: rgb(from var(--color-accent) r g b / 0.15);
+  }
+}
+.settings-stats-icon {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: .25rem;
+  width: 2.5rem;
+  aspect-ratio: 1;
+  border: 1px solid rgb(from var(--color-text) r g b / 0.4);
+  border-radius: 50%;
+  background-color: rgb(from var(--color-text) r g b / 0.1);
+}
+.settings-stats-icon-bar {
+  display: block;
+  width: .25rem;
+  height: 1.2rem;
+  margin-bottom: .55rem;
+  background-color: var(--color-accent);
+}
+.settings-stats-icon-bar:nth-child(1) {
+  height: .6rem;
+}
+.settings-stats-icon-bar:nth-child(2) {
+  height: .9rem;
+}
+.settings-stats-icon-bar:nth-child(3) {
+  height: 1.2rem;
+}
+.settings-stats-text-container {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-stats-title {
+  font-size: 1rem;
+}
+.settings-stats-description {
+  font-size: .7rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-stats-arrow {
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transform: rotate(180deg);
 }

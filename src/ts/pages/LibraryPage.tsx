@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTrackStore } from '../lib/trackStore'
-import { musicPlayer } from '../lib/music'
+import { playFromList } from '../lib/trackActions'
 import { usePlayerStore } from '../lib/playerStore'
 import MusicItem from '../components/MusicItem'
 import { useMappedTranslations } from '../lib/i18n'
@@ -289,24 +289,7 @@ export default function LibraryPage() {
 
   const handlePlay = useCallback(
     (trackId: number) => {
-      // store の最新状態を直接参照（クロージャの古い値を使わない）
-      const state = useTrackStore.getState()
-      const order = state.trackOrder
-      const byId = state.tracksById
-
-      const i = order.indexOf(trackId)
-      const track = byId[trackId]
-      if (!track) return
-
-      if (i === -1) {
-        void musicPlayer.play(track)
-        return
-      }
-      // クリック曲の後ろ → 先頭からクリック曲の一個前まで、で一周分
-      const queueIds = [...order.slice(i + 1), ...order.slice(0, i)]
-      const queue = queueIds.map(id => byId[id]).filter(Boolean)
-      musicPlayer.setQueue(queue)
-      void musicPlayer.play(track)
+      playFromList(useTrackStore.getState().trackOrder, trackId)
     },
     []
   )

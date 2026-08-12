@@ -141,25 +141,13 @@ export function Message() {
   // ストアからは消えたが、is-removingアニメーション中は表示し続けたいので
   // 描画用のローカル配列を別に持つ
   const [rendered, setRendered] = useState<MessageItem[]>([])
-  const [closingIds, setClosingIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     setRendered(prev => {
       const prevIds = new Set(prev.map(p => p.id))
-      const nowIds  = new Set(list.map(p => p.id))
 
       // 新規追加分を末尾に追加
       const added = list.filter(m => !prevIds.has(m.id))
-
-      // ストアから消えたものを is-removing 対象としてマーク（描画は残す）
-      const newlyClosing = prev.filter(m => !nowIds.has(m.id)).map(m => m.id)
-      if (newlyClosing.length > 0) {
-        setClosingIds(s => {
-          const next = new Set(s)
-          newlyClosing.forEach(id => next.add(id))
-          return next
-        })
-      }
 
       return [...prev, ...added]
     })
@@ -167,12 +155,6 @@ export function Message() {
 
   const handleClose = (id: number) => {
     setRendered(prev => prev.filter(m => m.id !== id))
-    setClosingIds(s => {
-      if (!s.has(id)) return s
-      const next = new Set(s)
-      next.delete(id)
-      return next
-    })
     // ストア側にまだ残っていたら（ユーザクリックなどで先に閉じた場合）取り除く
     if (items.some(m => m.id === id)) {
       items = items.filter(m => m.id !== id)

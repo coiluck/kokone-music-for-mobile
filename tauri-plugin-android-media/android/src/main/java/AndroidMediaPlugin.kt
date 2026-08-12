@@ -124,6 +124,14 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
     // 4Hz position 通知用 (UI のシークバー駆動)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    // listened_ms 計測。プロセスはフォアグラウンドサービス再生中は生き続けるので、
+    // webview (JS) がバックグラウンドでフリーズしても、この positionRunnable は
+    // メインルーパー上で回り続け、実際に聴いた時間を正確に累積できる。
+    // デルタ法: 前進ぶんだけ足すので、シーク (大ジャンプ/負) や一時停止では増えない。
+    private var listenedMs: Long = 0
+    private var lastPosForListen: Long = 0
+
     private val positionRunnable = object : Runnable {
         override fun run() {
             val c = controller ?: return
@@ -131,11 +139,20 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
                 if (c.isPlaying) {
                     val pos = c.currentPosition
                     val dur = if (c.duration == C.TIME_UNSET) 0L else c.duration
+                    val delta = pos - lastPosForListen
+                    if (delta in 1 until LISTEN_MAX_DELTA_MS) listenedMs += delta
+                    lastPosForListen = pos
                     emitPosition(pos, dur)
                 }
             } catch (_: Exception) { /* ignore */ }
             mainHandler.postDelayed(this, 250)
         }
+    }
+
+    companion object {
+        // 1 tick (250ms) の想定を超える position の飛びは「シーク/ギャップ」とみなし
+        // 累積に加えない。ジッタ許容で 1000ms を上限にする。
+        private const val LISTEN_MAX_DELTA_MS = 1000L
     }
 
     /**
@@ -194,7 +211,11 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val idx = controller?.currentMediaItemIndex ?: -1
-            emitTrackChanged(mediaItem, idx)
+            // いま終わった曲の確定 listened_ms を載せてから、新しい曲用にリセットする。
+            val finished = listenedMs
+            listenedMs = 0
+            lastPosForListen = 0
+            emitTrackChanged(mediaItem, idx, finished)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -209,7 +230,10 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
 
         override fun onPlaybackStateChanged(state: Int) {
             if (state == Player.STATE_ENDED) {
-                emitQueueEnded()
+                val finished = listenedMs
+                listenedMs = 0
+                lastPosForListen = 0
+                emitQueueEnded(finished)
             }
         }
 
@@ -218,10 +242,11 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    private fun emitTrackChanged(mediaItem: MediaItem?, index: Int) {
+    private fun emitTrackChanged(mediaItem: MediaItem?, index: Int, prevListenedMs: Long = 0) {
         val obj = JSObject()
         obj.put("type", "trackChanged")
         obj.put("index", index)
+        obj.put("prevListenedMs", prevListenedMs)
         if (mediaItem == null) {
             obj.put("item", JSONObject.NULL)
         } else {
@@ -246,13 +271,15 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
         obj.put("type", "positionChanged")
         obj.put("positionMs", positionMs)
         obj.put("durationMs", durationMs)
+        obj.put("listenedMs", listenedMs)
         if (fromSeek) obj.put("fromSeek", true)
         trigger("playbackEvent", obj)
     }
 
-    private fun emitQueueEnded() {
+    private fun emitQueueEnded(prevListenedMs: Long = 0) {
         val obj = JSObject()
         obj.put("type", "queueEnded")
+        obj.put("prevListenedMs", prevListenedMs)
         trigger("playbackEvent", obj)
     }
 
@@ -894,6 +921,9 @@ class AndroidMediaPlugin(private val activity: Activity) : Plugin(activity) {
       val args = invoke.parseArgs(PlaybackSeekArg::class.java)
         withController { c ->
             c.seekTo(args.positionMs)
+            // シーク先を計測アンカーにする。次の tick でこのジャンプぶんが
+            // listened に誤加算されるのを防ぐ。
+            lastPosForListen = args.positionMs
             val dur = if (c.duration == C.TIME_UNSET) 0L else c.duration
             emitPosition(args.positionMs, dur, fromSeek = true)
             invoke.resolve(JSObject())

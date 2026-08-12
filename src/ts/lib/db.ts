@@ -95,9 +95,16 @@ export async function initDb(): Promise<void> {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS history (
       track_id  INTEGER NOT NULL REFERENCES tracks(id),
-      played_at INTEGER NOT NULL
+      played_at INTEGER NOT NULL,
+      listened_ms INTEGER NOT NULL DEFAULT 0
     )
   `)
+  // 既存インストールの history には listened_ms 列が無い。CREATE ... IF NOT EXISTS は
+  // 既存テーブルに列を足さないので、無ければ ALTER で追加する (冪等)。
+  const historyCols = await db.select<{ name: string }[]>('PRAGMA table_info(history)')
+  if (!historyCols.some(c => c.name === 'listened_ms')) {
+    await db.execute('ALTER TABLE history ADD COLUMN listened_ms INTEGER NOT NULL DEFAULT 0')
+  }
 }
 
 // 配列にする
@@ -208,6 +215,71 @@ export async function getHistory() {
   return rows.map(rowToTrack)
 }
 
+export interface ListeningClock {
+  streams: number[] // 長さ24、0時台〜23時台の再生回数
+  minutes: number[] // 長さ24、0時台〜23時台の再生時間（分）
+}
+
+// 直近 weeks 週間の時間帯別リスニング傾向
+export async function getListeningClock(weeks = 4): Promise<ListeningClock> {
+  const db = await getDb()
+  const since = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000
+  const rows = await db.select<{ played_at: number; listened_ms: number }[]>(
+    'SELECT played_at, listened_ms FROM history WHERE played_at >= $1',
+    [since]
+  )
+  const streams = new Array<number>(24).fill(0)
+  const minutes = new Array<number>(24).fill(0)
+  for (const r of rows) {
+    const hour = new Date(r.played_at).getHours()
+    streams[hour] += 1
+    minutes[hour] += r.listened_ms / 60000
+  }
+  return { streams, minutes }
+}
+
+// 全期間の総再生時間 (ms)
+export async function getTotalListeningMs(): Promise<number> {
+  const db = await getDb()
+  const rows = await db.select<{ total: number | null }[]>(
+    'SELECT SUM(listened_ms) AS total FROM history'
+  )
+  return rows[0]?.total ?? 0
+}
+
+export interface ListeningDay {
+  date: number    // その日のローカル0時のタイムスタンプ
+  streams: number // その日の再生回数
+}
+
+export async function getListeningHeatmap(weeks = 4): Promise<ListeningDay[]> {
+  const db = await getDb()
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - start.getDay() - (weeks - 1) * 7)
+
+  const rows = await db.select<{ played_at: number }[]>(
+    'SELECT played_at FROM history WHERE played_at >= $1',
+    [start.getTime()]
+  )
+
+  const days: ListeningDay[] = []
+  const cursor = new Date(start)
+  for (let i = 0; i < weeks * 7; i++) {
+    days.push({ date: cursor.getTime(), streams: 0 })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  const indexByDate = new Map(days.map((d, i) => [d.date, i]))
+  for (const { played_at } of rows) {
+    const day = new Date(played_at)
+    day.setHours(0, 0, 0, 0)
+    const index = indexByDate.get(day.getTime())
+    if (index !== undefined) days[index].streams += 1
+  }
+  return days
+}
+
 // ここからおすすめ用
 
 // 再生回数の集計（曲ごと）
@@ -298,12 +370,26 @@ export async function getRecommended(): Promise<Track[]> {
   })
 }
 
-export async function musicPlay(trackId: number): Promise<void> {
+// 再生開始時に history 行を作り、その rowid を返す。listened_ms は 0 で始め、
+// 実際に聴いた時間が確定するたび updateListenedMs で更新する。
+export async function startPlay(trackId: number): Promise<number> {
   const db = await getDb()
   const nowUNIX = Date.now()
-  await db.execute(
-    'INSERT INTO history (track_id, played_at) VALUES ($1, $2)',
+  const result = await db.execute(
+    'INSERT INTO history (track_id, played_at, listened_ms) VALUES ($1, $2, 0)',
     [trackId, nowUNIX]
+  )
+  return result.lastInsertId as number
+}
+
+// 再生セッションの累積リスニング時間 (ms) を history 行に反映する。
+// 再生中は定期的に、曲の切替・停止時には確定値で呼ばれる。途中で kill されても
+// 直近の値までは残る。
+export async function updateListenedMs(historyId: number, listenedMs: number): Promise<void> {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE history SET listened_ms = $1 WHERE rowid = $2',
+    [Math.round(listenedMs), historyId]
   )
 }
 

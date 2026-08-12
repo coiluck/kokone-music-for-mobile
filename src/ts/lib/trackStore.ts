@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { getAllTracks, type Track } from './db'
 
-function sortByTitle(tracks: Track[]): Track[] {
+export function sortByTitle(tracks: Track[]): Track[] {
   return [...tracks].sort((a, b) =>
     (a.title ?? '').localeCompare(b.title ?? '', 'ja', { sensitivity: 'variant', numeric: true })
   )

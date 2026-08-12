@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   addScanFolder,
   addScanFolderByPath,
@@ -11,33 +12,13 @@ import {
 } from '../lib/scanFolders'
 import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
-import { saveThemeKey, judgeBrightness, makeMildBg, ThemeSettings } from '../lib/theme'
+import { saveThemeKey, judgeBrightness, makeMildBg, DEFAULTS, ThemeSettings } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
+import PageHeader from '../components/PageHeader'
 import Select from '../components/Select'
-
-export interface SettingsStore {
-  // 外観
-  bgColor: string,
-  bgMildColor: string,
-  accentColor: string,
-  textColor: string,
-  iconStyle: 'fill' | 'outline',
-  font: 'mamelon' | 'm-plus-rounded' | 'noto-sans-ja' | 'noto-serif'
-  // スキャンフォルダ
-  scanFolder: string[], // folder path
-  ignoreMode: boolean,
-  ignoreTime: number, // seconds
-  // 音楽
-  masterVolume: number, // 0 to 2
-  isNormalizeVolume: boolean,
-  isTrailingSilence: boolean,
-  // 開発者モード
-  isDeveloperMode: boolean,
-  isSendHistory: boolean,
-}
 
 type Lang = typeof AVAILABLE_LANGS[number]
 
@@ -56,6 +37,9 @@ async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export default function SettingsPage() {
   const t = useMappedTranslations({
+    title: 'settings.title',
+    stats: 'settings.stats',
+    statsDescription: 'settings.statsDescription',
     app: 'settings.app',
     language: 'settings.language',
     appearance: 'settings.appearance',
@@ -87,6 +71,10 @@ export default function SettingsPage() {
   const [loaded, setLoaded] = useState(false)
   const pageRef = useRef<HTMLDivElement>(null)
 
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from ?? '/'
+
   // Android 用フォルダ選択モーダル
   const onAndroid = isAndroid()
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -94,11 +82,9 @@ export default function SettingsPage() {
   const [pickerLoading, setPickerLoading] = useState(false)
   const [pickerNeedsPermission, setPickerNeedsPermission] = useState(false)
 
-  const [accentColor, setAccentColor] = useState('#ff7f7e')
-  const [bgColor,     setBgColor]     = useState('#0a0f1e')
-  const [bgMildColor, setBgMildColor] = useState('#2a2a36')
-  const [textColor,   setTextColor]   = useState('#f0f0f0')
-  const [font, setFont] = useState<ThemeSettings['font']>('noto-sans-ja')
+  const [accentColor, setAccentColor] = useState(DEFAULTS.accentColor)
+  const [bgColor,     setBgColor]     = useState(DEFAULTS.bgColor)
+  const [font, setFont] = useState<ThemeSettings['font']>(DEFAULTS.font)
 
   // iconStyle・ignoreMode・ignoreTime は zustand ストアで管理
   const iconStyle      = useSettingsStore(s => s.iconStyle)
@@ -137,11 +123,9 @@ export default function SettingsPage() {
       setFolders(v)
       setLoaded(true)
     })
-    getSetting('accentColor', '#ff7f7e').then(setAccentColor)
-    getSetting('bgColor',     '#0a0f1e').then(setBgColor)
-    getSetting('bgMildColor', '#2a2a36').then(setBgMildColor)
-    getSetting('textColor',   '#f0f0f0').then(setTextColor)
-    getSetting<ThemeSettings['font']>('font', 'noto-sans-ja').then(setFont)
+    getSetting('accentColor', DEFAULTS.accentColor).then(setAccentColor)
+    getSetting('bgColor',     DEFAULTS.bgColor).then(setBgColor)
+    getSetting<ThemeSettings['font']>('font', DEFAULTS.font).then(setFont)
     // icon / ignore / lang などの他ページでも使う設定は zustand ストアで管理
   }, [])
 
@@ -234,8 +218,27 @@ export default function SettingsPage() {
   }
 
   return (
+    <>
+      <PageHeader title={t.title} onBack={() => navigate(from)} />
+
     <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
+
+        <Link to='/stats' className='settings-stats-link'>
+          <div className='settings-stats-icon'>
+            <span className='settings-stats-icon-bar' />
+            <span className='settings-stats-icon-bar' />
+            <span className='settings-stats-icon-bar' />
+          </div>
+          <div className='settings-stats-text-container'>
+            <span className='settings-stats-title'>{t.stats}</span>
+            <span className='settings-stats-description'>{t.statsDescription}</span>
+          </div>
+          <div className='settings-stats-arrow'>
+            <Icon name="back" mode={null} size={16} folder='/images/App/' />
+          </div>
+        </Link>
+
         <div className='settings-section'>
           <div className='settings-section-label'>App</div>
           <div className='settings-section-content'>
@@ -265,8 +268,6 @@ export default function SettingsPage() {
                 const mild = makeMildBg(v, judgeBrightness(v) ? 'darker' : 'lighter')
                 const text = judgeBrightness(v) ? '#000' : '#fff'
                 setBgColor(v)
-                setBgMildColor(mild)
-                setTextColor(text)
                 saveThemeKey('bgColor', v)
                 saveThemeKey('bgMildColor', mild)
                 saveThemeKey('textColor', text)
@@ -635,5 +636,6 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

@@ -8,7 +8,7 @@ export type Lang = typeof AVAILABLE_LANGS[number]
 
 export type HistoryBackend = 'firebase' | 'cloudflare-d1'
 
-export interface FirebaseConfig {
+interface FirebaseConfig {
   // Firestore REST API へ直接 POST する想定。
   //   POST https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{collection}?key={apiKey}
   projectId: string
@@ -16,7 +16,7 @@ export interface FirebaseConfig {
   collection: string
 }
 
-export interface CloudflareD1Config {
+interface CloudflareD1Config {
   // 任意の Cloudflare Worker エンドポイントへ JSON POST する想定。
   //   POST {endpoint}
   //   Header: Authorization: Bearer {apiToken}

@@ -25,7 +25,7 @@ export const DEFAULTS: ThemeSettings = {
 }
 
 /** CSS カスタムプロパティへ反映する */
-export function applyTheme(settings: Partial<ThemeSettings>) {
+function applyTheme(settings: Partial<ThemeSettings>) {
   const merged = { ...DEFAULTS, ...settings }
   const root = document.documentElement
   root.style.setProperty('--color-accent',   merged.accentColor)

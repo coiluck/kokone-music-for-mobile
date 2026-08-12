@@ -7,7 +7,7 @@ const VIRTUAL_OFFSET_PREFIX = 'kokone:vScrollOffset:'
 const VIRTUAL_CACHE_PREFIX = 'kokone:vMeasurementsCache:'
 const RESTORE_TIMEOUT_MS = 1000
 
-export function loadScrollPosition(pathname: string): number | null {
+function loadScrollPosition(pathname: string): number | null {
   try {
     const v = sessionStorage.getItem(STORAGE_PREFIX + pathname)
     if (v == null) return null
@@ -122,7 +122,7 @@ export function useScrollRestoration(
 // 公式に推奨されているパターン。
 // ---------------------------------------------------------------------------
 
-export interface VirtualizerInitialState {
+interface VirtualizerInitialState {
   initialOffset: number
   initialMeasurementsCache: VirtualItem[]
 }

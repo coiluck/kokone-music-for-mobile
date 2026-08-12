@@ -20,6 +20,11 @@
   align-items: center;
   gap: .25rem;
 }
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 .app-header-button-container {
   display: flex;
   gap: 1rem;
@@ -41,6 +46,12 @@
 }
 
 .app-content {
+  flex: 1;
+  min-height: 0;
+}
+
+/* PageLayoutではheade と.pageが兄弟になるので */
+.app-layout > .page {
   flex: 1;
   min-height: 0;
 }
