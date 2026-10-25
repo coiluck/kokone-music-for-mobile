@@ -53,5 +53,6 @@ pub fn run(app: &AppHandle, db_path: &Path) -> Result<()> {
         }
     }
     tx.commit()?;
+    log::info!("loudness: analyzed {} of {} tracks", results.lock().unwrap().len(), pending.len());
     Ok(())
 }

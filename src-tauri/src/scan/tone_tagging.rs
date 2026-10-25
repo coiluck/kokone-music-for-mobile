@@ -12,6 +12,7 @@ use crate::error::{catch_panic, Result};
 use crate::platform::{self, AudioFiles};
 use rusqlite::{params, params_from_iter, Connection};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
@@ -36,16 +37,19 @@ pub fn run(app: &AppHandle, db_path: &Path) -> Result<()> {
     let conn = Mutex::new(conn);
     // 1 曲あたり 100MB 程度使うので、LUFS 解析より並列度を抑える
     let threads = (num_cpus::get() / 2).clamp(1, 4);
+    let saved = AtomicUsize::new(0);
     platform::for_each(&pending, threads, |t| {
         match catch_panic(|| tone::analyze(files.open(&t.path)?, &platform::extension(&t.path), t.lufs)) {
             Ok(tone) => {
-                if let Err(e) = save(&conn.lock().unwrap(), t.id, &tone) {
-                    log::warn!("saving tone failed for id={}: {e}", t.id);
+                match save(&conn.lock().unwrap(), t.id, &tone) {
+                    Ok(()) => _ = saved.fetch_add(1, Ordering::Relaxed),
+                    Err(e) => log::warn!("saving tone failed for id={}: {e}", t.id),
                 }
             }
             Err(e) => log::warn!("tone analysis failed for {}: {e}", t.path),
         }
     })?;
+    log::info!("tone: analyzed {} of {} tracks", saved.into_inner(), pending.len());
     let _ = app.emit("tone-analyze-completed", ());
     Ok(())
 }

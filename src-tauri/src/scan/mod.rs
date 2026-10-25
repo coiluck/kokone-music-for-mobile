@@ -55,10 +55,11 @@ fn scan(app: &AppHandle, db_path: &Path, folders: &[String], min_duration_ms: Op
     let candidates = platform::list_candidates(app, folders, |found, path| progress.scanning(found, path))?;
 
     progress.deleting();
-    delete::unmatched_tracks(&mut conn, folders, min_duration_ms, platform::existence(&candidates))?;
+    let deleted = delete::unmatched_tracks(&mut conn, folders, min_duration_ms, platform::existence(&candidates))?;
 
     let added = add::new_tracks(app, &mut conn, &candidates, min_duration_ms, &progress)?;
     progress.added(candidates.len());
+    log::info!("scan: {} files, {deleted} deleted, {added} added", candidates.len());
     Ok(added)
 }
 
@@ -66,12 +67,12 @@ fn scan(app: &AppHandle, db_path: &Path, folders: &[String], min_duration_ms: Op
 fn spawn_analysis(app: AppHandle, db_path: PathBuf) {
     tauri::async_runtime::spawn_blocking(move || {
         if let Err(e) = crate::error::catch_panic(|| loudness::run(&app, &db_path)) {
-            log::warn!("loudness analysis failed: {e}");
+            log::error!("loudness analysis failed: {e}");
         }
         // 失敗しても送り、フロントが解析中の表示のまま止まらないようにする
         let _ = app.emit("scan-analyze-completed", ());
         if let Err(e) = crate::error::catch_panic(|| tone_tagging::run(&app, &db_path)) {
-            log::warn!("tone analysis failed: {e}");
+            log::error!("tone analysis failed: {e}");
         }
     });
 }
