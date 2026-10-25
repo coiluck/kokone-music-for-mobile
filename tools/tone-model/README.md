@@ -12,7 +12,8 @@
    ```
 
 2. ラベルを用意する。どちらも `[{"id": "<曲フォルダからの相対パス>", "level": "..."}]` 形式。
-   今の重みを作ったラベルは `labels/` にある (id は Android の Download/Music からの相対パス)。
+   `labels/` に置くと `.gitignore` でリポジトリから除外される (曲名の一覧になるので公開しない)。
+   今の重みを作ったラベルは作者の手元にだけある (id は Android の Download/Music からの相対パス)。
    - `energy_labels.json`: level は `低` / `中` / `高`
    - `mood_labels.json`: level は `明` / `暗`
 
