@@ -8,6 +8,7 @@ import { loadAndApplyTheme } from './lib/theme'
 import { useSettingsStore } from './lib/settingsStore'
 import { useTrackStore } from './lib/trackStore'
 import { useScanStore } from './lib/scanStore'
+import { listen } from '@tauri-apps/api/event'
 
 async function bootstrap() {
   await loadAndApplyTheme()
@@ -30,6 +31,8 @@ async function bootstrap() {
       void useTrackStore.getState().hydrate()
     }
   })
+  // 曲調タグはスキャン完了後にバックグラウンドで付くので、付け終わったら読み直す
+  void listen('tone-analyze-completed', () => useScanStore.getState().notifyScanCompleted())
 
   runStartupScan()
 }

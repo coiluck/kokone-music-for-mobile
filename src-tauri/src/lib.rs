@@ -1,5 +1,8 @@
 mod settings;
-mod audio_analysis;
+// tone_dump (examples/) から使うので公開する
+pub mod audio_analysis;
+pub mod tone_analysis;
+mod tone_tagging;
 mod scan_music;
 mod get_lang;
 mod android_media;

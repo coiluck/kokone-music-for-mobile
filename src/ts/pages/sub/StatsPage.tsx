@@ -248,7 +248,7 @@ export default function StatsPage() {
     <>
       <PageHeader title={t.title} onBack={() => navigate(-1)} />
 
-      <div className='page page-stats'>
+      <div className='page page-stats fade-in'>
         <section className='stats-section'>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
             <div className='stats-section-header'>
