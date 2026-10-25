@@ -66,6 +66,7 @@ export default function SettingsPage() {
     other:          'settings.other',
     version:        'settings.version',
     github:         'settings.github',
+    toneModel:      'settings.toneModel',
   })
   const [folders, setFolders] = useState<string[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -555,6 +556,18 @@ export default function SettingsPage() {
                   kokone-music-for-mobile
                   <Icon name="external" mode={null} size={10} folder='/images/SettingsPage/' />
                 </a>
+              </span>
+            </div>
+            <div className='settings-section-content-item'>
+              <p>{t.toneModel}</p>
+              <span className='settings-range-value'>
+                <span style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                  <a href='https://essentia.upf.edu/models.html' target='_blank' rel='noopener noreferrer'>Essentia</a>
+                  <Icon name="external" mode={null} size={10} folder='/images/SettingsPage/' />
+                  <span>,</span>
+                  <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' target='_blank' rel='noopener noreferrer'>CC BY-NC-SA</a>
+                  <Icon name="external" mode={null} size={10} folder='/images/SettingsPage/' />
+                </span>
               </span>
             </div>
           </div>

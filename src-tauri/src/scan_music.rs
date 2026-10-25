@@ -192,7 +192,7 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<u6
 // ---------------------------------------------------------------------------
 // DB 初期化
 // ---------------------------------------------------------------------------
-fn open_db(db_path: &Path) -> Result<Connection, String> {
+pub(crate) fn open_db(db_path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
@@ -807,11 +807,13 @@ fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf, scope: LufsScope) {
     tauri::async_runtime::spawn_blocking(move || {
         let app_for_recover = app.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_lufs_analysis_android(app, db_path, scope)
+            run_lufs_analysis_android(app.clone(), db_path.clone(), scope)?;
+            // 曲調タグは LUFS を特徴量に使うので LUFS の後に回す
+            crate::tone_tagging::run(&app, &db_path)
         }));
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(e)) => log::warn!("LUFS analysis failed: {e}"),
+            Ok(Err(e)) => log::warn!("LUFS / tone analysis failed: {e}"),
             Err(_) => {
                 log::error!("LUFS analysis panicked");
                 let _ = app_for_recover.emit("scan-analyze-completed", ());
@@ -948,11 +950,13 @@ fn spawn_lufs_analysis(app: AppHandle, db_path: PathBuf, scope: LufsScope) {
         // 何らかの理由で panic した場合にプロセスを巻き込まないよう catch_unwind で守る。
         let app_for_recover = app.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_lufs_analysis(app, db_path, scope)
+            run_lufs_analysis(app.clone(), db_path.clone(), scope)?;
+            // 曲調タグは LUFS を特徴量に使うので LUFS の後に回す
+            crate::tone_tagging::run(&app, &db_path)
         }));
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(e)) => log::warn!("LUFS analysis failed: {e}"),
+            Ok(Err(e)) => log::warn!("LUFS / tone analysis failed: {e}"),
             Err(_) => {
                 log::error!("LUFS analysis panicked");
                 let _ = app_for_recover.emit("scan-analyze-completed", ());
