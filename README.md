@@ -87,7 +87,10 @@ npm run tauri android build
 │   ├── src/                     # Rust ソース
 │   ├── capabilities/            # Tauri ACL
 │   ├── icons/                   # アプリアイコン
+│   ├── models/                  # 曲調タグのモデル (Essentia, CC BY-NC-SA 4.0。models/README.md 参照)
+│   ├── examples/tone_dump.rs    # 曲調モデルの学習用に特徴量を書き出す
 │   └── gen/android/             # Android プロジェクト (Tauri が初期生成、コミット対象)
+├── tools/tone-model/            # 曲調モデルの重みの学習スクリプト (README.md 参照)
 ├── tauri-plugin-android-media/  # 自作 Tauri プラグイン (Android MediaStore 等)
 │   ├── src/                     # Rust 側
 │   ├── android/                 # Kotlin 側

@@ -48,3 +48,8 @@ tauri-plugin-os = "2.3.2"
 
 # 曲データを cloudflare D1に送るときのため
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# tone_analysis (曲調タグ) で使用。tract は依存の kstring を Cargo.lock で 2.0.2 に固定している (2.0.5 は rustc 1.96 必須)
+tract-onnx = "0.21"
+rubato = "5.0.1"
+realfft = "3.5.0"
