@@ -1,6 +1,6 @@
 # 曲調タグのモデル
 
-`src/tone_analysis/` がビルド時に `include_bytes!` / `include_str!` で埋め込むファイル。
+`src/analysis/tone/` がビルド時に `include_bytes!` / `include_str!` で埋め込むファイル。
 
 ## Essentia のモデル (`*.onnx`)
 

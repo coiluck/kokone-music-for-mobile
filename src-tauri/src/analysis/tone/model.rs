@@ -1,5 +1,6 @@
 //! Essentia の ONNX モデル (CC BY-NC-SA 4.0, models/README.md 参照) と、学習済みの線形モデルの重み。
 
+use crate::error::{Error, Result};
 use std::io::Cursor;
 use std::sync::OnceLock;
 use tract_onnx::prelude::*;
@@ -41,7 +42,7 @@ const MOODTHEMES: &[&str] = &[
 
 macro_rules! onnx {
     ($name:literal) => {
-        include_bytes!(concat!("../../models/", $name, ".onnx")).as_slice()
+        include_bytes!(concat!("../../../models/", $name, ".onnx")).as_slice()
     };
 }
 
@@ -87,12 +88,12 @@ impl Models {
     }
 
     /// 読み込みは重い (数百 ms) ので 1 度だけ行い、全スレッドで共有する。
-    pub fn get() -> Result<&'static Models, String> {
+    pub fn get() -> Result<&'static Models> {
         static MODELS: OnceLock<Result<Models, String>> = OnceLock::new();
         MODELS
             .get_or_init(|| Models::new().map_err(|e| format!("failed to load tone models: {e}")))
             .as_ref()
-            .map_err(|e| e.clone())
+            .map_err(|e| Error::Other(e.clone()))
     }
 
     /// パッチ [N_PATCHES, 128, 96] → 埋め込み [N_PATCHES, 1280]
@@ -161,22 +162,22 @@ pub struct Weights {
 }
 
 impl Weights {
-    pub fn get() -> Result<&'static Weights, String> {
+    pub fn get() -> Result<&'static Weights> {
         static W: OnceLock<Result<Weights, String>> = OnceLock::new();
         W.get_or_init(|| {
-            serde_json::from_str(include_str!("../../models/tone_weights.json"))
+            serde_json::from_str(include_str!("../../../models/tone_weights.json"))
                 .map_err(|e| format!("invalid tone_weights.json: {e}"))
         })
         .as_ref()
-        .map_err(|e| e.clone())
+        .map_err(|e| Error::Other(e.clone()))
     }
 }
 
-fn standardized(s: &Standardize, value: &dyn Fn(&str) -> Option<f32>) -> Result<Vec<f32>, String> {
+fn standardized(s: &Standardize, value: &dyn Fn(&str) -> Option<f32>) -> Result<Vec<f32>> {
     s.names
         .iter()
         .zip(s.mean.iter().zip(&s.std))
-        .map(|(n, (m, sd))| value(n).map(|v| (v - m) / sd).ok_or_else(|| format!("missing feature {n}")))
+        .map(|(n, (m, sd))| value(n).map(|v| (v - m) / sd).ok_or_else(|| Error::Other(format!("missing feature {n}"))))
         .collect()
 }
 
@@ -187,7 +188,7 @@ fn dot(a: &[f32], b: &[f32]) -> f32 {
 impl Weights {
     /// エネルギーのスコア (0〜2, 境界 0.5 / 1.5)。
     /// 特徴量のロジスティック回帰の期待値と、埋め込みのリッジ回帰の平均。
-    pub fn energy_score(&self, value: &dyn Fn(&str) -> Option<f32>, lufs: Option<f32>, emb: &[f32]) -> Result<f32, String> {
+    pub fn energy_score(&self, value: &dyn Fn(&str) -> Option<f32>, lufs: Option<f32>, emb: &[f32]) -> Result<f32> {
         let w = &self.energy;
         let lufs = lufs.unwrap_or(self.lufs_median);
         let z = standardized(&w.features, &|n| if n == "lufs" { Some(lufs) } else { value(n) })?;
@@ -209,9 +210,63 @@ impl Weights {
     }
 
     /// 明暗のスコア (0.5 より大きければ明)。
-    pub fn mood_score(&self, value: &dyn Fn(&str) -> Option<f32>) -> Result<f32, String> {
+    pub fn mood_score(&self, value: &dyn Fn(&str) -> Option<f32>) -> Result<f32> {
         let w = &self.mood;
         let z: Vec<f32> = standardized(&w.features, value)?.into_iter().map(|v| v.clamp(-w.clip, w.clip)).collect();
         Ok(dot(&w.coef, &z) + w.intercept)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 期待値は tone_weights.json から Python (標準ライブラリだけ) で同じ式を計算したもの。
+    // 重みを作り直したら値も計算し直す。
+
+    /// 特徴ごとに決まった z 値 (-1.6〜1.6) になる生の値。統計はエネルギー側を優先して使う。
+    fn raw(w: &Weights, name: &str) -> Option<f32> {
+        let z = ((name.bytes().map(|b| b as u32).sum::<u32>() % 9) as f32 - 4.0) * 0.4;
+        [&w.energy.features, &w.mood.features].iter().find_map(|s| {
+            let i = s.names.iter().position(|n| n == name)?;
+            Some(s.mean[i] + s.std[i] * z)
+        })
+    }
+
+    fn embedding() -> Vec<f32> {
+        (0..1280).map(|i| ((i * 7) % 11) as f32 * 0.05 - 0.25).collect()
+    }
+
+    fn assert_near(actual: f32, expected: f32) {
+        assert!((actual - expected).abs() < 1e-4, "{actual} vs {expected}");
+    }
+
+    #[test]
+    fn energy_score_fixed_input() {
+        let w = Weights::get().unwrap();
+        let value = |n: &str| raw(w, n);
+        assert_near(w.energy_score(&value, Some(-10.0), &embedding()).unwrap(), 0.421220);
+        // LUFS が無ければ学習データの中央値を使う
+        assert_near(w.energy_score(&value, None, &embedding()).unwrap(), 0.423348);
+    }
+
+    #[test]
+    fn mood_score_fixed_input() {
+        let w = Weights::get().unwrap();
+        assert_near(w.mood_score(&|n| raw(w, n)).unwrap(), 0.566267);
+    }
+
+    #[test]
+    fn mood_score_clips_outliers() {
+        let w = Weights::get().unwrap();
+        let s = &w.mood.features;
+        let at = |sd: f32| move |n: &str| s.names.iter().position(|x| x == n).map(|i| s.mean[i] + s.std[i] * sd);
+        assert_near(w.mood_score(&at(100.0)).unwrap(), w.mood_score(&at(w.mood.clip)).unwrap());
+    }
+
+    #[test]
+    fn missing_feature_is_error() {
+        let w = Weights::get().unwrap();
+        assert!(w.mood_score(&|_| None).is_err());
     }
 }

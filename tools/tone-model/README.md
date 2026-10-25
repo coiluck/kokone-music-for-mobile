@@ -1,7 +1,7 @@
 # 曲調モデルの重みの作り直し
 
 スキャン後、曲調タグ (エネルギー 低/中/高・明暗 明/暗) が付いていない曲に推定タグが付く。
-タグ名は `src-tauri/src/tone_analysis/mod.rs` の `ENERGY_TAGS` / `MOOD_TAGS`。
+タグ名は `src-tauri/src/analysis/tone/mod.rs` の `ENERGY_TAGS` / `MOOD_TAGS`。
 推定に使う重み `src-tauri/models/tone_weights.json` は、手で付けたラベルから次の手順で作る。
 
 1. 特徴量を書き出す (アプリと同じ Rust の処理を使う)
@@ -24,5 +24,5 @@
 
    leave-one-out の正解率と、ラベルと推定が食い違う曲が表示される。
 
-`src-tauri/src/tone_analysis/` の特徴量の計算を変えたら、1 からやり直す。
+`src-tauri/src/analysis/tone/` の特徴量の計算を変えたら、1 からやり直す (`cargo test` の `synthetic_song_scores_are_stable` と `model.rs` の固定値テストの期待値も更新する)。
 すでに解析済みの曲を再解析するには、DB の `tracks.energy_score` を NULL に戻す。

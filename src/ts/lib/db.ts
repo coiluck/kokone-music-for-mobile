@@ -105,7 +105,7 @@ export async function initDb(): Promise<void> {
   if (!historyCols.some(c => c.name === 'listened_ms')) {
     await db.execute('ALTER TABLE history ADD COLUMN listened_ms INTEGER NOT NULL DEFAULT 0')
   }
-  // 曲調推定 (src-tauri/src/tone_tagging.rs) のスコア。NULL は未解析。
+  // 曲調推定 (src-tauri/src/scan/tone_tagging.rs) のスコア。NULL は未解析。
   const trackCols = await db.select<{ name: string }[]>('PRAGMA table_info(tracks)')
   for (const col of ['energy_score', 'mood_score']) {
     if (!trackCols.some(c => c.name === col)) {

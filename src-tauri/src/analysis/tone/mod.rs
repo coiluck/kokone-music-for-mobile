@@ -7,15 +7,12 @@
 mod dsp;
 mod model;
 
+use super::open_track;
+use crate::error::{Error, Result};
 use dsp::{mean, percentile, std, SR};
 use model::{Models, Weights, N_PATCHES};
 use std::fs::File;
 use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::DecoderOptions;
-use symphonia::core::formats::FormatOptions;
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 /// 自動で付けるエネルギーのタグ。添字がレベル (0 = 低, 1 = 中, 2 = 高)。
 pub const ENERGY_TAGS: [&str; 3] = ["静", "動", "激"];
@@ -53,21 +50,12 @@ impl Features {
     }
 }
 
-pub fn analyze_file(path: &str, lufs: Option<f64>) -> Result<Tone, String> {
-    predict(&extract_file(path)?, lufs)
+/// `ext` はフォーマット推定のヒント (拡張子)。`lufs` が無ければ学習データの中央値で代用する。
+pub fn analyze(file: File, ext: &str, lufs: Option<f64>) -> Result<Tone> {
+    predict(&read_features(file, ext)?, lufs)
 }
 
-/// 生の fd から解析する (Android の scoped storage 向け)。fd の所有権はこの関数に移る。
-#[cfg(target_os = "android")]
-pub fn analyze_fd(fd: i32, ext: &str, lufs: Option<f64>) -> Result<Tone, String> {
-    use std::os::fd::FromRawFd;
-    // SAFETY: fd は Kotlin の detachFd() で所有権を切り離した有効な読み取り fd。
-    let file = unsafe { File::from_raw_fd(fd) };
-    let samples = decode_mono_16k(MediaSourceStream::new(Box::new(file), Default::default()), ext)?;
-    predict(&extract(&samples)?, lufs)
-}
-
-pub fn predict(f: &Features, lufs: Option<f64>) -> Result<Tone, String> {
+pub fn predict(f: &Features, lufs: Option<f64>) -> Result<Tone> {
     let w = Weights::get()?;
     let value = |n: &str| f.get(n);
     Ok(Tone {
@@ -77,32 +65,17 @@ pub fn predict(f: &Features, lufs: Option<f64>) -> Result<Tone, String> {
 }
 
 /// ファイルを読んで特徴量を出す (学習用の特徴量書き出しにも使う)。
-pub fn extract_file(path: &str) -> Result<Features, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
-    let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("");
-    let samples = decode_mono_16k(MediaSourceStream::new(Box::new(file), Default::default()), ext)?;
-    extract(&samples)
+pub fn read_features(file: File, ext: &str) -> Result<Features> {
+    extract(&decode_mono_16k(file, ext)?)
 }
 
 // ---------------------------------------------------------------------------
 // デコード
 // ---------------------------------------------------------------------------
 
-fn decode_mono_16k(mss: MediaSourceStream, ext: &str) -> Result<Vec<f32>, String> {
-    let mut hint = Hint::new();
-    if !ext.is_empty() {
-        hint.with_extension(ext);
-    }
-    let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
-        .map_err(|e| e.to_string())?;
-    let mut format = probed.format;
-    let track = format.default_track().ok_or("No track found")?;
-    let sample_rate = track.codec_params.sample_rate.ok_or("No sample rate")?;
-    let track_id = track.id;
-    let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .map_err(|e| e.to_string())?;
+fn decode_mono_16k(file: File, ext: &str) -> Result<Vec<f32>> {
+    let (mut format, mut decoder, track_id) = open_track(file, ext)?;
+    let sample_rate = decoder.codec_params().sample_rate.ok_or("No sample rate")?;
 
     // ステレオのまま貯めるとメモリが倍になるので、パケットごとにモノラルへ落とす
     let mut mono: Vec<f32> = Vec::new();
@@ -130,10 +103,9 @@ fn decode_mono_16k(mss: MediaSourceStream, ext: &str) -> Result<Vec<f32>, String
 
     use rubato::audioadapter_buffers::direct::InterleavedSlice;
     use rubato::{Fft, FixedSync, Resampler};
-    let mut r = Fft::<f32>::new(sample_rate as usize, SR as usize, 1024, 1, FixedSync::Both)
-        .map_err(|e| e.to_string())?;
-    let input = InterleavedSlice::new(&mono, 1, mono.len()).map_err(|e| e.to_string())?;
-    let out = r.process_all(&input, mono.len(), None).map_err(|e| e.to_string())?;
+    let mut r = Fft::<f32>::new(sample_rate as usize, SR as usize, 1024, 1, FixedSync::Both).map_err(Error::msg)?;
+    let input = InterleavedSlice::new(&mono, 1, mono.len()).map_err(Error::msg)?;
+    let out = r.process_all(&input, mono.len(), None).map_err(Error::msg)?;
     Ok(out.take_data())
 }
 
@@ -142,7 +114,7 @@ fn decode_mono_16k(mss: MediaSourceStream, ext: &str) -> Result<Vec<f32>, String
 // ---------------------------------------------------------------------------
 
 /// 16kHz モノラルの音声から特徴量を出す。
-pub fn extract(y: &[f32]) -> Result<Features, String> {
+pub fn extract(y: &[f32]) -> Result<Features> {
     let models = Models::get()?;
     let mut values: Vec<(String, f32)> = Vec::new();
 
@@ -225,8 +197,8 @@ pub fn extract(y: &[f32]) -> Result<Features, String> {
         }
     }
     drop(mel);
-    let emb = models.embed(patches).map_err(|e| e.to_string())?;
-    values.extend(models.head_features(&emb).map_err(|e| e.to_string())?);
+    let emb = models.embed(patches)?;
+    values.extend(models.head_features(&emb)?);
     let embedding = emb.mean_axis(tract_onnx::prelude::tract_ndarray::Axis(0)).expect("non-empty batch").to_vec();
 
     // --- (c) 和声 ---
@@ -401,4 +373,56 @@ fn harmony_features(chroma: &[[f32; 12]], rms: &[f32]) -> Vec<(&'static str, f32
             .collect::<Vec<_>>(),
     ));
     HARMONY_NAMES.iter().cloned().zip(out).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tags_split_at_thresholds() {
+        let energy = |s| Tone { energy_score: s, mood_score: 0.0 }.energy_tag();
+        assert_eq!([energy(0.49), energy(0.5), energy(1.49), energy(1.5)], [ENERGY_TAGS[0], ENERGY_TAGS[1], ENERGY_TAGS[1], ENERGY_TAGS[2]]);
+        let mood = |s| Tone { energy_score: 0.0, mood_score: s }.mood_tag();
+        assert_eq!([mood(0.5), mood(0.51)], [MOOD_TAGS[1], MOOD_TAGS[0]]);
+    }
+
+    /// 決まった合成音: 120 BPM のキック (減衰するノイズ) と、2 秒ごとに C / Am が入れ替わる和音。
+    fn synthetic_song(seconds: usize) -> Vec<f32> {
+        let sr = SR as usize;
+        let mut seed: u32 = 1;
+        let mut noise = move || {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            (seed >> 8) as f32 / (1u32 << 24) as f32 * 2.0 - 1.0
+        };
+        let chords = [[60, 64, 67], [57, 60, 64]];
+        (0..seconds * sr)
+            .map(|i| {
+                let t = i as f64 / sr as f64;
+                let tone: f64 = chords[(i / (2 * sr)) % 2]
+                    .iter()
+                    .map(|&m| {
+                        let f = 440.0 * 2f64.powf((m as f64 - 69.0) / 12.0);
+                        (std::f64::consts::TAU * f * t).sin() + 0.3 * (2.0 * std::f64::consts::TAU * f * t).sin()
+                    })
+                    .sum();
+                let since_beat = (i % (sr / 2)) as f32 / sr as f32;
+                (0.1 * tone) as f32 + 0.5 * noise() * (-30.0 * since_beat).exp()
+            })
+            .collect()
+    }
+
+    /// 特徴量の計算からスコアまでの回帰テスト。期待値はこのテストを足した時点の実装で出した値なので、
+    /// 特徴量の計算を意図して変えたときは値を更新する (そのときは重みも作り直す)。
+    #[test]
+    fn synthetic_song_scores_are_stable() {
+        let f = extract(&synthetic_song(20)).unwrap();
+        let tone = predict(&f, Some(-12.0)).unwrap();
+        assert!((tone.energy_score - 0.577821).abs() < 1e-3, "energy {}", tone.energy_score);
+        assert!((tone.mood_score - -0.394896).abs() < 1e-3, "mood {}", tone.mood_score);
+        assert!((predict(&f, None).unwrap().energy_score - 0.577731).abs() < 1e-3);
+        // 和声の特徴は Am の区間がある分、短調寄りになる
+        assert_eq!(f.get("h_tonic_minor"), Some(1.0));
+        assert!((f.get("h_minor_chord_ratio").unwrap() - 0.625).abs() < 1e-4);
+    }
 }

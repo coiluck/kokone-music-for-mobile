@@ -28,14 +28,16 @@ serde_json = "1"
 # lang
 sys-locale = "0.3"
 
-# scan_music.rs で使用
+thiserror = "1"
+
+# scan/ と platform/ で使用
 tokio       = { version = "1", features = ["full"] }
 walkdir     = "2"
 lofty       = "0.21"
 rusqlite    = { version = "0.31", features = ["bundled"] }
 log         = "0.4"
 
-# audio_analysis.rs で使用
+# analysis/ で使用
 symphonia = { version = "0.5", features = ["mp3", "aac", "ogg", "wav", "flac"] }
 ebur128 = "0.1"
 sha2 = "0.10"
@@ -49,7 +51,7 @@ tauri-plugin-os = "2.3.2"
 # 曲データを cloudflare D1に送るときのため
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
-# tone_analysis (曲調タグ) で使用。tract は依存の kstring を Cargo.lock で 2.0.2 に固定している (2.0.5 は rustc 1.96 必須)
+# analysis/tone (曲調タグ) で使用。tract は依存の kstring を Cargo.lock で 2.0.2 に固定している (2.0.5 は rustc 1.96 必須)
 tract-onnx = "0.21"
 rubato = "5.0.1"
 realfft = "3.5.0"

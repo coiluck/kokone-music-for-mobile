@@ -241,3 +241,101 @@ pub fn beat_track(env: &[f32], fps: f32) -> Vec<usize> {
     let last = beats.iter().rposition(keep).unwrap_or(beats.len() - 1);
     beats[first..=last].to_vec()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(a: &[f32], b: &[f32], tol: f32) {
+        assert_eq!(a.len(), b.len(), "{a:?} vs {b:?}");
+        for (x, y) in a.iter().zip(b) {
+            assert!((x - y).abs() <= tol, "{a:?} vs {b:?}");
+        }
+    }
+
+    #[test]
+    fn hann_symmetric_and_periodic() {
+        assert_close(&hann(5, false), &[0.0, 0.5, 1.0, 0.5, 0.0], 1e-6);
+        assert_close(&hann(4, true), &[0.0, 0.5, 1.0, 0.5], 1e-6);
+    }
+
+    #[test]
+    fn percentile_matches_numpy_linear() {
+        // numpy.percentile の既定 (linear) と同じ値
+        assert_eq!(percentile(&[4.0, 1.0, 3.0, 2.0], 50.0), 2.5);
+        assert_eq!(percentile(&[10.0, 20.0, 30.0, 40.0, 50.0], 10.0), 14.0);
+        assert_eq!(percentile(&[1.0, 2.0, 3.0], 0.0), 1.0);
+        assert_eq!(percentile(&[1.0, 2.0, 3.0], 100.0), 3.0);
+        assert_eq!(percentile(&[], 50.0), 0.0);
+    }
+
+    #[test]
+    fn mean_and_population_std() {
+        let v = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
+        assert_eq!(mean(&v), 5.0);
+        assert_eq!(std(&v), 2.0);
+        assert_eq!(mean(&[]), 0.0);
+    }
+
+    #[test]
+    fn median_filter_pads_with_nearest() {
+        assert_eq!(median_filter(&[1.0, 9.0, 2.0, 8.0, 3.0], 3), [1.0, 2.0, 8.0, 3.0, 3.0]);
+    }
+
+    #[test]
+    fn corr_of_linear_relations() {
+        let a = [1.0, 2.0, 4.0, 7.0];
+        let up: Vec<f32> = a.iter().map(|x| 2.0 * x + 1.0).collect();
+        let down: Vec<f32> = a.iter().map(|x| -x).collect();
+        assert!((corr(&a, &up) - 1.0).abs() < 1e-5);
+        assert!((corr(&a, &down) + 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn power_frames_count_and_peak_bin() {
+        const N: usize = 256;
+        let count = |len: usize, center: bool| {
+            let mut n = 0;
+            for_each_power_frame(&vec![0.0; len], N, 128, &hann(N, true), center, |_| n += 1);
+            n
+        };
+        assert_eq!(count(1000, true), 8); // 両端に 128 ずつ足して 1 + (1256 - 256) / 128
+        assert_eq!(count(1000, false), 6);
+        assert_eq!(count(100, false), 0);
+
+        // ビン 8 ちょうどの正弦波は、どのフレームでもビン 8 が最大になる
+        let y: Vec<f32> = (0..2048).map(|i| (2.0 * std::f32::consts::PI * 8.0 * i as f32 / N as f32).sin()).collect();
+        for_each_power_frame(&y, N, 128, &hann(N, true), false, |p| {
+            assert_eq!(p.len(), N / 2 + 1);
+            let peak = (0..p.len()).max_by(|&a, &b| p[a].total_cmp(&p[b])).unwrap();
+            assert_eq!(peak, 8);
+        });
+    }
+
+    #[test]
+    fn mel_filterbank_is_slaney_normalized() {
+        let fb = mel_filterbank(SR, 512, 96, 0.0, 8000.0);
+        assert_eq!(fb.len(), 96);
+        assert!(fb.iter().all(|f| f.len() == 257 && f.iter().all(|w| *w >= 0.0)));
+        // 中心周波数は単調に上がる
+        let peaks: Vec<usize> = fb.iter().map(|f| (0..f.len()).max_by(|&a, &b| f[a].total_cmp(&f[b])).unwrap()).collect();
+        assert!(peaks.windows(2).all(|w| w[0] <= w[1]), "{peaks:?}");
+        // slaney 正規化では三角形の面積 (Hz) が 1。ビンより十分広い高域のフィルタで確かめる
+        let bin_hz = SR as f32 / 512.0;
+        for f in &fb[60..] {
+            let area = f.iter().sum::<f32>() * bin_hz;
+            assert!((area - 1.0).abs() < 0.02, "area {area}");
+        }
+    }
+
+    #[test]
+    fn beat_track_follows_impulse_train() {
+        // 100 fps で 50 フレームごと (120 BPM) のパルス
+        let env: Vec<f32> = (0..1000).map(|i| if i % 50 == 10 { 1.0 } else { 0.0 }).collect();
+        let beats = beat_track(&env, 100.0);
+        assert!(beats.len() >= 18, "{beats:?}");
+        assert!(beats.iter().all(|b| b % 50 == 10), "{beats:?}");
+        assert!(beats.windows(2).all(|w| w[1] - w[0] == 50), "{beats:?}");
+        assert!(beat_track(&[0.0; 100], 100.0).is_empty());
+    }
+}

@@ -1,9 +1,10 @@
 //! 曲調モデルの学習用に、フォルダ内の曲の特徴量を JSON Lines で書き出す。
-//! アプリと同じ tone_analysis::extract_file を使うので、学習と推論で特徴量の計算がずれない。
+//! アプリと同じ analysis::tone::read_features を使うので、学習と推論で特徴量の計算がずれない。
 //!
 //! 使い方: cargo run --release --example tone_dump -- <曲フォルダ> <出力.jsonl>
 
-use kokone_music_lib::{audio_analysis, tone_analysis};
+use kokone_music_lib::analysis::{loudness, tone};
+use std::fs::File;
 use rayon::prelude::*;
 use std::io::Write;
 use std::path::Path;
@@ -22,9 +23,10 @@ fn main() {
     let writer = Mutex::new(std::fs::File::create(out).expect("cannot create output"));
     let done = std::sync::atomic::AtomicUsize::new(0);
     files.par_iter().for_each(|path| {
-        let p = path.to_string_lossy();
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let open = || File::open(path).map_err(kokone_music_lib::error::Error::from);
         let rel = path.strip_prefix(dir).unwrap_or(path).to_string_lossy().replace('\\', "/");
-        let row = match (tone_analysis::extract_file(&p), audio_analysis::analyze_audio(&p)) {
+        let row = match (open().and_then(|f| tone::read_features(f, ext)), open().and_then(|f| loudness::analyze(f, ext))) {
             (Ok(f), lufs) => serde_json::json!({
                 "path": rel,
                 "lufs": lufs.ok().map(|a| a.lufs),

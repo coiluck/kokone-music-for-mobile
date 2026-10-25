@@ -1,4 +1,5 @@
 // src-tauri/src/settings.rs
+use crate::error::Result;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
@@ -23,16 +24,17 @@ pub fn read_all(app: &AppHandle) -> Value {
 }
 
 // ── JSON 全体を書き戻す ───────────────────────────────────
-fn write_all(app: &AppHandle, data: &Value) -> Result<(), String> {
+fn write_all(app: &AppHandle, data: &Value) -> Result<()> {
     let path = settings_path(app);
 
     // 親ディレクトリがなければ作成
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        fs::create_dir_all(parent)?;
     }
 
-    let text = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
-    fs::write(&path, text).map_err(|e| e.to_string())
+    let text = serde_json::to_string_pretty(data)?;
+    fs::write(&path, text)?;
+    Ok(())
 }
 
 // ── Tauri コマンド: 値を取得 ──────────────────────────────
@@ -48,7 +50,7 @@ pub fn settings_get(app: AppHandle, key: String) -> Value {
 // ── Tauri コマンド: 値を保存 ──────────────────────────────
 /// キーと値（任意の JSON 値）を受け取って settings.json に保存する。
 #[tauri::command]
-pub fn settings_set(app: AppHandle, key: String, value: Value) -> Result<(), String> {
+pub fn settings_set(app: AppHandle, key: String, value: Value) -> Result<()> {
     let mut data = read_all(&app);
 
     // data が Object でなければ（壊れていたら）リセット
