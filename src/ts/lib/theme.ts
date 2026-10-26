@@ -1,5 +1,5 @@
 // ts/lib/theme.ts
-import { invoke } from '@tauri-apps/api/core'
+import { getSetting, setSetting, type SettingValues } from './settings'
 
 export interface ThemeSettings {
   accentColor: string
@@ -38,9 +38,9 @@ function applyTheme(settings: Partial<ThemeSettings>) {
 /** settings.json から読み込んで CSS へ適用する（起動時に呼ぶ） */
 export async function loadAndApplyTheme() {
   const [accentColor, bgColor, font] = await Promise.all([
-    invoke<string | null>('settings_get', { key: 'accentColor' }),
-    invoke<string | null>('settings_get', { key: 'bgColor' }),
-    invoke<ThemeSettings['font'] | null>('settings_get', { key: 'font' }),
+    getSetting('accentColor'),
+    getSetting('bgColor'),
+    getSetting('font'),
   ])
   const bg = bgColor ?? DEFAULTS.bgColor
   applyTheme({
@@ -55,9 +55,9 @@ export async function loadAndApplyTheme() {
 /** 項目変更して保存＋即時反映する */
 export async function saveThemeKey<K extends keyof ThemeSettings>(
   key: K,
-  value: ThemeSettings[K]
+  value: SettingValues[K]
 ) {
-  await invoke('settings_set', { key, value })
+  await setSetting(key, value)
   // CSS 変数マッピング
   const propMap: Record<keyof ThemeSettings, string> = {
     accentColor:  '--color-accent',

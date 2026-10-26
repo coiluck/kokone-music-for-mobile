@@ -1,6 +1,7 @@
 // ts/lib/settingsStore.ts
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
+import { getSetting, setSetting, type SettingValues } from './settings'
 
 export const AVAILABLE_LANGS = ['en', 'ja'] as const
 export const DEFAULT_LANG: Lang = AVAILABLE_LANGS[0] // 'en'
@@ -8,7 +9,7 @@ export type Lang = typeof AVAILABLE_LANGS[number]
 
 export type HistoryBackend = 'firebase' | 'cloudflare-d1'
 
-interface FirebaseConfig {
+export interface FirebaseConfig {
   // Firestore REST API へ直接 POST する想定。
   //   POST https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/{collection}?key={apiKey}
   projectId: string
@@ -16,7 +17,7 @@ interface FirebaseConfig {
   collection: string
 }
 
-interface CloudflareD1Config {
+export interface CloudflareD1Config {
   // 任意の Cloudflare Worker エンドポイントへ JSON POST する想定。
   //   POST {endpoint}
   //   Header: Authorization: Bearer {apiToken}
@@ -76,156 +77,112 @@ const DEFAULT_CLOUDFLARE_D1_CONFIG: CloudflareD1Config = {
   apiToken: '',
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
-  iconStyle: 'fill',
+function isLang(value: string | null): value is Lang {
+  return value != null && (AVAILABLE_LANGS as readonly string[]).includes(value)
+}
 
-  setIconStyle: async (style) => {
-    set({ iconStyle: style })
-    await invoke('settings_set', { key: 'iconStyle', value: style })
-  },
-
-  loadIconSettings: async () => {
-    const iconStyle = await invoke<'fill' | 'outline' | null>('settings_get', { key: 'iconStyle' })
-    set({ iconStyle: iconStyle ?? 'fill' })
-  },
-
-  ignoreMode: false,
-  ignoreTime: 0,
-
-  setIgnoreMode: async (value) => {
-    set({ ignoreMode: value })
-    await invoke('settings_set', { key: 'ignoreMode', value })
-  },
-
-  setIgnoreTime: async (value) => {
-    set({ ignoreTime: value })
-    await invoke('settings_set', { key: 'ignoreTime', value })
-  },
-
-  loadScanIgnoreSettings: async () => {
-    const [ignoreMode, ignoreTime] = await Promise.all([
-      invoke<boolean | null>('settings_get', { key: 'ignoreMode' }),
-      invoke<number | null>('settings_get', { key: 'ignoreTime' }),
-    ])
-    set({
-      ignoreMode: ignoreMode ?? false,
-      ignoreTime: ignoreTime ?? 0,
-    })
-  },
-
-  lang: DEFAULT_LANG,
-
-  setLang: async (lang) => {
-    set({ lang })
-    await invoke('settings_set', { key: 'lang', value: lang })
-  },
-
-  loadLang: async () => {
-    const saved = await invoke<string | null>('settings_get', { key: 'lang' })
-    if (saved && (AVAILABLE_LANGS as readonly string[]).includes(saved)) {
-      set({ lang: saved as Lang })
-    } else {
-      // 未設定ならOSのロケールを取得
-      const osLang = await invoke<string>('get_system_lang')
-      const lang = (AVAILABLE_LANGS as readonly string[]).includes(osLang)
-        ? (osLang as Lang)
-        : DEFAULT_LANG
-      set({ lang })
+export const useSettingsStore = create<SettingsState>((set) => {
+  const persisted = <K extends keyof SettingValues & keyof SettingsState>(key: K) =>
+    async (value: SettingValues[K]) => {
+      set({ [key]: value } as Partial<SettingsState>)
+      await setSetting(key, value)
     }
-  },
 
-  masterVolume: 1,
-  isNormalizeVolume: true,
-  disableAnalysingLoudness: false,
-  isTrailingSilence: true,
+  return {
+    iconStyle: 'fill',
+    setIconStyle: persisted('iconStyle'),
 
-  setMasterVolume: async (value) => {
-    set({ masterVolume: value })
-    await invoke('settings_set', { key: 'masterVolume', value })
-  },
+    loadIconSettings: async () => {
+      set({ iconStyle: (await getSetting('iconStyle')) ?? 'fill' })
+    },
 
-  setIsNormalizeVolume: async (value) => {
-    set({ isNormalizeVolume: value })
-    await invoke('settings_set', { key: 'isNormalizeVolume', value })
-  },
+    ignoreMode: false,
+    ignoreTime: 0,
+    setIgnoreMode: persisted('ignoreMode'),
+    setIgnoreTime: persisted('ignoreTime'),
 
-  setDisableAnalysingLoudness: async (value) => {
-    set({ disableAnalysingLoudness: value })
-    await invoke('settings_set', { key: 'disableAnalysingLoudness', value })
-  },
+    loadScanIgnoreSettings: async () => {
+      const [ignoreMode, ignoreTime] = await Promise.all([
+        getSetting('ignoreMode'),
+        getSetting('ignoreTime'),
+      ])
+      set({
+        ignoreMode: ignoreMode ?? false,
+        ignoreTime: ignoreTime ?? 0,
+      })
+    },
 
-  setIsTrailingSilence: async (value) => {
-    set({ isTrailingSilence: value })
-    await invoke('settings_set', { key: 'isTrailingSilence', value })
-  },
+    lang: DEFAULT_LANG,
+    setLang: persisted('lang'),
 
-  loadPlaySettings: async () => {
-    const [masterVolume, isNormalizeVolume, disableAnalysingLoudness, isTrailingSilence] = await Promise.all([
-      invoke<number | null>('settings_get', { key: 'masterVolume' }),
-      invoke<boolean | null>('settings_get', { key: 'isNormalizeVolume' }),
-      invoke<boolean | null>('settings_get', { key: 'disableAnalysingLoudness' }),
-      invoke<boolean | null>('settings_get', { key: 'isTrailingSilence' }),
-    ])
-    set({
-      masterVolume: masterVolume ?? 1,
-      isNormalizeVolume: isNormalizeVolume ?? true,
-      disableAnalysingLoudness: disableAnalysingLoudness ?? false,
-      isTrailingSilence: isTrailingSilence ?? true,
-    })
-  },
+    loadLang: async () => {
+      const saved = await getSetting('lang')
+      if (isLang(saved)) {
+        set({ lang: saved })
+      } else {
+        // 未設定ならOSのを取得
+        const osLang = await invoke<string>('get_system_lang')
+        set({ lang: isLang(osLang) ? osLang : DEFAULT_LANG })
+      }
+    },
 
-  // ---- 開発者モード ----
-  isDeveloperMode: false,
-  isSendHistory: false,
-  historyBackend: 'firebase',
-  firebaseConfig: DEFAULT_FIREBASE_CONFIG,
-  cloudflareD1Config: DEFAULT_CLOUDFLARE_D1_CONFIG,
+    masterVolume: 1,
+    isNormalizeVolume: true,
+    disableAnalysingLoudness: false,
+    isTrailingSilence: true,
+    setMasterVolume: persisted('masterVolume'),
+    setIsNormalizeVolume: persisted('isNormalizeVolume'),
+    setDisableAnalysingLoudness: persisted('disableAnalysingLoudness'),
+    setIsTrailingSilence: persisted('isTrailingSilence'),
 
-  setIsDeveloperMode: async (value) => {
-    set({ isDeveloperMode: value })
-    await invoke('settings_set', { key: 'isDeveloperMode', value })
-  },
+    loadPlaySettings: async () => {
+      const [masterVolume, isNormalizeVolume, disableAnalysingLoudness, isTrailingSilence] = await Promise.all([
+        getSetting('masterVolume'),
+        getSetting('isNormalizeVolume'),
+        getSetting('disableAnalysingLoudness'),
+        getSetting('isTrailingSilence'),
+      ])
+      set({
+        masterVolume: masterVolume ?? 1,
+        isNormalizeVolume: isNormalizeVolume ?? true,
+        disableAnalysingLoudness: disableAnalysingLoudness ?? false,
+        isTrailingSilence: isTrailingSilence ?? true,
+      })
+    },
 
-  setIsSendHistory: async (value) => {
-    set({ isSendHistory: value })
-    await invoke('settings_set', { key: 'isSendHistory', value })
-  },
+    // 開発者モード
+    isDeveloperMode: false,
+    isSendHistory: false,
+    historyBackend: 'firebase',
+    firebaseConfig: DEFAULT_FIREBASE_CONFIG,
+    cloudflareD1Config: DEFAULT_CLOUDFLARE_D1_CONFIG,
+    setIsDeveloperMode: persisted('isDeveloperMode'),
+    setIsSendHistory: persisted('isSendHistory'),
+    setHistoryBackend: persisted('historyBackend'),
+    setFirebaseConfig: persisted('firebaseConfig'),
+    setCloudflareD1Config: persisted('cloudflareD1Config'),
 
-  setHistoryBackend: async (value) => {
-    set({ historyBackend: value })
-    await invoke('settings_set', { key: 'historyBackend', value })
-  },
-
-  setFirebaseConfig: async (value) => {
-    set({ firebaseConfig: value })
-    await invoke('settings_set', { key: 'firebaseConfig', value })
-  },
-
-  setCloudflareD1Config: async (value) => {
-    set({ cloudflareD1Config: value })
-    await invoke('settings_set', { key: 'cloudflareD1Config', value })
-  },
-
-  loadDeveloperSettings: async () => {
-    const [
-      isDeveloperMode,
-      isSendHistory,
-      historyBackend,
-      firebaseConfig,
-      cloudflareD1Config,
-    ] = await Promise.all([
-      invoke<boolean | null>('settings_get', { key: 'isDeveloperMode' }),
-      invoke<boolean | null>('settings_get', { key: 'isSendHistory' }),
-      invoke<HistoryBackend | null>('settings_get', { key: 'historyBackend' }),
-      invoke<FirebaseConfig | null>('settings_get', { key: 'firebaseConfig' }),
-      invoke<CloudflareD1Config | null>('settings_get', { key: 'cloudflareD1Config' }),
-    ])
-    set({
-      isDeveloperMode: isDeveloperMode ?? false,
-      isSendHistory: isSendHistory ?? false,
-      historyBackend: historyBackend ?? 'firebase',
-      firebaseConfig: firebaseConfig ?? DEFAULT_FIREBASE_CONFIG,
-      cloudflareD1Config: cloudflareD1Config ?? DEFAULT_CLOUDFLARE_D1_CONFIG,
-    })
-  },
-}))
+    loadDeveloperSettings: async () => {
+      const [
+        isDeveloperMode,
+        isSendHistory,
+        historyBackend,
+        firebaseConfig,
+        cloudflareD1Config,
+      ] = await Promise.all([
+        getSetting('isDeveloperMode'),
+        getSetting('isSendHistory'),
+        getSetting('historyBackend'),
+        getSetting('firebaseConfig'),
+        getSetting('cloudflareD1Config'),
+      ])
+      set({
+        isDeveloperMode: isDeveloperMode ?? false,
+        isSendHistory: isSendHistory ?? false,
+        historyBackend: historyBackend ?? 'firebase',
+        firebaseConfig: firebaseConfig ?? DEFAULT_FIREBASE_CONFIG,
+        cloudflareD1Config: cloudflareD1Config ?? DEFAULT_CLOUDFLARE_D1_CONFIG,
+      })
+    },
+  }
+})
