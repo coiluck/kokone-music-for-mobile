@@ -1,26 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import {
-  addScanFolder,
-  addScanFolderByPath,
-  hasAudioPermission,
-  isAndroid,
-  listAndroidAudioFolders,
-  requestAudioPermission,
-  runStartupScan,
-} from '../lib/scanFolders'
+import { addScanFolder, addScanFolderByPath, getScanFolders, removeScanFolder } from '../lib/scanFolders'
+import { hasAudioPermission, listAndroidAudioFolders, requestAudioPermission } from '../lib/androidMedia'
+import { runStartupScan } from '../lib/scan'
+import { isAndroid } from '../lib/platform'
+import { getSetting } from '../lib/settings'
 import { ColorPicker } from '../components/ColorPicker'
 import '../../css/pages/SettingsPage.css'
 import { saveThemeKey, judgeBrightness, makeMildBg, DEFAULTS, ThemeSettings } from '../lib/theme'
 import { useMappedTranslations } from '../lib/i18n'
-import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend } from '../lib/settingsStore'
+import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend, type Lang } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
 import PageHeader from '../components/PageHeader'
 import Select from '../components/Select'
-
-type Lang = typeof AVAILABLE_LANGS[number]
 
 const backgroundColorsPreset = [
   '#fff3f1', '#cce6e5', '#ccccea', '#0a0f1e', '#1e1e1e'
@@ -29,11 +22,6 @@ const primaryColorsPreset = [
   '#ff7f7e', '#37D67A',
   '#2CCCE4', '#dce775', '#e565ff',
 ]
-
-async function getSetting<T>(key: string, fallback: T): Promise<T> {
-  const v = await invoke<T | null>('settings_get', { key })
-  return v ?? fallback
-}
 
 export default function SettingsPage() {
   const t = useMappedTranslations({
@@ -120,13 +108,13 @@ export default function SettingsPage() {
   const setCloudflareD1Config = useSettingsStore(s => s.setCloudflareD1Config)
 
   useEffect(() => {
-    getSetting<string[]>('scan-folders', []).then(v => {
+    getScanFolders().then(v => {
       setFolders(v)
       setLoaded(true)
     })
-    getSetting('accentColor', DEFAULTS.accentColor).then(setAccentColor)
-    getSetting('bgColor',     DEFAULTS.bgColor).then(setBgColor)
-    getSetting<ThemeSettings['font']>('font', DEFAULTS.font).then(setFont)
+    getSetting('accentColor').then(v => setAccentColor(v ?? DEFAULTS.accentColor))
+    getSetting('bgColor').then(v => setBgColor(v ?? DEFAULTS.bgColor))
+    getSetting('font').then(v => setFont(v ?? DEFAULTS.font))
     // icon / ignore / lang などの他ページでも使う設定は zustand ストアで管理
   }, [])
 
@@ -208,9 +196,7 @@ export default function SettingsPage() {
   }
 
   const handleRemoveFolder = async (path: string) => {
-    const updated = folders.filter(f => f !== path)
-    await invoke('settings_set', { key: 'scan-folders', value: updated })
-    setFolders(updated)
+    setFolders(await removeScanFolder(path))
   }
 
   const getFolderName = (path: string) => {
