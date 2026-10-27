@@ -8,7 +8,7 @@ const WEIGHT = {
   notRecentlyPlayed: 4,
 }
 
-const RECENT_LIMIT = 200
+export const RECENT_LIMIT = 200
 
 export interface RecommendInput {
   allTracks: Track[]

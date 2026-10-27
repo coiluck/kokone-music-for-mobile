@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   getPlaylists,
-  getTagslists,
+  getTaglists,
   setPlaylistIcon,
   setTaglistIcon,
 } from '../../lib/db'
@@ -41,7 +41,7 @@ export default function IconEditPage() {
   // 初期値: 既存のアイコンを読み込む（kind に応じて取得元を切り替え）
   useEffect(() => {
     if (!kind) return
-    const fetcher = kind === 'playlist' ? getPlaylists : getTagslists
+    const fetcher = kind === 'playlist' ? getPlaylists : getTaglists
     fetcher().then(items => {
       const item = items.find(i => i.name === targetName)
       if (!item) return

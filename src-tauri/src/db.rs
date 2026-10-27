@@ -1,4 +1,4 @@
-//! music.db への接続。テーブルはフロント (src/ts/lib/db.ts の initDb) が作る。
+//! music.db への接続。テーブルはフロント (src/ts/lib/db/connection.ts) が作る。
 
 use crate::error::Result;
 use rusqlite::Connection;
@@ -21,7 +21,7 @@ pub fn open(path: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
-/// テスト用に、db.ts と同じテーブルを持つメモリ上の DB を作る。
+/// テスト用に、db/connection.ts と同じテーブルを持つメモリ上の DB を作る。
 #[cfg(test)]
 pub fn open_in_memory() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
