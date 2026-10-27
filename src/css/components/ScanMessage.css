@@ -1,35 +1,61 @@
+/* ヘッダー (高さ 64px) の下端に重ねる */
 .sm-component-container {
-  display: none;
   position: absolute;
-  top: 80px;
-  right: 0px;
-  min-width: 100px;
-  padding: .4rem 1rem;
-  border: 1px solid var(--color-text);
-  border-right: none;
-  border-radius: 1rem 0 0 1rem;
-  background-color: rgb(from var(--color-text) r g b / 0.15);
-  backdrop-filter: blur(3px);
+  top: 63px;
+  left: 0;
+  right: 0;
   z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .4s ease;
 }
-
 .sm-component-container.active {
+  opacity: 1;
+}
+
+/* 進捗バー */
+.sm-component-track {
+  height: 2px;
+  overflow: hidden;
+}
+.sm-component-fill {
+  height: 100%;
+  background-color: var(--color-accent);
+  transition: width .2s linear;
+}
+.sm-component-fill.indeterminate {
+  width: 30%;
+  animation: sm-slide 1.2s ease-in-out infinite;
+}
+
+.sm-component-tag {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: .5rem;
+  width: fit-content;
+  margin-left: auto;
+  padding: .1rem .75rem .2rem;
+  border-radius: 0 0 0 .5rem;
+  background-color: var(--color-accent);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+.sm-component-label,
+.sm-component-count {
+  color: var(--color-bg);
+}
+.sm-component-count {
+  font-variant-numeric: tabular-nums;
 }
 
-.sm-component-icon-spinner {
-  animation: sm-spin 1s linear infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-  flex-shrink: 0;
+@keyframes sm-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(333%); }
 }
 
-.sm-component-icon-progress {
-  flex-shrink: 0;
-}
-
-@keyframes sm-spin {
-  to { transform: rotate(360deg); }
+@media (prefers-reduced-motion: reduce) {
+  .sm-component-fill.indeterminate {
+    width: 100%;
+    animation: none;
+    opacity: .4;
+  }
 }

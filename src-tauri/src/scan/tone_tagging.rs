@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------
 // 5. 曲調タグ : LUFS 解析の後に、energy_score が NULL のトラックの曲調を推定する。
+//    LUFS が付いていない曲は LUFS が付くまで待つ。
 //
 // スコアは tracks.energy_score / mood_score に保存し、曲調タグ (ENERGY_TAGS / MOOD_TAGS) が
 // まだ 1 つも付いていない曲にだけ推定タグを追加する。ユーザーが付けたタグは上書きしない。
@@ -25,7 +26,7 @@ struct Pending {
 pub fn run(app: &AppHandle, db_path: &Path) -> Result<()> {
     let conn = db::open(db_path)?;
     let pending: Vec<Pending> = conn
-        .prepare("SELECT id, path, lufs FROM tracks WHERE energy_score IS NULL")?
+        .prepare("SELECT id, path, lufs FROM tracks WHERE energy_score IS NULL AND lufs IS NOT NULL")?
         .query_map([], |row| Ok(Pending { id: row.get(0)?, path: row.get(1)?, lufs: row.get(2)? }))?
         .filter_map(|r| r.ok())
         .collect();
