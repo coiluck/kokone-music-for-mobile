@@ -78,4 +78,12 @@ async function migrate(db: Database): Promise<void> {
       await db.execute(`ALTER TABLE tracks ADD COLUMN ${col} REAL`)
     }
   }
+  // svg アイコンは廃止したので hue だけ残す
+  for (const table of ['playlists', 'taglists']) {
+    await db.execute(`
+      UPDATE ${table}
+      SET icon = json_object('kind', 'auto', 'hue', json_extract(icon, '$.hue'))
+      WHERE CASE WHEN json_valid(icon) THEN json_extract(icon, '$.kind') = 'svg' ELSE 0 END
+    `)
+  }
 }

@@ -1,13 +1,11 @@
-import { ColoredSvg } from './ColoredSvg'
 import {
-  getSvgColors,
   getIdenticonColors,
   hashString,
-  type PlaylistIcon as PlaylistIconData,
+  type PlaylistIcon,
 } from '../lib/playlistIcon'
 
 type Props = {
-  icon: PlaylistIconData | null
+  icon: PlaylistIcon
   name: string         // identicon の seed に使う
   size: number
 }
@@ -26,22 +24,9 @@ export function ListIcon({ icon, name, size }: Props) {
         flexShrink: 0,
       }}
     >
-      <ListIconInner icon={icon} name={name} size={size} />
+      <IdenticonSvg seed={name} hue={icon.hue} size={size} />
     </span>
   )
-}
-
-function ListIconInner({ icon, name, size }: Props) {
-  // ロード中などで icon が null の場合は何も描画しない（白背景のみ）
-  if (!icon) return null
-
-  if (icon.kind === 'svg') {
-    const colors = getSvgColors(icon.name, icon.hue)
-    return <ColoredSvg name={icon.name} colors={colors} size={size} />
-  }
-
-  // identicon (kind: 'auto')
-  return <IdenticonSvg seed={name} hue={icon.hue} size={size} />
 }
 
 function IdenticonSvg({ seed, hue, size }: { seed: string; hue: number; size: number }) {

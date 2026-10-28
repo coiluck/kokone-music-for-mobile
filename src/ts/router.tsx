@@ -11,7 +11,6 @@ import AlbumPage from './pages/AlbumPage'
 import AlbumDetailsPage from './pages/AlbumDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
-import IconEditPage from './pages/sub/IconEditPage'
 import SubLayout from './layouts/SubLayout'
 import PageLayout from './layouts/PageLayout'
 import SettingsPage from './pages/SettingsPage'
@@ -31,8 +30,6 @@ export const router = createBrowserRouter([
       { path: 'artist/:name',  element: <ArtistsDetailsPage /> },
       { path: 'album/',        element: <AlbumPage /> },
       { path: 'album/:name',   element: <AlbumDetailsPage /> },
-      // subのページ
-      { path: '/icon-edit/:kind/:name', element: <IconEditPage /> },
     ]
   },
   {

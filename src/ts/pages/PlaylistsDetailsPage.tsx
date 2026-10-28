@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { getPlaylists, getPlaylistTracks, getHistory, getRecommended } from '../lib/db'
+import { useParams } from 'react-router-dom'
+import { getPlaylists, getPlaylistTracks, getHistory, getRecommended, setPlaylistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
 import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
 import MusicItem from '../components/MusicItem'
 import { DISPLAY_NAMES } from './PlaylistsPage'
 import { useSettingsStore, type Lang } from '../lib/settingsStore'
 import { ListIcon } from '../components/ListIcon'
-import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
+import { rollHue, type PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { Icon } from '../components/Icon'
 import '../../css/pages/PlaylistsDetailsPage.css'
 import { usePlayerStore } from '../lib/playerStore'
@@ -16,8 +16,8 @@ export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const playlistName = name ? decodeURIComponent(name) : ''
   const lang = useSettingsStore(s => s.lang)
+  const [playlistId, setPlaylistId] = useState<number | null>(null)
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)
-  const navigate = useNavigate()
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
@@ -38,6 +38,7 @@ export default function PlaylistsDetailsPage() {
       getPlaylists().then(playlists => {
         const pl = playlists.find(p => p.name === playlistName)
         if (!pl) return
+        setPlaylistId(pl.id)
         setIcon(pl.icon)
         getPlaylistTracks(pl.trackIds).then(t => {
           const sorted = sortByTitle(t)
@@ -58,6 +59,13 @@ export default function PlaylistsDetailsPage() {
   const handlePlayAll = useCallback(() => playAll(trackIds), [trackIds])
 
   const handleShuffle = useCallback(() => shufflePlay(trackIds), [trackIds])
+
+  const handleRollIcon = () => {
+    if (!icon || playlistId == null) return
+    const next: PlaylistIconData = { kind: 'auto', hue: rollHue(icon.hue) }
+    setIcon(next)
+    void setPlaylistIcon(playlistId, next)
+  }
 
   const playlistHeader = reserved ? (
     <div className="playlists-details-header">
@@ -86,9 +94,9 @@ export default function PlaylistsDetailsPage() {
         <div className="playlists-details-header-cd-wrapper">
           <div
             className="playlists-details-header-cd-jacket-container"
-            onClick={() => navigate(`/icon-edit/playlist/${encodeURIComponent(playlistName)}`)}
+            onClick={handleRollIcon}
           >
-            <ListIcon icon={icon} name={playlistName} size={192} />
+            {icon && <ListIcon icon={icon} name={playlistName} size={192} />}
           </div>
           <div className="playlists-details-header-cd-disc-icon" />
         </div>

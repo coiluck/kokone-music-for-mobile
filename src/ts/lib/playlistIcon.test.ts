@@ -1,24 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getIdenticonColors, getSvgColors, hashString, rollHue } from './playlistIcon'
-
-describe('getSvgColors', () => {
-  it('icon1 は hue を基準に4色を返す', () => {
-    expect(getSvgColors('icon1', 100)).toEqual({
-      color1: 'hsl(90, 50%, 88%)',
-      color2: 'hsl(100, 55%, 78%)',
-      color3: 'hsl(280, 60%, 85%)',
-      color4: 'hsl(270, 55%, 70%)',
-    })
-  })
-
-  it('icon3 は3色を返す', () => {
-    expect(Object.keys(getSvgColors('icon3', 0))).toEqual(['color1', 'color2', 'color3'])
-  })
-
-  it('180度以上ずらす色は360で折り返す', () => {
-    expect(getSvgColors('icon1', 200).color3).toBe('hsl(20, 60%, 85%)')
-  })
-})
+import { getIdenticonColors, hashString, rollHue } from './playlistIcon'
 
 describe('getIdenticonColors', () => {
   it('fg/bg を返す', () => {
@@ -61,5 +42,31 @@ describe('rollHue', () => {
 
     vi.spyOn(Math, 'random').mockReturnValue(0.9999999)
     expect(rollHue()).toBe(359)
+  })
+
+  it('前の hue から 60〜299 度ずらす', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollHue(100)).toBe(160)
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.9999999)
+    expect(rollHue(100)).toBe(39)
+  })
+
+  it('360 を超えたら折り返す', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollHue(350)).toBe(50)
+  })
+
+  it('前の hue と色相環上で 60 度以上離れる', () => {
+    for (const prev of [0, 90, 180, 300, 359]) {
+      for (const r of [0, 0.25, 0.5, 0.75, 0.9999999]) {
+        vi.spyOn(Math, 'random').mockReturnValue(r)
+        const next = rollHue(prev)
+        const diff = Math.abs(next - prev)
+        expect(next).toBeGreaterThanOrEqual(0)
+        expect(next).toBeLessThanOrEqual(359)
+        expect(Math.min(diff, 360 - diff)).toBeGreaterThanOrEqual(60)
+      }
+    }
   })
 })
