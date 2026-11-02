@@ -1,7 +1,6 @@
-/* ヘッダー (高さ 64px) の下端に重ねる */
 .sm-component-container {
   position: absolute;
-  top: 63px;
+  top: calc(100% - 1px);
   left: 0;
   right: 0;
   z-index: 1;

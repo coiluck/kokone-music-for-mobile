@@ -25,7 +25,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import ItemActionsMenu, { type ActionMenuItem } from "../../components/ItemActionsMenu"
-import PageHeader from '../../components/PageHeader'
+import HeaderSub from '../../components/HeaderSub'
 import '../../../css/pages/sub/QueuePage.css'
 
 export default function QueuePage() {
@@ -132,7 +132,7 @@ export default function QueuePage() {
 
   return (
     <div className="fade-in queue-page">
-      <PageHeader
+      <HeaderSub
         title={t.title}
         onBack={handleBack}
         actions={

@@ -1,11 +1,13 @@
-// スクロール要素の外、app-layout の直下に置くこと。
-interface PageHeaderProps {
+// スクロール要素の外、ページの最上部に置くこと。ScanMessage はヘッダーに含まれる
+import { ScanMessage } from './ScanMessage'
+
+interface HeaderSubProps {
   title: string
   onBack?: () => void
   actions?: React.ReactNode
 }
 
-export default function PageHeader({ title, onBack, actions }: PageHeaderProps) {
+export default function HeaderSub({ title, onBack, actions }: HeaderSubProps) {
   return (
     <header className="app-header">
       <div className="app-header-left">
@@ -19,6 +21,7 @@ export default function PageHeader({ title, onBack, actions }: PageHeaderProps) 
         <p>{title}</p>
       </div>
       {actions && <div className="app-header-button-container">{actions}</div>}
+      <ScanMessage />
     </header>
   )
 }

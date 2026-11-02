@@ -1,13 +1,14 @@
 import { Outlet } from 'react-router-dom'
 import '../../css/default.css'
 import '../../css/app.css'
-import { ScanMessage } from '../components/ScanMessage'
+import { Message } from '../components/Message'
 
-export default function PageLayout() {
+// 全ページ共通
+export default function RootLayout() {
   return (
     <div className="app-layout">
       <Outlet />
-      <ScanMessage />
+      <Message />
     </div>
   )
 }

@@ -12,7 +12,7 @@ import { useMappedTranslations } from '../lib/i18n'
 import { useSettingsStore, AVAILABLE_LANGS, type HistoryBackend, type Lang } from '../lib/settingsStore'
 import { useScrollRestoration } from '../lib/scrollRestoration'
 import { Icon } from '../components/Icon'
-import PageHeader from '../components/PageHeader'
+import HeaderSub from '../components/HeaderSub'
 import Select from '../components/Select'
 
 const backgroundColorsPreset = [
@@ -206,7 +206,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title={t.title} onBack={() => navigate(from)} />
+      <HeaderSub title={t.title} onBack={() => navigate(from)} />
 
     <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
