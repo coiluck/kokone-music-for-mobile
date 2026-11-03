@@ -1,6 +1,6 @@
 [package]
 name = "kokone-music"
-version = "1.4.0"
+version = "1.4.1"
 description = "A Tauri App"
 authors = ["coiluck"]
 edition = "2021"
