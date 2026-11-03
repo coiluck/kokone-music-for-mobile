@@ -1,3 +1,4 @@
+use crate::error::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -9,7 +10,7 @@ pub struct HistoryRequest {
 }
 
 #[tauri::command]
-pub async fn send_history_http(req: HistoryRequest) -> Result<(), String> {
+pub async fn send_history_http(req: HistoryRequest) -> Result<()> {
     let client = reqwest::Client::new();
     let mut builder = client.post(&req.url).body(req.body);
 
@@ -20,13 +21,12 @@ pub async fn send_history_http(req: HistoryRequest) -> Result<(), String> {
     let res = builder
         .header("Content-Type", "application/json")
         .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
+        .await?;
 
     if !res.status().is_success() {
         let status = res.status();
         let text = res.text().await.unwrap_or_default();
-        return Err(format!("HTTP {status}: {text}"));
+        return Err(format!("HTTP {status}: {text}").into());
     }
     Ok(())
 }

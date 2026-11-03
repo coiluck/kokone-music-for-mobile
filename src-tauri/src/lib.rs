@@ -1,18 +1,27 @@
-mod settings;
-// tone_dump (examples/) から使うので公開する
-pub mod audio_analysis;
-pub mod tone_analysis;
-mod tone_tagging;
-mod scan_music;
-mod get_lang;
-mod android_media;
-mod music_playback;
+pub mod analysis;
+mod db;
 mod edit_track;
+pub mod error;
+mod get_lang;
 mod history_sender;
+mod music_playback;
+mod platform;
+mod scan;
+mod settings;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // log::warn! などの出力先。デスクトップは標準出力とログファイル (%LOCALAPPDATA%\<identifier>\logs)、
+        // Android は logcat とアプリのログディレクトリ。依存クレートは警告以上だけにする
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Warn)
+                .level_for("kokone_music_lib", log::LevelFilter::Info)
+                .max_file_size(1_000_000)
+                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -22,8 +31,8 @@ pub fn run() {
             settings::settings_get,
             settings::settings_set,
             get_lang::get_system_lang,
-            scan_music::music_scan_folders,
-            android_media::android_list_audio_folders,
+            scan::music_scan_folders,
+            scan::android_list_audio_folders,
             music_playback::music_read_file,
             edit_track::edit_track_metadata,
             music_playback::music_native_set_queue,

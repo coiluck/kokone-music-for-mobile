@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { taglist, getTagListTracks } from "../lib/db"
+import { type Taglist, getTaglistTracks } from "../lib/db"
 import { musicPlayer } from "../lib/music"
 import { Icon } from "./Icon"
 import { ListIcon } from "./ListIcon"
@@ -10,7 +10,7 @@ import '../../css/components/TagsItem.css'
 import { showMessage } from "./Message"
 
 interface Props {
-  tagsList: taglist
+  tagsList: Taglist
   onDelete: (id: number) => void
   onRename: (id: number, name: string) => void
 }
@@ -38,7 +38,7 @@ export default function TagsItem({ tagsList, onDelete, onRename }: Props) {
   })
 
   const fetchSortedTracks = async () => {
-    const tracks = await getTagListTracks(tagsList.positive_tags, tagsList.negative_tags)
+    const tracks = await getTaglistTracks(tagsList.positive_tags, tagsList.negative_tags)
     return tracks.sort((a, b) => a.title.localeCompare(b.title, 'ja'))
   }
 

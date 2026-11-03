@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-// music.ts は import されただけで AudioContext を作る singleton を組み立てるため、
+// music/index.ts は import されただけで AudioContext を作る singleton を組み立てるため、
 // node 環境で読めない。shuffle は player に触らないのでモックで十分。
 vi.mock('./music', () => ({ musicPlayer: {} }))
 

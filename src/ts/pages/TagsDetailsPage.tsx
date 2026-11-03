@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { getTagslists, getTagListTracks, setTaglistPositiveTags, setTaglistNegativeTags } from '../lib/db'
+import { useParams } from 'react-router-dom'
+import { getTaglists, getTaglistTracks, setTaglistPositiveTags, setTaglistNegativeTags, setTaglistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
 import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
-import type { PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
+import { rollHue, type PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { usePlayerStore } from '../lib/playerStore'
 import MusicItem from '../components/MusicItem'
 import { Icon } from '../components/Icon'
@@ -14,7 +14,6 @@ import { useSettingsStore } from '../lib/settingsStore'
 
 export default function TagsDetailsPage() {
   const { listName } = useParams<{ listName: string }>()
-  const navigate = useNavigate()
 
   const [trackIds, setTrackIds] = useState<number[]>([])
   const [listId, setListId] = useState<number | null>(null)
@@ -37,7 +36,7 @@ export default function TagsDetailsPage() {
   useEffect(() => {
     if (!listName) return
     const fetchData = async () => {
-      const allLists = await getTagslists()
+      const allLists = await getTaglists()
       const targetList = allLists.find(item => item.name === listName)
       if (!targetList) return
 
@@ -46,17 +45,12 @@ export default function TagsDetailsPage() {
       setNegativeTags(targetList.negative_tags)
       setIcon(targetList.icon)
 
-      const tracks = await getTagListTracks(targetList.positive_tags, targetList.negative_tags)
+      const tracks = await getTaglistTracks(targetList.positive_tags, targetList.negative_tags)
       const sorted = sortByTitle(tracks)
       setTrackIds(sorted.map(x => x.id))
     }
     fetchData()
   }, [listName])
-
-  if (!listName) {
-    console.error('[TagsDetailsPage] Invalid param')
-    return null
-  }
 
   const handlePlay = useCallback(
     (trackId: number) => playFromList(trackIds, trackId),
@@ -66,6 +60,18 @@ export default function TagsDetailsPage() {
   const handlePlayAll = useCallback(() => playAll(trackIds), [trackIds])
 
   const handleShuffle = useCallback(() => shufflePlay(trackIds), [trackIds])
+
+  if (!listName) {
+    console.error('[TagsDetailsPage] Invalid param')
+    return null
+  }
+
+  const handleRollIcon = () => {
+    if (!icon || listId == null) return
+    const next: PlaylistIconData = { kind: 'auto', hue: rollHue(icon.hue) }
+    setIcon(next)
+    void setTaglistIcon(listId, next)
+  }
 
   return (
     <div className='page fade-in'>
@@ -82,9 +88,9 @@ export default function TagsDetailsPage() {
           <div className="tags-details-header-cd-wrapper">
             <div
               className="tags-details-header-cd-jacket-container"
-              onClick={() => navigate(`/icon-edit/taglist/${encodeURIComponent(listName)}`)}
+              onClick={handleRollIcon}
             >
-              <ListIcon icon={icon} name={listName} size={192} />
+              {icon && <ListIcon icon={icon} name={listName} size={192} />}
             </div>
             <div className="tags-details-header-cd-disc-icon" />
           </div>
@@ -145,7 +151,7 @@ export default function TagsDetailsPage() {
                       const next = positiveTags.filter(t => t !== tag)
                       setPositiveTags(next)
                       await setTaglistPositiveTags(listId, next)
-                      const updatedTracks = await getTagListTracks(next, negativeTags)
+                      const updatedTracks = await getTaglistTracks(next, negativeTags)
                       const sorted = sortByTitle(updatedTracks)
                       setTrackIds(sorted.map(x => x.id))
                     }}
@@ -169,7 +175,7 @@ export default function TagsDetailsPage() {
                       const next = [...positiveTags, newTag]
                       setPositiveTags(next)
                       await setTaglistPositiveTags(listId, next)
-                      const updatedTracks = await getTagListTracks(next, negativeTags)
+                      const updatedTracks = await getTaglistTracks(next, negativeTags)
                       const sorted = sortByTitle(updatedTracks)
                       setTrackIds(sorted.map(x => x.id))
                     }
@@ -196,7 +202,7 @@ export default function TagsDetailsPage() {
                       const next = negativeTags.filter(t => t !== tag)
                       setNegativeTags(next)
                       await setTaglistNegativeTags(listId, next)
-                      const updatedTracks = await getTagListTracks(positiveTags, next)
+                      const updatedTracks = await getTaglistTracks(positiveTags, next)
                       const sorted = sortByTitle(updatedTracks)
                       setTrackIds(sorted.map(x => x.id))
                     }}
@@ -220,7 +226,7 @@ export default function TagsDetailsPage() {
                       const next = [...negativeTags, newTag]
                       setNegativeTags(next)
                       await setTaglistNegativeTags(listId, next)
-                      const updatedTracks = await getTagListTracks(positiveTags, next)
+                      const updatedTracks = await getTaglistTracks(positiveTags, next)
                       const sorted = sortByTitle(updatedTracks)
                       setTrackIds(sorted.map(x => x.id))
                     }

@@ -17,7 +17,6 @@ interface PlayerStore {
   positionMs: number
   durationMs: number | null
   queue: Track[]
-  volume: number
 
   // MusicPlayer が内部的に使う setter
   _setCurrentTrack: (t: Track | null) => void
@@ -25,7 +24,6 @@ interface PlayerStore {
   _setPosition: (ms: number) => void
   _setDuration: (ms: number | null) => void
   _setQueue: (q: Track[]) => void
-  _setVolume: (v: number) => void
 }
 
 export const usePlayerStore = create<PlayerStore>(set => ({
@@ -34,12 +32,10 @@ export const usePlayerStore = create<PlayerStore>(set => ({
   positionMs: 0,
   durationMs: null,
   queue: [],
-  volume: 1.0,
 
   _setCurrentTrack: (t) => set({ currentTrack: t }),
   _setIsPlaying: (v) => set({ isPlaying: v }),
   _setPosition: (ms) => set({ positionMs: ms }),
   _setDuration: (ms) => set({ durationMs: ms }),
   _setQueue: (q) => set({ queue: q }),
-  _setVolume: (v) => set({ volume: v }),
 }))

@@ -46,3 +46,6 @@ Desktop.ini
 # sign
 keystore.properties
 release-keystore.jks
+
+# 曲調モデルの学習ラベル
+tools/tone-model/labels/*.json

@@ -4,14 +4,17 @@
   height: 100dvh;
   position: relative;
   overflow: hidden;
+  --header-height: 64px;
 }
 
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 64px; /* App.tsx の header の高さ */
-  padding: 1rem 2rem;
+  position: relative; /* ScanMessage の基準 */
+  flex-shrink: 0;
+  height: var(--header-height);
+  padding: 0 2rem;
   border-bottom: 1px solid rgb(from var(--color-text) r g b / 0.2);
 }
 
@@ -50,7 +53,7 @@
   min-height: 0;
 }
 
-/* PageLayoutではheade と.pageが兄弟になるので */
+/* settings / stats では header と .page が app-layout 直下で兄弟になるので */
 .app-layout > .page {
   flex: 1;
   min-height: 0;

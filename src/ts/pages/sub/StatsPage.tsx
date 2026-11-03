@@ -9,7 +9,7 @@ import {
 } from '../../lib/db'
 import { useMappedTranslations } from '../../lib/i18n'
 import { useSettingsStore } from '../../lib/settingsStore'
-import PageHeader from '../../components/PageHeader'
+import HeaderSub from '../../components/HeaderSub'
 import '../../../css/pages/sub/StatsPage.css'
 
 // 翻訳文字列の {placeholder} を埋める
@@ -246,7 +246,7 @@ export default function StatsPage() {
 
   return (
     <>
-      <PageHeader title={t.title} onBack={() => navigate(-1)} />
+      <HeaderSub title={t.title} onBack={() => navigate(-1)} />
 
       <div className='page page-stats fade-in'>
         <section className='stats-section'>

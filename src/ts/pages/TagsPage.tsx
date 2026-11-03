@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayerStore } from '../lib/playerStore'
-import { taglist, getTagslists, addTagslists, deleteTagsLists, renameTagsLists } from '../lib/db'
+import { type Taglist, getTaglists, addTaglist, deleteTaglist, renameTaglist } from '../lib/db'
 import { showMessage } from '../components/Message'
 import TagsItem from '../components/TagsItem'
 import { Icon } from '../components/Icon'
@@ -13,7 +13,7 @@ import '../../css/pages/TagsPage.css'
 export default function TagsPage() {
   const navigate = useNavigate()
   const [isAdding, setIsAdding] = useState(false)
-  const [tagList, setTagList] = useState<taglist[]>([])
+  const [tagList, setTagList] = useState<Taglist[]>([])
   const [loaded, setLoaded] = useState(false)
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -29,7 +29,7 @@ export default function TagsPage() {
   })
 
   useEffect(() => {
-    getTagslists().then(data => {
+    getTaglists().then(data => {
       const sorted = data.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
       setTagList(sorted)
       setLoaded(true)
@@ -49,7 +49,7 @@ export default function TagsPage() {
       return
     }
 
-    const created = await addTagslists(name)
+    const created = await addTaglist(name)
     setTagList(prev => {
       const next = [...prev, created]
       return next.sort((a, b) => a.name.localeCompare(b.name, 'ja'))
@@ -59,7 +59,7 @@ export default function TagsPage() {
   }
 
   const handleDelete = async (id: number) => {
-    await deleteTagsLists(id)
+    await deleteTaglist(id)
     setTagList(prev => prev.filter(tl => tl.id !== id))
   }
 
@@ -73,7 +73,7 @@ export default function TagsPage() {
       return
     }
 
-    await renameTagsLists(id, name)
+    await renameTaglist(id, name)
     setTagList(prev => {
       const next = prev.map(tl => tl.id === id ? { ...tl, name } : tl)
       return next.sort((a, b) => a.name.localeCompare(b.name, 'ja'))

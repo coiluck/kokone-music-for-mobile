@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
-import App from './App'
+import RootLayout from './layouts/RootLayout'
+import MainLayout from './layouts/MainLayout'
 import LibraryPage from './pages/LibraryPage'
 import PlaylistsPage from './pages/PlaylistsPage'
 import PlaylistsDetailsPage from './pages/PlaylistsDetailsPage'
@@ -11,42 +12,38 @@ import AlbumPage from './pages/AlbumPage'
 import AlbumDetailsPage from './pages/AlbumDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
-import IconEditPage from './pages/sub/IconEditPage'
 import SubLayout from './layouts/SubLayout'
-import PageLayout from './layouts/PageLayout'
 import SettingsPage from './pages/SettingsPage'
 import StatsPage from './pages/sub/StatsPage'
 
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <App />,          // サイドバー＋ミニプレイヤーの共通レイアウト
+    element: <RootLayout />, // 全ページ共通 (Message)
     children: [
-      { index: true,           element: <LibraryPage /> },
-      { path: 'tags/',         element: <TagsPage /> },
-      { path: 'tags/:listName', element: <TagsDetailsPage /> },
-      { path: 'playlists/',     element: <PlaylistsPage /> },
-      { path: 'playlists/:name', element: <PlaylistsDetailsPage /> },
-      { path: 'artist/',       element: <ArtistsPage /> },
-      { path: 'artist/:name',  element: <ArtistsDetailsPage /> },
-      { path: 'album/',        element: <AlbumPage /> },
-      { path: 'album/:name',   element: <AlbumDetailsPage /> },
-      // subのページ
-      { path: '/icon-edit/:kind/:name', element: <IconEditPage /> },
-    ]
-  },
-  {
-    path: '/sub',
-    element: <SubLayout />,
-    children: [
-      { path: 'queue', element: <QueuePage /> },
-      { path: 'search', element: <SearchPage /> },
-    ]
-  },
-  {
-    // サイドバー無し。ヘッダーは各ページが PageHeader で描く
-    element: <PageLayout />,
-    children: [
+      {
+        path: '/',
+        element: <MainLayout />, // サイドバー + ミニプレイヤー + HeaderApp
+        children: [
+          { index: true,           element: <LibraryPage /> },
+          { path: 'tags/',         element: <TagsPage /> },
+          { path: 'tags/:listName', element: <TagsDetailsPage /> },
+          { path: 'playlists/',     element: <PlaylistsPage /> },
+          { path: 'playlists/:name', element: <PlaylistsDetailsPage /> },
+          { path: 'artist/',       element: <ArtistsPage /> },
+          { path: 'artist/:name',  element: <ArtistsDetailsPage /> },
+          { path: 'album/',        element: <AlbumPage /> },
+          { path: 'album/:name',   element: <AlbumDetailsPage /> },
+        ]
+      },
+      {
+        path: '/sub',
+        element: <SubLayout />,  // サイドバー + ミニプレイヤー + HeaderSub
+        children: [
+          { path: 'queue', element: <QueuePage /> },
+          { path: 'search', element: <SearchPage /> },
+        ]
+      },
+      // HeaderSub のみ
       { path: '/settings', element: <SettingsPage /> },
       { path: '/stats', element: <StatsPage /> },
     ]
