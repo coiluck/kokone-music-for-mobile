@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { getTaglists, getTaglistTracks, setTaglistPositiveTags, setTaglistNegativeTags, setTaglistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
-import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
+import { playFromList } from '../lib/trackActions'
 import { rollHue, type PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { usePlayerStore } from '../lib/playerStore'
 import MusicItem from '../components/MusicItem'
 import { Icon } from '../components/Icon'
-import { ListIcon } from '../components/ListIcon'
+import DetailsHeader from '../components/DetailsHeader'
 import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/TagsDetailsPage.css'
 import { useSettingsStore } from '../lib/settingsStore'
@@ -27,6 +27,7 @@ export default function TagsDetailsPage() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const t = useMappedTranslations({
+    edit: 'tags.details.edit',
     editTitle: 'tags.details.edit.title',
     pos: 'tags.details.positive',
     neg: 'tags.details.negative',
@@ -57,10 +58,6 @@ export default function TagsDetailsPage() {
     [trackIds]
   )
 
-  const handlePlayAll = useCallback(() => playAll(trackIds), [trackIds])
-
-  const handleShuffle = useCallback(() => shufflePlay(trackIds), [trackIds])
-
   if (!listName) {
     console.error('[TagsDetailsPage] Invalid param')
     return null
@@ -82,42 +79,16 @@ export default function TagsDetailsPage() {
          />
       )}
 
-      <div className="tags-details-header">
-        <div className="tags-details-header-title">{listName}</div>
-        <div className="tags-details-header-icon-container">
-          <div className="tags-details-header-cd-wrapper">
-            <div
-              className="tags-details-header-cd-jacket-container"
-              onClick={handleRollIcon}
-            >
-              {icon && <ListIcon icon={icon} name={listName} size={192} />}
-            </div>
-            <div className="tags-details-header-cd-disc-icon" />
-          </div>
-        </div>
-        <div className="tags-details-button-container">
-          <div
-            className="tags-details-button-left"
-            onClick={() => setIsMenuOpen(true)}
-          >
-            <Icon name="sliders" mode={iconStyle} size={24} folder='/images/TagsPage/' />
-          </div>
-          <div className="tags-details-button-right">
-            <div
-              className="tags-details-button-right shuffle"
-              onClick={handleShuffle}
-            >
-              <Icon name="shuffle" mode={null} size={24} folder='/images/PlaylistsPage/' />
-            </div>
-            <div
-              className="tags-details-button-right play_all"
-              onClick={handlePlayAll}
-            >
-              <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />
-            </div>
-          </div>
-        </div>
-      </div>
+      <DetailsHeader
+        title={listName}
+        trackIds={trackIds}
+        art={{ kind: 'cd', icon, name: listName, onClick: handleRollIcon }}
+        extraAction={{
+          icon: <Icon name="sliders" mode={iconStyle} size={24} folder='/images/TagsPage/' />,
+          label: t.edit,
+          onClick: () => setIsMenuOpen(true),
+        }}
+      />
 
       <div style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
         {trackIds.map(id => (

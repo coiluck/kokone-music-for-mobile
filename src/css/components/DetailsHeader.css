@@ -1,0 +1,136 @@
+/* 上部 */
+.dh-component-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: .75rem;
+}
+
+.dh-component-avatar {
+  padding: 1.75rem;
+  border-radius: 50%;
+  background-color: rgb(from var(--color-text) r g b / 0.15);
+  opacity: .5;
+}
+
+.dh-component-cd-wrapper {
+  position: relative;
+  width: 288px;
+  height: 192px;
+}
+.dh-component-cd-jacket {
+  position: relative;
+  z-index: 1;
+  width: 192px;
+  height: 192px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.dh-component-cd-disc {
+  position: absolute;
+  top: 0;
+  left: 96px;
+  width: 192px;
+  height: 192px;
+  background-image: url('/images/PlaylistsPage/cd.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: dh-spin .75s ease-out;
+}
+@keyframes dh-spin {
+  from {
+    transform: translateX(-96px) rotate(-180deg);
+  }
+  to {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+.dh-component-text {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+.dh-component-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 1.5rem;
+  line-height: 1.35;
+}
+.dh-component-meta {
+  font-size: .8rem;
+  opacity: .8;
+}
+
+/* ボタン行 */
+.dh-component-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  position: sticky;
+  top:  -1rem; /* page の padding-top と合わせる */
+  z-index: 2; /* CD ジャケット (z-index: 1) より上 */
+  margin: 0 -2rem;
+  padding: .5rem 2.5rem; /* 左右は MusicItem と合わせる */
+  background-color: var(--color-bg);
+  transition: box-shadow .2s;
+}
+/* 上端に貼り付いている間だけ下線と影を出す */
+.dh-component-actions.is-stuck {
+  box-shadow: 0 1px 0 rgb(from var(--color-text) r g b / 0.2), 0 8px 16px rgb(0 0 0 / .18);
+}
+@media (hover: none) {
+  .dh-component-actions {
+    padding: .5rem 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .dh-component-actions {
+    margin: 0;
+    padding: .5rem;
+  }
+}
+@media (min-width: 768px) and (hover: none) {
+  .dh-component-actions {
+    padding: .5rem 0;
+  }
+}
+
+.dh-component-actions-left {
+  display: flex;
+  gap: 1rem;
+}
+.dh-component-action {
+  display: flex;
+  align-items: center;
+  min-width: 36px;
+  cursor: pointer;
+}
+.dh-component-action span {
+  font-size: .7rem;
+  line-height: 1;
+  opacity: .85;
+  white-space: nowrap;
+}
+
+.dh-component-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.dh-component-play {
+  padding: .75rem;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  cursor: pointer;
+}

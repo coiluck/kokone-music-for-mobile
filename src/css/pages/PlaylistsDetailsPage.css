@@ -20,52 +20,6 @@
   background-color: rgb(from var(--color-text) r g b / 0.2);
 }
 
-.playlists-details-header-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.playlists-details-header-cd-wrapper {
-  position: relative;
-  width: 288px;
-  height: 192px;
-}
-
-.playlists-details-header-cd-jacket-container {
-  position: relative;
-  z-index: 1;
-  width: 192px;
-  height: 192px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.playlists-details-header-cd-disc-icon {
-  position: absolute;
-  top: 0;
-  left: 96px;
-  width: 192px;
-  height: 192px;
-  background-image: url('/images/PlaylistsPage/cd.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  animation: spin .75s ease-out;
-}
-
-@keyframes spin {
-  from {
-    transform: translateX(-96px) rotate(-180deg);
-  }
-  to {
-    transform: translateX(0) rotate(0deg);
-  }
-}
-
-
 .playlists-details-header-title {
   font-size: 1.5rem;
   text-align: center;
@@ -78,9 +32,6 @@
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
-}
-.playlists-details-button-left {
-  padding: .5rem;
 }
 .playlists-details-button-right {
   display: flex;
