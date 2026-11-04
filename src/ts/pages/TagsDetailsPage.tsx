@@ -11,6 +11,7 @@ import DetailsHeader from '../components/DetailsHeader'
 import { useMappedTranslations } from '../lib/i18n'
 import '../../css/pages/TagsDetailsPage.css'
 import { useSettingsStore } from '../lib/settingsStore'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 
 export default function TagsDetailsPage() {
   const { listName } = useParams<{ listName: string }>()
@@ -23,8 +24,10 @@ export default function TagsDetailsPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const posInputRef = useRef<HTMLInputElement>(null)
   const negInputRef = useRef<HTMLInputElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
   const isPlaying = usePlayerStore(s => s.currentTrack)
   const iconStyle = useSettingsStore(s => s.iconStyle)
+  useScrollRestoration(pageRef, { ready: trackIds.length > 0 })
 
   const t = useMappedTranslations({
     edit: 'tags.details.edit',
@@ -71,7 +74,7 @@ export default function TagsDetailsPage() {
   }
 
   return (
-    <div className='page fade-in'>
+    <div className='page fade-in' ref={pageRef}>
       {isMenuOpen && (
         <div
           className="tags-details-overlay"

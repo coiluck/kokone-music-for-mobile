@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { getPlaylists, getPlaylistTracks, getHistory, getRecommended, setPlaylistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon'
 import DetailsHeader from '../components/DetailsHeader'
 import '../../css/pages/PlaylistsDetailsPage.css'
 import { usePlayerStore } from '../lib/playerStore'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
@@ -22,6 +23,8 @@ export default function PlaylistsDetailsPage() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const [trackIds, setTrackIds] = useState<number[]>([])
+  const pageRef = useRef<HTMLDivElement>(null)
+  useScrollRestoration(pageRef, { ready: trackIds.length > 0 })
 
   useEffect(() => {
     if (playlistName === '__history__') {
@@ -99,7 +102,7 @@ export default function PlaylistsDetailsPage() {
   )
 
   return (
-    <div className="page fade-in">
+    <div className="page fade-in" ref={pageRef}>
       {playlistHeader}
       <div style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
         {trackIds.map(id => (

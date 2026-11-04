@@ -22,8 +22,6 @@ export default function SearchPage() {
     count: 'search.count',
   })
 
-  const from = (location.state?.from as string | undefined) ?? '/'
-  const scrollTop = (location.state?.scrollTop as number | undefined) ?? 0
   const initialTags = (location.state?.initialTags as string[] | undefined) ?? []
 
   const [trackIds, setTrackIds] = useState<number[]>([])
@@ -70,13 +68,6 @@ export default function SearchPage() {
   const handleClear = () => {
     setQuery('')
     setTags([])
-  }
-
-  const handleBack = () => {
-    navigate(from, {
-      replace: true,
-      state: { restoreScrollTop: scrollTop },
-    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -130,7 +121,7 @@ export default function SearchPage() {
         </div>
         <button
           className="search-page-header-back"
-          onClick={handleBack}
+          onClick={() => navigate(-1)}
           aria-label="back"
         >
           {t.cancel}

@@ -6,18 +6,7 @@ export function useOpenSearch() {
   const navigate = useNavigate()
 
   return () => {
-    if (location.pathname === '/sub/search') {
-      // 再度inputにfocusを合わせるため
-      navigate('/sub/search', {
-        replace: true,
-        state: { ...location.state, initialTags: [] }, // from / scrollTop を引き継ぐ
-      })
-      return
-    }
-    const pageEl = document.querySelector('.page')
-    const scrollTop = pageEl?.scrollTop ?? 0
-    navigate('/sub/search', {
-      state: { from: location.pathname, scrollTop },
-    })
+    // 検索ページでは input に focus を合わせ直すだけなので履歴を増やさない
+    navigate('/sub/search', { replace: location.pathname === '/sub/search' })
   }
 }
