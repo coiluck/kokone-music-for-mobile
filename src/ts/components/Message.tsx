@@ -55,9 +55,7 @@ export function clearMessages() {
 function MessageItemView({ item, onClose }: { item: MessageItem; onClose: () => void }) {
   const [visible, setVisible] = useState(false)
   const [removing, setRemoving] = useState(false)
-  const [fillWidth, setFillWidth] = useState('100%')
   const removeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fillTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // マウント直後にis-visibleを付ける（slide-inアニメーション用）
   useEffect(() => {
@@ -73,14 +71,8 @@ function MessageItemView({ item, onClose }: { item: MessageItem; onClose: () => 
       startRemoving()
     }, item.duration)
 
-    // 進捗バーを 100% → 0% へ
-    fillTimer.current = setTimeout(() => {
-      setFillWidth('0%')
-    }, 100)
-
     return () => {
       if (removeTimer.current) clearTimeout(removeTimer.current)
-      if (fillTimer.current) clearTimeout(fillTimer.current)
     }
     // item.id が変わらない限り再スケジュールしない
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,7 +92,6 @@ function MessageItemView({ item, onClose }: { item: MessageItem; onClose: () => 
 
   const handleClick = () => {
     if (removeTimer.current) clearTimeout(removeTimer.current)
-    if (fillTimer.current) clearTimeout(fillTimer.current)
     startRemoving()
   }
 
@@ -110,23 +101,9 @@ function MessageItemView({ item, onClose }: { item: MessageItem; onClose: () => 
     removing ? 'is-removing' : '',
   ].filter(Boolean).join(' ')
 
-  const showProgress = item.duration !== 'infinity' && typeof item.duration === 'number'
-  const durationSec = showProgress ? (item.duration as number) / 1000 : 0
-
   return (
     <div className={className} onClick={handleClick} onTransitionEnd={handleTransitionEnd}>
       <div className="msg-component-content">{item.text}</div>
-      {showProgress && (
-        <div className="msg-component-progress">
-          <div
-            className="msg-component-fill"
-            style={{
-              width: fillWidth,
-              transition: `width ${durationSec}s linear`,
-            }}
-          />
-        </div>
-      )}
     </div>
   )
 }
