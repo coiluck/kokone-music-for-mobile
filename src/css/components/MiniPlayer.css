@@ -13,6 +13,15 @@
   transition: all .2s ease-in-out;
   z-index: 1; /* app-sidebar の下から出てくるように */
 }
+
+
+/* PC */
+@media (min-width: 768px) {
+  .player-component-container {
+    padding-bottom: .25rem;
+  }
+}
+
 .player-component-container.empty {
   transform: translateY(100%);
 }

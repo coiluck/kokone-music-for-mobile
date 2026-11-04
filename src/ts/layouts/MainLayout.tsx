@@ -2,7 +2,6 @@ import { Outlet, useLocation } from 'react-router-dom'
 import MiniPlayer from '../components/MiniPlayer'
 import { useEffect } from 'react'
 import HeaderApp from '../components/HeaderApp'
-import Sidebar from '../components/Sidebar'
 
 export default function MainLayout() {
   const location = useLocation()
@@ -29,9 +28,6 @@ export default function MainLayout() {
         <Outlet />
         <MiniPlayer />
       </main>
-
-      {/* サイドバーナビ */}
-      <Sidebar />
     </>
   )
 }

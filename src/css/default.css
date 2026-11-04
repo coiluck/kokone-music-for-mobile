@@ -81,11 +81,6 @@ body {
     display: none;
   }
 }
-@media (min-width: 768px) {
-  .page {
-    width: 70%;
-  }
-}
 
 .fade-in {
   animation: FadeIn .3s;

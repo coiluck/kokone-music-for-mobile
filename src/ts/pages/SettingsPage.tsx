@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { addScanFolder, addScanFolderByPath, getScanFolders, removeScanFolder } from '../lib/scanFolders'
 import { hasAudioPermission, listAndroidAudioFolders, requestAudioPermission } from '../lib/androidMedia'
 import { runStartupScan } from '../lib/scan'
@@ -61,8 +61,6 @@ export default function SettingsPage() {
   const pageRef = useRef<HTMLDivElement>(null)
 
   const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from ?? '/'
 
   // Android 用フォルダ選択モーダル
   const onAndroid = isAndroid()
@@ -206,7 +204,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <HeaderSub title={t.title} onBack={() => navigate(from)} />
+      <HeaderSub title={t.title} onBack={() => navigate(-1)} />
 
     <div className='page fade-in' ref={pageRef}>
       <div className='settings-container'>
