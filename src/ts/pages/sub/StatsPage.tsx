@@ -170,7 +170,7 @@ function HeatmapChart({ days }: { days: ListeningDay[] }) {
     if (shift !== 0) tip.style.transform = `translate(calc(-50% + ${shift}px), -120%)`
   }, [hover, t])
 
-  const handleEnter = (index: number) => (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleEnter = (index: number) => (e: React.MouseEvent<HTMLDivElement>) => {
     const wrap = wrapRef.current
     if (!wrap) return
     const cell = e.currentTarget.getBoundingClientRect()
@@ -198,8 +198,8 @@ function HeatmapChart({ days }: { days: ListeningDay[] }) {
                 backgroundColor:
                   `rgb(from var(--color-accent) r g b / ${0.25 + 0.75 * (day.streams / max)})`,
               } : undefined}
-              onPointerEnter={future ? undefined : handleEnter(index)}
-              onPointerLeave={future ? undefined : () => setHover(null)}
+              onMouseEnter={future ? undefined : handleEnter(index)}
+              onMouseLeave={future ? undefined : () => setHover(null)}
             />
           )
         })}
