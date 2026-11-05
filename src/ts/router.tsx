@@ -12,6 +12,7 @@ import AlbumPage from './pages/AlbumPage'
 import AlbumDetailsPage from './pages/AlbumDetailsPage'
 import QueuePage from './pages/sub/QueuePage'
 import SearchPage from './pages/sub/SearchPage'
+import PlaylistAddPage from './pages/sub/PlaylistAddPage'
 import SubLayout from './layouts/SubLayout'
 import SettingsPage from './pages/SettingsPage'
 import StatsPage from './pages/sub/StatsPage'
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'queue', element: <QueuePage /> },
           { path: 'search', element: <SearchPage /> },
+          { path: 'playlists/:name/add', element: <PlaylistAddPage /> },
         ]
       },
       // HeaderSub のみ。Sidebar はスマホでは CSS で隠す

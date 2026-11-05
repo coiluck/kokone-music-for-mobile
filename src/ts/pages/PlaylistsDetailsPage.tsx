@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getPlaylists, getPlaylistTracks, getHistory, getRecommended, setPlaylistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
 import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
@@ -15,6 +15,7 @@ import { useScrollRestoration } from '../lib/scrollRestoration'
 
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
+  const navigate = useNavigate()
   const playlistName = name ? decodeURIComponent(name) : ''
   const lang = useSettingsStore(s => s.lang)
   const [playlistId, setPlaylistId] = useState<number | null>(null)
@@ -97,6 +98,7 @@ export default function PlaylistsDetailsPage() {
       art={{ kind: 'cd', icon, name: playlistName, onClick: handleRollIcon }}
       extraAction={{
         icon: <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />,
+        onClick: () => navigate(`/sub/playlists/${encodeURIComponent(playlistName)}/add`),
       }}
     />
   )

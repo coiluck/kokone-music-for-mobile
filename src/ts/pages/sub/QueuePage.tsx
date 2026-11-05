@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMappedTranslations } from '../../lib/i18n'
 import { usePlayerStore } from '../../lib/playerStore'
+import { useSettingsStore } from '../../lib/settingsStore'
 import { useTrackStore } from '../../lib/trackStore'
 import { shuffle } from '../../lib/trackActions'
 import { musicPlayer } from '../../lib/music'
@@ -175,6 +176,7 @@ interface SortableQueueItemProps {
 }
 
 function SortableQueueItem({ trackId, onPlay, onRemove }: SortableQueueItemProps) {
+  const iconStyle = useSettingsStore(s => s.iconStyle)
   const {
     attributes,
     listeners,
@@ -210,7 +212,18 @@ function SortableQueueItem({ trackId, onPlay, onRemove }: SortableQueueItemProps
         <Icon name="hamburger" mode={null} size={24} folder='/images/QueuePage/' className='queue-page-item-handle-icon' />
       </div>
       <div className="queue-page-item-content">
-        <MusicItem trackId={trackId} onPlay={onPlay} onRemove={onRemove} />
+        <MusicItem
+          trackId={trackId}
+          onPlay={onPlay}
+          action={
+            <div
+              className="mi-component-actions"
+              onClick={e => { e.stopPropagation(); onRemove(); }}
+            >
+              <Icon name="remove" mode={iconStyle} folder="/images/MusicItem/" />
+            </div>
+          }
+        />
       </div>
     </div>
   )

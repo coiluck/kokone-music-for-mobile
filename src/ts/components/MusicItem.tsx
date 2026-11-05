@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from "react"
+import { useRef, useState, useEffect, useMemo, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { Playlist, getPlaylists, addTrackToPlaylist, removeTrackFromPlaylist, updateTrack } from "../lib/db"
 import { useTrackStore } from "../lib/trackStore"
@@ -17,10 +17,10 @@ import { showMessage } from "./Message"
 interface Props {
   trackId: number
   onPlay: (trackId: number) => void
-  onRemove?: () => void
+  action?: ReactNode
 }
 
-export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
+export default function MusicItem({ trackId, onPlay, action }: Props) {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
   // 自分の ID のレコードだけを購読する
@@ -262,14 +262,7 @@ export default function MusicItem({ trackId, onPlay, onRemove }: Props) {
         </div>
       </div>
       <div className="mi-component-actions-container">
-        {onRemove && (
-          <div
-            className="mi-component-actions"
-            onClick={e => { e.stopPropagation(); onRemove(); }}
-          >
-            <Icon name="remove" mode={iconStyle} folder="/images/MusicItem/" />
-          </div>
-        )}
+        {action}
         <div
           ref={actionsBtnRef}
           className="mi-component-actions"

@@ -1,0 +1,8 @@
+.playlist-add-target {
+  margin: .75rem 0;
+  padding: .4rem .8rem;
+  border-radius: .4rem;
+  background-color: rgb(from var(--color-accent) r g b / 0.15);
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}

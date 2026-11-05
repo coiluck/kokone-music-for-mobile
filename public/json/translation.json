@@ -53,6 +53,8 @@
   "search.noItem": { "ja": "該当する曲が見つかりませんでした", "en": "No tracks found." },
   "search.noWord": { "ja": "キーワードを入力してください", "en": "Enter a keyword to search." },
   "search.count": { "ja": "曲", "en": "tracks" },
+  "playlist.add.done": { "ja": "完了", "en": "Done" },
+  "playlist.add.target": { "ja": "追加先", "en": "Adding to" },
   "queue.title": { "ja": "再生待機リスト", "en": "Playback Queue" },
   "queue.item.shuffle": { "ja": "シャッフル", "en": "Shuffle" },
   "queue.item.all-clear": { "ja": "すべてクリア", "en": "Clear All" },
