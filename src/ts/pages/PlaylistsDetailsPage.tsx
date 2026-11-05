@@ -16,7 +16,7 @@ import { useScrollRestoration } from '../lib/scrollRestoration'
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
   const navigate = useNavigate()
-  const playlistName = name ? decodeURIComponent(name) : ''
+  const playlistName = name ?? ''
   const lang = useSettingsStore(s => s.lang)
   const [playlistId, setPlaylistId] = useState<number | null>(null)
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)

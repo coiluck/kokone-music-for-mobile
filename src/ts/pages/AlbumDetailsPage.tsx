@@ -10,7 +10,7 @@ import { useScrollRestoration } from '../lib/scrollRestoration'
 
 export default function AlbumDetailsPage() {
   const { name } = useParams<{ name: string }>()
-  const albumName = name ? decodeURIComponent(name) : ''
+  const albumName = name ?? ''
 
   const [trackIds, setTrackIds] = useState<number[]>([])
   const pageRef = useRef<HTMLDivElement>(null)

@@ -10,7 +10,7 @@ import DetailsHeader from '../components/DetailsHeader'
 
 export default function ArtistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
-  const artistName = name ? decodeURIComponent(name) : ''
+  const artistName = name ?? ''
 
   const [trackIds, setTrackIds] = useState<number[]>([])
   const pageRef = useRef<HTMLDivElement>(null)
