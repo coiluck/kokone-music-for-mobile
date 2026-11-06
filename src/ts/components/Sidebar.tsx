@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
 import { useSettingsStore } from '../lib/settingsStore'
@@ -11,6 +12,20 @@ export default function Sidebar() {
 
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
+  // Android のシステムバー領域の色分けにサイドナビの幅を使う
+  const navRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const bars = window.AndroidSystemBars
+    const nav = navRef.current
+    if (!bars || !nav) return
+    const sideNav = window.matchMedia('(min-width: 768px)')
+    const observer = new ResizeObserver(() => {
+      bars.setSideNavWidth(sideNav.matches ? nav.getBoundingClientRect().right : 0)
+    })
+    observer.observe(nav)
+    return () => observer.disconnect()
+  }, [])
+
   const t = useMappedTranslations({
     library: 'page.library',
     playlist: 'page.playlist',
@@ -22,7 +37,7 @@ export default function Sidebar() {
   })
 
   return (
-    <nav className="app-sidebar">
+    <nav className="app-sidebar" ref={navRef}>
       {/* PC のみ */}
       <div className="app-sidebar-brand">
         <Icon name='icon_path' size={32} mode={null} folder='/images/' />

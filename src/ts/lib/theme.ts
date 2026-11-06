@@ -1,6 +1,16 @@
 // ts/lib/theme.ts
 import { getSetting, setSetting, type SettingValues } from './settings'
 
+declare global {
+  interface Window {
+    /** Android のみ MainActivity.kt が注入する */
+    AndroidSystemBars?: {
+      setColors(bgHex: string, mildHex: string, isLight: boolean): void
+      setSideNavWidth(cssPx: number): void
+    }
+  }
+}
+
 export interface ThemeSettings {
   accentColor: string
   bgColor: string
@@ -33,6 +43,15 @@ function applyTheme(settings: Partial<ThemeSettings>) {
   root.style.setProperty('--color-bg-mild',  merged.bgMildColor)
   root.style.setProperty('--color-text',     merged.textColor)
   root.style.setProperty('--font-family',    fontFamilyMap[merged.font])
+  syncSystemBars()
+}
+
+/** Android のシステムバー領域をアプリの配色に合わせる */
+function syncSystemBars() {
+  const style = document.documentElement.style
+  const bg = style.getPropertyValue('--color-bg')
+  const bgMild = style.getPropertyValue('--color-bg-mild')
+  window.AndroidSystemBars?.setColors(bg, bgMild, judgeBrightness(bg))
 }
 
 /** settings.json から読み込んで CSS へ適用する（起動時に呼ぶ） */
@@ -71,6 +90,7 @@ export async function saveThemeKey<K extends keyof ThemeSettings>(
     ? fontFamilyMap[value as ThemeSettings['font']]
     : value as string
   document.documentElement.style.setProperty(propMap[key], cssValue)
+  if (key === 'bgColor' || key === 'bgMildColor') syncSystemBars()
 }
 
 /** 明るさを判断 */
