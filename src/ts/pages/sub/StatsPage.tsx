@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   getListeningClock,
   getListeningHeatmap,
+  getTopListening,
   getTotalListeningMs,
   type ListeningClock,
   type ListeningDay,
+  type TopListening,
+  type TopTag,
 } from '../../lib/db'
 import { useMappedTranslations } from '../../lib/i18n'
 import { useSettingsStore } from '../../lib/settingsStore'
@@ -217,10 +220,85 @@ function HeatmapChart({ days }: { days: ListeningDay[] }) {
   )
 }
 
+const RADAR_AXES = 6
+const RADAR_R = 82
+const RADAR_SLOT = (Math.PI * 2) / RADAR_AXES
+const RADAR_LABEL_LENGTH = 7
+const RADAR_LINE_HEIGHT = 13
+
+function radarPoints(ratio: (axis: number) => number): string {
+  return Array.from({ length: RADAR_AXES }, (_, axis) =>
+    polar(RADAR_R * ratio(axis), axis * RADAR_SLOT).join(',')
+  ).join(' ')
+}
+
+function radarLabel(tag: string): string {
+  return tag.length > RADAR_LABEL_LENGTH ? `${tag.slice(0, RADAR_LABEL_LENGTH - 1)}…` : tag
+}
+
+function RadarChart({
+  tags,
+  formatCount,
+}: {
+  tags: TopTag[]
+  formatCount: (count: number) => string
+}) {
+  // 順位順だと毎回同じ渦巻き形になるので名前順に置く
+  const axes = [...tags].sort((a, b) => a.tag.localeCompare(b.tag, 'ja'))
+  while (axes.length < RADAR_AXES) axes.push({ tag: '---', count: 0 })
+
+  const max = Math.max(...axes.map(a => a.count))
+
+  return (
+    <div className='stats-radar'>
+      <svg viewBox='-30 16 320 228' className='stats-radar-svg'>
+        {[0.25, 0.5, 0.75, 1].map(ratio => (
+          <polygon
+            key={ratio}
+            className={ratio === 1 ? 'stats-radar-web outer' : 'stats-radar-web'}
+            points={radarPoints(() => ratio)}
+          />
+        ))}
+        {axes.map((_, axis) => {
+          const [x, y] = polar(RADAR_R, axis * RADAR_SLOT)
+          return <line key={axis} className='stats-radar-spoke' x1={CENTER} y1={CENTER} x2={x} y2={y} />
+        })}
+        <polygon className='stats-radar-shape' points={radarPoints(axis => axes[axis].count / max)} />
+        {axes.map(({ tag, count }, axis) => {
+          const angle = axis * RADAR_SLOT
+          const [dotX, dotY] = polar(RADAR_R * (count / max), angle)
+          const [labelX, labelY] = polar(RADAR_R + 10, angle)
+          const sin = Math.sin(angle)
+          const anchor = Math.abs(sin) < 0.01 ? 'middle' : sin > 0 ? 'start' : 'end'
+          // 2行のラベルが頂点に重ならないよう、上下の軸では外側へ寄せる
+          const top = labelY - (Math.cos(angle) + 1) * RADAR_LINE_HEIGHT / 2
+          return (
+            <g key={axis}>
+              {count > 0 && <circle className='stats-radar-dot' cx={dotX} cy={dotY} r={4} />}
+              <text className='stats-radar-label' x={labelX} y={top} textAnchor={anchor}>
+                {radarLabel(tag)}
+              </text>
+              <text
+                className='stats-radar-count'
+                x={labelX}
+                y={top + RADAR_LINE_HEIGHT}
+                textAnchor={anchor}
+              >
+                {formatCount(count)}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
 export default function StatsPage() {
   const [clock, setClock] = useState<ListeningClock | null>(null)
   const [heatmap, setHeatmap] = useState<ListeningDay[] | null>(null)
   const [totalMs, setTotalMs] = useState(0)
+  const [top, setTop] = useState<TopListening>({ tracks: [], tags: [] })
   const navigate = useNavigate()
 
   const t = useMappedTranslations({
@@ -228,6 +306,12 @@ export default function StatsPage() {
     totalTitle: 'stats.totalTime.title',
     totalDesc: 'stats.totalTime.desc',
     totalValue: 'stats.totalTime.value',
+    topTracksTitle: 'stats.topTracks.title',
+    topTracksDesc: 'stats.topTracks.desc',
+    topTagsTitle: 'stats.topTags.title',
+    topTagsDesc: 'stats.topTags.desc',
+    playsOne: 'stats.plays.one',
+    playsOther: 'stats.plays.other',
     calendarTitle: 'stats.calendar.title',
     calendarDesc: 'stats.calendar.desc',
     clocksTitle: 'stats.clocks.title',
@@ -242,7 +326,10 @@ export default function StatsPage() {
     void getListeningClock().then(setClock)
     void getListeningHeatmap().then(setHeatmap)
     void getTotalListeningMs().then(setTotalMs)
+    void getTopListening().then(setTop)
   }, [])
+
+  const formatPlays = (count: number) => fill(count === 1 ? t.playsOne : t.playsOther, { count })
 
   return (
     <>
@@ -265,6 +352,46 @@ export default function StatsPage() {
             </p>
           </div>
         </section>
+
+        {top.tracks.length !== 0 && (
+          <section className='stats-section'>
+            <div className='stats-section-header'>
+              <h2 className='stats-section-title'>{t.topTracksTitle}</h2>
+              <p className='stats-section-desc'>
+                {t.topTracksDesc}
+              </p>
+            </div>
+            <ol className='stats-top-tracks'>
+              {top.tracks.map(({ track, count }, index) => (
+                <li key={track.id} className='stats-top-track'>
+                  <div className='stats-top-track-row'>
+                    <span className='stats-top-track-rank'>{index + 1}</span>
+                    <div className='stats-top-track-text'>
+                      <p className='stats-top-track-title'>{track.title}</p>
+                      <p className='stats-top-track-artist'>{track.artist}</p>
+                    </div>
+                    <span className='stats-top-track-count'>{formatPlays(count)}</span>
+                  </div>
+                  <div className='stats-top-track-bar'>
+                    <div style={{ width: `${(count / top.tracks[0].count) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {top.tags.length !== 0 && (
+          <section className='stats-section'>
+            <div className='stats-section-header'>
+              <h2 className='stats-section-title'>{t.topTagsTitle}</h2>
+              <p className='stats-section-desc'>
+                {t.topTagsDesc}
+              </p>
+            </div>
+            <RadarChart tags={top.tags} formatCount={formatPlays} />
+          </section>
+        )}
 
         <section className='stats-section'>
           <div className='stats-section-header'>

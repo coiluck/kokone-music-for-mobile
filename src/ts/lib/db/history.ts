@@ -106,3 +106,56 @@ export async function getListeningHeatmap(weeks = 4): Promise<ListeningDay[]> {
   }
   return days
 }
+
+const TOP_TRACK_LIMIT = 5
+const TOP_TAG_LIMIT = 6
+
+export interface TopTrack {
+  track: Track
+  count: number // 再生回数
+}
+
+export interface TopTag {
+  tag: string
+  count: number // このタグを持つ曲の再生回数の合計
+}
+
+export interface TopListening {
+  tracks: TopTrack[]
+  tags: TopTag[]
+}
+
+// 直近 weeks 週間でよく聴いた曲とタグ
+// タグは上位の曲だけでなく、期間内に再生した全曲から集計する
+export async function getTopListening(weeks = 4): Promise<TopListening> {
+  const db = await getDb()
+  const since = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000
+  const rows = await db.select<(TrackRow & { play_count: number })[]>(
+    `SELECT t.*, COUNT(*) AS play_count
+     FROM history h
+     INNER JOIN tracks t ON t.id = h.track_id
+     WHERE h.played_at >= $1
+     GROUP BY t.id
+     ORDER BY play_count DESC, MAX(h.played_at) DESC`,
+    [since]
+  )
+  const played = rows.map(({ play_count, ...row }) => ({
+    track: rowToTrack(row),
+    count: play_count,
+  }))
+
+  const tagCounts = new Map<string, number>()
+  for (const { track, count } of played) {
+    for (const tag of track.tags) {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + count)
+    }
+  }
+  const tags = [...tagCounts]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'ja'))
+
+  return {
+    tracks: played.slice(0, TOP_TRACK_LIMIT),
+    tags: tags.slice(0, TOP_TAG_LIMIT),
+  }
+}

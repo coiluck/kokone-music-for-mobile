@@ -25,6 +25,115 @@
   gap: .1rem;
 }
 
+/* top tracks */
+.stats-top-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  padding: 1.2rem;
+  border-radius: .6rem;
+  background-color: var(--color-bg-mild);
+  list-style: none;
+}
+.stats-top-track {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.stats-top-track-row {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .5rem;
+}
+.stats-top-track-rank {
+  color: rgb(from var(--color-text) r g b / 0.6);
+  font-size: .9rem;
+}
+.stats-top-track-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.stats-top-track-title,
+.stats-top-track-artist {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats-top-track-title {
+  font-size: 1rem;
+}
+.stats-top-track-artist {
+  color: rgb(from var(--color-text) r g b / 0.7);
+  font-size: .7rem;
+}
+.stats-top-track-count {
+  font-size: .85rem;
+  white-space: nowrap;
+}
+.stats-top-track-bar {
+  height: 4px;
+  border-radius: 2px;
+  background-color: rgb(from var(--color-text) r g b / 0.1);
+  overflow: hidden;
+}
+.stats-top-track-bar div {
+  height: 100%;
+  border-radius: 2px;
+  background-color: var(--color-accent);
+}
+
+/* top tags */
+.stats-radar {
+  padding: 1.2rem;
+  border-radius: .6rem;
+  background-color: var(--color-bg-mild);
+}
+.stats-radar-svg {
+  display: block;
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+.stats-radar-web {
+  fill: none;
+  stroke: rgb(from var(--color-text) r g b / 0.15);
+}
+.stats-radar-web.outer {
+  stroke: rgb(from var(--color-text) r g b / 0.35);
+}
+.stats-radar-spoke {
+  stroke: rgb(from var(--color-text) r g b / 0.15);
+}
+.stats-radar-shape {
+  fill: rgb(from var(--color-accent) r g b / 0.3);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.stats-radar-dot {
+  fill: var(--color-accent);
+  stroke: var(--color-bg-mild);
+  stroke-width: 2;
+}
+.stats-radar-label,
+.stats-radar-count {
+  dominant-baseline: central;
+}
+.stats-radar-label {
+  fill: var(--color-text);
+  font-size: 11px;
+}
+.stats-radar-count {
+  fill: rgb(from var(--color-text) r g b / 0.6);
+  font-size: 9.5px;
+}
+
 /* heatmap */
 .stats-heatmap {
   position: relative;
