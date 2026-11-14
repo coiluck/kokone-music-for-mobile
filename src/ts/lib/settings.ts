@@ -15,6 +15,7 @@ export interface SettingValues extends ThemeSettings {
   isTrailingSilence: boolean
   isDeveloperMode: boolean
   isSendHistory: boolean
+  isAutoTagging: boolean
   historyBackend: HistoryBackend
   firebaseConfig: FirebaseConfig
   cloudflareD1Config: CloudflareD1Config

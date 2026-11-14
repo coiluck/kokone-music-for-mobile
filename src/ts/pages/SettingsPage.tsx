@@ -50,6 +50,9 @@ export default function SettingsPage() {
     isDeveloperMode: 'settings.isDeveloperMode',
     isSendHistory: 'settings.isSendHistory',
     historyBackend: 'settings.historyBackend',
+    groupHistory: 'settings.groupHistory',
+    groupAnalysis: 'settings.groupAnalysis',
+    isAutoTagging: 'settings.isAutoTagging',
     // ---
     other:          'settings.other',
     version:        'settings.version',
@@ -104,6 +107,8 @@ export default function SettingsPage() {
   const setFirebaseConfig    = useSettingsStore(s => s.setFirebaseConfig)
   const cloudflareD1Config   = useSettingsStore(s => s.cloudflareD1Config)
   const setCloudflareD1Config = useSettingsStore(s => s.setCloudflareD1Config)
+  const isAutoTagging        = useSettingsStore(s => s.isAutoTagging)
+  const setIsAutoTagging     = useSettingsStore(s => s.setIsAutoTagging)
 
   useEffect(() => {
     getScanFolders().then(v => {
@@ -432,94 +437,112 @@ export default function SettingsPage() {
 
             {isDeveloperMode && (
               <>
-                <div className='settings-section-content-item'>
-                  <p>{t.isSendHistory}</p>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={isSendHistory}
-                      onChange={e => setIsSendHistory(e.target.checked)}
+                <div className='settings-group-label'>{t.groupHistory}</div>
+                <div className='settings-group'>
+                  <div className='settings-section-content-item'>
+                    <p>{t.isSendHistory}</p>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={isSendHistory}
+                        onChange={e => setIsSendHistory(e.target.checked)}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+
+                  <div className='settings-section-content-item' style={{ opacity: isSendHistory ? 1 : 0.4 }}>
+                    <p>{t.historyBackend}</p>
+                    <Select
+                      options={[{ value: 'firebase', label: 'Firebase' }, { value: 'cloudflare-d1', label: 'Cloudflare D1' }]}
+                      value={historyBackend}
+                      onChange={v => setHistoryBackend(v as HistoryBackend)}
+                      disabled={!isSendHistory}
                     />
-                    <span className="slider"></span>
-                  </label>
+                  </div>
+
+                  {historyBackend === 'firebase' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: isSendHistory ? 1 : 0.4 }}>
+                      <div className='settings-section-content-item'>
+                        <p>Project ID</p>
+                        <input
+                          type="text"
+                          value={firebaseConfig.projectId}
+                          placeholder="my-firebase-project"
+                          onChange={e => setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value })}
+                        />
+                      </div>
+                      <div className='settings-section-content-item'>
+                        <p>API Key</p>
+                        <input
+                          type="password"
+                          value={firebaseConfig.apiKey}
+                          placeholder="AIza..."
+                          onChange={e => setFirebaseConfig({ ...firebaseConfig, apiKey: e.target.value })}
+                        />
+                      </div>
+                      <div className='settings-section-content-item'>
+                        <p>Collection</p>
+                        <input
+                          type="text"
+                          value={firebaseConfig.collection}
+                          placeholder="play_history"
+                          onChange={e => setFirebaseConfig({ ...firebaseConfig, collection: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {historyBackend === 'cloudflare-d1' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: isSendHistory ? 1 : 0.4 }}>
+                      <div className='settings-section-content-item'>
+                        <p>Endpoint URL</p>
+                        <input
+                          type="text"
+                          value={cloudflareD1Config.endpoint}
+                          placeholder="https://your-worker.workers.dev/history"
+                          onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, endpoint: e.target.value })}
+                        />
+                      </div>
+                      <div className='settings-section-content-item'>
+                        <p>API Token</p>
+                        <input
+                          type="password"
+                          value={cloudflareD1Config.apiToken}
+                          placeholder="(optional) Bearer token"
+                          onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, apiToken: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className='settings-section-content-item' style={{ opacity: isSendHistory ? 1 : 0.4 }}>
-                  <p>{t.historyBackend}</p>
-                  <Select
-                    options={[{ value: 'firebase', label: 'Firebase' }, { value: 'cloudflare-d1', label: 'Cloudflare D1' }]}
-                    value={historyBackend}
-                    onChange={v => setHistoryBackend(v as HistoryBackend)}
-                    disabled={!isSendHistory}
-                  />
-                </div>
-
-                {isSendHistory && historyBackend === 'firebase' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div className='settings-section-content-item'>
-                      <p>Project ID</p>
+                <div className='settings-group-label'>{t.groupAnalysis}</div>
+                <div className='settings-group'>
+                  <div className='settings-section-content-item'>
+                    <p>{t.disableAnalysingLoudness}</p>
+                    <label className="switch">
                       <input
-                        type="text"
-                        value={firebaseConfig.projectId}
-                        placeholder="my-firebase-project"
-                        onChange={e => setFirebaseConfig({ ...firebaseConfig, projectId: e.target.value })}
+                        type="checkbox"
+                        checked={disableAnalysingLoudness}
+                        onChange={e => setDisableAnalysingLoudness(e.target.checked)}
                       />
-                    </div>
-                    <div className='settings-section-content-item'>
-                      <p>API Key</p>
-                      <input
-                        type="password"
-                        value={firebaseConfig.apiKey}
-                        placeholder="AIza..."
-                        onChange={e => setFirebaseConfig({ ...firebaseConfig, apiKey: e.target.value })}
-                      />
-                    </div>
-                    <div className='settings-section-content-item'>
-                      <p>Collection</p>
-                      <input
-                        type="text"
-                        value={firebaseConfig.collection}
-                        placeholder="play_history"
-                        onChange={e => setFirebaseConfig({ ...firebaseConfig, collection: e.target.value })}
-                      />
-                    </div>
+                      <span className="slider"></span>
+                    </label>
                   </div>
-                )}
 
-                {isSendHistory && historyBackend === 'cloudflare-d1' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                    <div className='settings-section-content-item'>
-                      <p>Endpoint URL</p>
+                  <div className='settings-section-content-item' style={{ opacity: disableAnalysingLoudness ? 0.4 : 1 }}>
+                    <p>{t.isAutoTagging}</p>
+                    <label className="switch">
                       <input
-                        type="text"
-                        value={cloudflareD1Config.endpoint}
-                        placeholder="https://your-worker.workers.dev/history"
-                        onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, endpoint: e.target.value })}
+                        type="checkbox"
+                        checked={isAutoTagging}
+                        onChange={e => setIsAutoTagging(e.target.checked)}
+                        disabled={disableAnalysingLoudness}
                       />
-                    </div>
-                    <div className='settings-section-content-item'>
-                      <p>API Token</p>
-                      <input
-                        type="password"
-                        value={cloudflareD1Config.apiToken}
-                        placeholder="(optional) Bearer token"
-                        onChange={e => setCloudflareD1Config({ ...cloudflareD1Config, apiToken: e.target.value })}
-                      />
-                    </div>
+                      <span className="slider"></span>
+                    </label>
                   </div>
-                )}
-
-                <div className='settings-section-content-item'>
-                  <p>{t.disableAnalysingLoudness}</p>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={disableAnalysingLoudness}
-                      onChange={e => setDisableAnalysingLoudness(e.target.checked)}
-                      disabled={!isNormalizeVolume}
-                    />
-                    <span className="slider"></span>
-                  </label>
                 </div>
               </>
             )}

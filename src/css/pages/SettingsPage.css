@@ -166,6 +166,18 @@
 .settings-section-content-item input[type="password"]:focus {
   border-color: var(--color-accent);
 }
+/* 開発者モード内のグループ */
+.settings-group-label {
+  font-size: .8rem;
+  opacity: .6;
+}
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-left: .75rem;
+  border-left: 2px solid rgb(from var(--color-text) r g b / 0.15);
+}
 /* on, off switch */
 .switch {
   position: relative;
