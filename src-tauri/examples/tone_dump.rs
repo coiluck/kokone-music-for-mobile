@@ -10,6 +10,12 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
 
+fn artist(path: &Path) -> Option<String> {
+    use lofty::prelude::*;
+    let tagged = lofty::probe::Probe::open(path).and_then(|p| p.read()).ok()?;
+    tagged.primary_tag().and_then(|t| t.artist()).map(|s| s.to_string())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let (dir, out) = (Path::new(&args[1]), &args[2]);
@@ -29,6 +35,8 @@ fn main() {
         let row = match (open().and_then(|f| tone::read_features(f, ext)), open().and_then(|f| loudness::analyze(f, ext))) {
             (Ok(f), lufs) => serde_json::json!({
                 "path": rel,
+                // 学習時に同じアーティストの曲を評価からまとめて外すのに使う
+                "artist": artist(path),
                 "lufs": lufs.ok().map(|a| a.lufs),
                 "feats": f.values.into_iter().map(|(n, v)| (n, v.into())).collect::<serde_json::Map<_, _>>(),
                 "emb": f.embedding,

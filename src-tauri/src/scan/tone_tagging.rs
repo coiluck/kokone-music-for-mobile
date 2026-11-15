@@ -120,7 +120,7 @@ mod tests {
         save(&conn, id, &Tone { energy_score: 0.0, mood_score: 1.0 }).unwrap();
 
         // 2 回目は両方のグループにタグがあるので何も足さない
-        assert_eq!(tags_of(&conn, id), format!(r#"["{}","{}"]"#, ENERGY_TAGS[2], MOOD_TAGS[1]));
+        assert_eq!(tags_of(&conn, id), format!(r#"["{}","{}"]"#, ENERGY_TAGS[2], MOOD_TAGS[0]));
         let (e, m): (f64, f64) = conn.query_row("SELECT energy_score, mood_score FROM tracks WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         assert_eq!((e, m), (0.0, 1.0));
     }

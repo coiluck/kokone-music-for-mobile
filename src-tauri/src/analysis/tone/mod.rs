@@ -1,4 +1,4 @@
-//! 曲調 (エネルギー 3 段階 × 明暗 2 段階) の推定。
+//! 曲調 (エネルギー 3 段階 × 明暗 3 段階) の推定。
 //!
 //! 音声 → 16kHz モノラル → (a) Essentia の effnet と分類ヘッド (b) 信号特徴 (c) 和声特徴
 //! → 学習済みの線形モデル (models/tone_weights.json) でスコア化する。
@@ -16,24 +16,28 @@ use symphonia::core::audio::SampleBuffer;
 
 /// 自動で付けるエネルギーのタグ。添字がレベル (0 = 低, 1 = 中, 2 = 高)。
 pub const ENERGY_TAGS: [&str; 3] = ["静", "動", "激"];
-/// 自動で付ける明暗のタグ。添字 0 = 明, 1 = 暗。
-pub const MOOD_TAGS: [&str; 2] = ["明", "暗"];
+/// 自動で付ける明暗のタグ。添字がレベル (0 = 暗, 1 = 淡, 2 = 明)。
+pub const MOOD_TAGS: [&str; 3] = ["暗", "淡", "明"];
 
 /// 曲調のスコア。
 pub struct Tone {
     /// 0〜2 程度。0.5 / 1.5 で 低 / 中 / 高 に分ける。
     pub energy_score: f32,
-    /// 0〜1 程度。0.5 より大きければ明。
+    /// 0.5 / 1.5 で 暗 / 淡 / 明 に分ける。
     pub mood_score: f32,
+}
+
+fn level(score: f32) -> usize {
+    if score < 0.5 { 0 } else if score < 1.5 { 1 } else { 2 }
 }
 
 impl Tone {
     pub fn energy_tag(&self) -> &'static str {
-        ENERGY_TAGS[if self.energy_score < 0.5 { 0 } else if self.energy_score < 1.5 { 1 } else { 2 }]
+        ENERGY_TAGS[level(self.energy_score)]
     }
 
     pub fn mood_tag(&self) -> &'static str {
-        MOOD_TAGS[if self.mood_score > 0.5 { 0 } else { 1 }]
+        MOOD_TAGS[level(self.mood_score)]
     }
 }
 
@@ -289,11 +293,42 @@ fn harmony(y: &[f32], onset_env: &[f32]) -> Vec<(&'static str, f32)> {
     harmony_features(&chroma, &rms)
 }
 
-const HARMONY_NAMES: [&str; 14] = [
+const HARMONY_NAMES: [&str; 19] = [
     "h_key_mm", "h_key_is_major", "h_tonic_minor", "h_minor_chord_ratio", "h_minor_margin", "h_chord_fit",
     "h_loud_key_mm", "h_loud_key_is_major", "h_loud_tonic_minor", "h_loud_minor_chord_ratio",
     "h_loud_minor_margin", "h_loud_chord_fit", "h_chord_change", "h_chroma_entropy",
+    "h_sec_mm_mean", "h_sec_mm_std", "h_sec_mm_min", "h_sec_mm_max", "h_sec_minor_frac",
 ];
+
+/// セクション (ビート区間 64 個) ごとの「長調寄り - 短調寄り」。
+/// 曲全体を 1 つの調として見ると、A メロが短調でサビが長調のような揺れが平均されて消えるので、区切って見る。
+/// 各セクションで調号 (同じ音階を共有する長調と平行短調の組) を選び、長調との相関 - 平行短調との相関を返す。
+fn section_modes(chroma: &[[f32; 12]], energy: &[f32], voiced: &[bool]) -> Vec<f32> {
+    const SECTION: usize = 64;
+    let mut out = Vec::new();
+    let mut start = 0;
+    // 末尾の半端は、セクションの半分より長ければ使う
+    while start + SECTION / 2 < chroma.len() {
+        let idx: Vec<usize> = (start..(start + SECTION).min(chroma.len())).filter(|&i| voiced[i]).collect();
+        start += SECTION;
+        if idx.len() < SECTION / 4 {
+            continue;
+        }
+        // 区間ごとに総和 1 に正規化してから平均する (音量の大きい区間に引っ張られないように)
+        let mut cm = [0f32; 12];
+        for &i in &idx {
+            (0..12).for_each(|p| cm[p] += chroma[i][p] / (energy[i] + 1e-9) / idx.len() as f32);
+        }
+        let corr_at = |prof: &[f32; 12], k: usize| dsp::corr(&(0..12).map(|p| prof[(p + 12 - k) % 12]).collect::<Vec<_>>(), &cm);
+        // k は長調の主音。平行短調の主音は k + 9
+        let (maj, mnr) = (0..12)
+            .map(|k| (corr_at(&MAJOR, k), corr_at(&MINOR, (k + 9) % 12)))
+            .max_by(|a, b| a.0.max(a.1).total_cmp(&b.0.max(b.1)))
+            .expect("12 keys");
+        out.push(maj - mnr);
+    }
+    out
+}
 
 fn harmony_features(chroma: &[[f32; 12]], rms: &[f32]) -> Vec<(&'static str, f32)> {
     // 三和音テンプレート: 添字 0..12 が長三和音 (根音 C..B)、12..24 が短三和音
@@ -372,6 +407,17 @@ fn harmony_features(chroma: &[[f32; 12]], rms: &[f32]) -> Vec<(&'static str, f32
             })
             .collect::<Vec<_>>(),
     ));
+    let mut sec = section_modes(chroma, &energy, &voiced);
+    if sec.is_empty() {
+        sec.push(0.0);
+    }
+    out.extend([
+        mean(&sec),
+        std(&sec),
+        sec.iter().cloned().fold(f32::INFINITY, f32::min),
+        sec.iter().cloned().fold(f32::NEG_INFINITY, f32::max),
+        sec.iter().filter(|x| **x < 0.0).count() as f32 / sec.len() as f32,
+    ]);
     HARMONY_NAMES.iter().cloned().zip(out).collect()
 }
 
@@ -384,7 +430,7 @@ mod tests {
         let energy = |s| Tone { energy_score: s, mood_score: 0.0 }.energy_tag();
         assert_eq!([energy(0.49), energy(0.5), energy(1.49), energy(1.5)], [ENERGY_TAGS[0], ENERGY_TAGS[1], ENERGY_TAGS[1], ENERGY_TAGS[2]]);
         let mood = |s| Tone { energy_score: 0.0, mood_score: s }.mood_tag();
-        assert_eq!([mood(0.5), mood(0.51)], [MOOD_TAGS[1], MOOD_TAGS[0]]);
+        assert_eq!([mood(0.49), mood(0.5), mood(1.49), mood(1.5)], [MOOD_TAGS[0], MOOD_TAGS[1], MOOD_TAGS[1], MOOD_TAGS[2]]);
     }
 
     /// 決まった合成音: 120 BPM のキック (減衰するノイズ) と、2 秒ごとに C / Am が入れ替わる和音。
@@ -419,7 +465,7 @@ mod tests {
         let f = extract(&synthetic_song(20)).unwrap();
         let tone = predict(&f, Some(-12.0)).unwrap();
         assert!((tone.energy_score - 0.577821).abs() < 1e-3, "energy {}", tone.energy_score);
-        assert!((tone.mood_score - -0.394896).abs() < 1e-3, "mood {}", tone.mood_score);
+        assert!((tone.mood_score - -0.139104).abs() < 1e-3, "mood {}", tone.mood_score);
         assert!((predict(&f, None).unwrap().energy_score - 0.577731).abs() < 1e-3);
         // 和声の特徴は Am の区間がある分、短調寄りになる
         assert_eq!(f.get("h_tonic_minor"), Some(1.0));
