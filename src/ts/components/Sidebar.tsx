@@ -1,21 +1,48 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
 import { useSettingsStore } from '../lib/settingsStore'
 import { useMappedTranslations } from '../lib/i18n'
+import { useOpenSearch } from '../lib/useOpenSearch'
+import '../../css/components/Sidebar.css'
 
 export default function Sidebar() {
+  const location = useLocation()
+  const handleOpenSearch = useOpenSearch()
+
   const iconStyle = useSettingsStore(s => s.iconStyle)
+
+  // Android のシステムバー領域の色分けにサイドナビの幅を使う
+  const navRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const bars = window.AndroidSystemBars
+    const nav = navRef.current
+    if (!bars || !nav) return
+    const sideNav = window.matchMedia('(min-width: 768px)')
+    const observer = new ResizeObserver(() => {
+      bars.setSideNavWidth(sideNav.matches ? nav.getBoundingClientRect().right : 0)
+    })
+    observer.observe(nav)
+    return () => observer.disconnect()
+  }, [])
 
   const t = useMappedTranslations({
     library: 'page.library',
     playlist: 'page.playlist',
     artist: 'page.artist.top',
     album: 'page.album',
-    tags: 'page.tags'
+    tags: 'page.tags',
+    search: 'page.search',
+    settings: 'page.settings'
   })
 
   return (
-    <nav className="app-sidebar">
+    <nav className="app-sidebar" ref={navRef}>
+      {/* PC のみ */}
+      <div className="app-sidebar-brand">
+        <Icon name='icon_path' size={32} mode={null} folder='/images/' />
+        <p>SymPony Music</p>
+      </div>
       <NavLink to="/" className={({ isActive }) => isActive ? 'nav-active' : ''}>
         <div className="app-sidebar-item">
           <Icon name="library" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
@@ -46,6 +73,27 @@ export default function Sidebar() {
           <span className="app-sidebar-item-label">{t.album}</span>
         </div>
       </NavLink>
+      {/* PC のみ。スマホは HeaderApp に出す */}
+      <div className="app-sidebar-actions">
+        <button
+          className={location.pathname === '/sub/search' ? 'nav-active' : ''}
+          onClick={handleOpenSearch}
+        >
+          <div className="app-sidebar-item">
+            <Icon name="search" mode={null} folder='/images/App/' className='app-sidebar-item-icon' />
+            <span className="app-sidebar-item-label">{t.search}</span>
+          </div>
+        </button>
+        <Link
+          to="/settings"
+          className={['/settings', '/stats'].includes(location.pathname) ? 'nav-active' : ''}
+        >
+          <div className="app-sidebar-item">
+            <Icon name="settings" mode={iconStyle} folder='/images/App/' className='app-sidebar-item-icon' />
+            <span className="app-sidebar-item-label">{t.settings}</span>
+          </div>
+        </Link>
+      </div>
     </nav>
   )
 }

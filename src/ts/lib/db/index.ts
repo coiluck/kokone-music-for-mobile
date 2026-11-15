@@ -6,9 +6,9 @@ export {
   getAllTracks, searchTracks, updateTrack, getAlbums, getAlbumTracks,
 } from './tracks'
 export {
-  type ListeningClock, type ListeningDay,
+  type ListeningClock, type ListeningDay, type TopListening, type TopTag, type TopTrack,
   getHistory, startPlay, updateListenedMs,
-  getListeningClock, getTotalListeningMs, getListeningHeatmap,
+  getListeningClock, getTotalListeningMs, getListeningHeatmap, getTopListening,
 } from './history'
 export { getRecommended } from './recommend'
 export {

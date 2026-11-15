@@ -59,33 +59,52 @@
   min-height: 0;
 }
 
-.app-sidebar {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  position: relative;
-  width: 100%;
-  background-color: var(--color-bg-mild);
-  border-top: 1px solid rgb(from var(--color-text) r g b / 0.3);
-  z-index: 2; /* MiniPlayer より大きい */
-}
-.app-sidebar-item {
-  padding: .5rem 0; /* 上下はいらん */
+/* PC */
+@media (min-width: 768px) {
+  .app-layout {
+    --header-height: 52px;
+  }
+  .app-layout:has(> .app-sidebar) {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "nav header"
+      "nav main";
+  }
+
+  /* settings / stats */
+  .app-layout > .page {
+    grid-area: main;
+    padding-inline: max(2rem, calc((100% - 48rem) / 2));
+  }
+
+  .app-header {
+    grid-area: header;
+  }
+  /* ScanMessage だけ残す。Message の位置も --header-height を見ている */
+  .app-layout:has(> .app-header-main) {
+    --header-height: 0px;
+  }
+  .app-header-main {
+    border-bottom: none;
+  }
+  .app-header-main > :not(.sm-component-container) {
+    display: none;
+  }
+  .app-header-main .sm-component-container {
+    top: 0;
+  }
+
+  .app-content {
+    grid-area: main;
+    position: relative; /* MiniPlayer の基準 */
+  }
 }
 
-.app-sidebar-item-icon {
-  margin: 0 auto;
-  transition: all 0.2s ease-in-out;
-}
-.app-sidebar-item-label {
-  display: block;
-  text-align: center;
-  font-size: .8rem;
-  line-height: 1;
-  transition: all 0.2s ease-in-out;
-}
-.nav-active .app-sidebar-item-icon {
-  color: var(--color-accent);
-}
-.nav-active .app-sidebar-item-label {
-  color: var(--color-accent);
+/* 幅に余裕があれば nav を広げる */
+@media (min-width: 1024px) {
+  .app-layout:has(> .app-sidebar) {
+    grid-template-columns: 208px minmax(0, 1fr);
+  }
 }

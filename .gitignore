@@ -49,3 +49,4 @@ release-keystore.jks
 
 # 曲調モデルの学習ラベル
 tools/tone-model/labels/*.json
+src-tauri/tone_dump.jsonl

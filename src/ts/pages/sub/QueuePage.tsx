@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useMappedTranslations } from '../../lib/i18n'
 import { usePlayerStore } from '../../lib/playerStore'
+import { useSettingsStore } from '../../lib/settingsStore'
 import { useTrackStore } from '../../lib/trackStore'
 import { shuffle } from '../../lib/trackActions'
 import { musicPlayer } from '../../lib/music'
@@ -30,13 +31,8 @@ import '../../../css/pages/sub/QueuePage.css'
 
 export default function QueuePage() {
   const navigate = useNavigate()
-  const location = useLocation()
   const actionsBtnRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // App.tsx 側で MiniPlayer の List ボタンが渡してくれる
-  const from = (location.state?.from as string | undefined) ?? '/'
-  const scrollTop = (location.state?.scrollTop as number | undefined) ?? 0
 
   const queue = usePlayerStore(s => s.queue)
 
@@ -77,17 +73,6 @@ export default function QueuePage() {
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
-
-  const handleBack = () => {
-    // replace: true がポイント。
-    // - これにより /queue の履歴エントリは from で上書きされる
-    // - 戻った先で OS の戻る（back）を押しても /queue には戻らない
-    // - restoreScrollTop は App.tsx 側の useEffect が拾ってスクロール復元する
-    navigate(from, {
-      replace: true,
-      state: { restoreScrollTop: scrollTop },
-    })
-  }
 
   const handleRemoveFromQueue = (index: number) => {
     musicPlayer.removeFromQueue(index)
@@ -134,7 +119,7 @@ export default function QueuePage() {
     <div className="fade-in queue-page">
       <HeaderSub
         title={t.title}
-        onBack={handleBack}
+        onBack={() => navigate(-1)}
         actions={
           <div
             ref={actionsBtnRef}
@@ -191,6 +176,7 @@ interface SortableQueueItemProps {
 }
 
 function SortableQueueItem({ trackId, onPlay, onRemove }: SortableQueueItemProps) {
+  const iconStyle = useSettingsStore(s => s.iconStyle)
   const {
     attributes,
     listeners,
@@ -226,7 +212,18 @@ function SortableQueueItem({ trackId, onPlay, onRemove }: SortableQueueItemProps
         <Icon name="hamburger" mode={null} size={24} folder='/images/QueuePage/' className='queue-page-item-handle-icon' />
       </div>
       <div className="queue-page-item-content">
-        <MusicItem trackId={trackId} onPlay={onPlay} onRemove={onRemove} />
+        <MusicItem
+          trackId={trackId}
+          onPlay={onPlay}
+          action={
+            <div
+              className="mi-component-actions"
+              onClick={e => { e.stopPropagation(); onRemove(); }}
+            >
+              <Icon name="remove" mode={iconStyle} folder="/images/MusicItem/" />
+            </div>
+          }
+        />
       </div>
     </div>
   )

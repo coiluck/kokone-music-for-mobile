@@ -1,7 +1,6 @@
 // layouts/SubLayout.tsx
 import { Outlet } from 'react-router-dom'
 import MiniPlayer from './../components/MiniPlayer'
-import Sidebar from './../components/Sidebar'
 
 // ヘッダーは各ページが HeaderSub で描く (SearchPage はヘッダー無し)
 export default function SubLayout() {
@@ -11,9 +10,6 @@ export default function SubLayout() {
         <Outlet />
         <MiniPlayer />
       </main>
-
-      {/* サイドバーナビ */}
-      <Sidebar />
     </>
   )
 }

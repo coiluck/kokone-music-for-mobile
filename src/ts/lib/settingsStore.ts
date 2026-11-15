@@ -58,11 +58,13 @@ interface SettingsState {
   historyBackend: HistoryBackend
   firebaseConfig: FirebaseConfig
   cloudflareD1Config: CloudflareD1Config
+  isAutoTagging: boolean
   setIsDeveloperMode: (value: boolean) => Promise<void>
   setIsSendHistory: (value: boolean) => Promise<void>
   setHistoryBackend: (value: HistoryBackend) => Promise<void>
   setFirebaseConfig: (value: FirebaseConfig) => Promise<void>
   setCloudflareD1Config: (value: CloudflareD1Config) => Promise<void>
+  setIsAutoTagging: (value: boolean) => Promise<void>
   loadDeveloperSettings: () => Promise<void>
 }
 
@@ -156,11 +158,13 @@ export const useSettingsStore = create<SettingsState>((set) => {
     historyBackend: 'firebase',
     firebaseConfig: DEFAULT_FIREBASE_CONFIG,
     cloudflareD1Config: DEFAULT_CLOUDFLARE_D1_CONFIG,
+    isAutoTagging: true,
     setIsDeveloperMode: persisted('isDeveloperMode'),
     setIsSendHistory: persisted('isSendHistory'),
     setHistoryBackend: persisted('historyBackend'),
     setFirebaseConfig: persisted('firebaseConfig'),
     setCloudflareD1Config: persisted('cloudflareD1Config'),
+    setIsAutoTagging: persisted('isAutoTagging'),
 
     loadDeveloperSettings: async () => {
       const [
@@ -169,12 +173,14 @@ export const useSettingsStore = create<SettingsState>((set) => {
         historyBackend,
         firebaseConfig,
         cloudflareD1Config,
+        isAutoTagging,
       ] = await Promise.all([
         getSetting('isDeveloperMode'),
         getSetting('isSendHistory'),
         getSetting('historyBackend'),
         getSetting('firebaseConfig'),
         getSetting('cloudflareD1Config'),
+        getSetting('isAutoTagging'),
       ])
       set({
         isDeveloperMode: isDeveloperMode ?? false,
@@ -182,6 +188,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
         historyBackend: historyBackend ?? 'firebase',
         firebaseConfig: firebaseConfig ?? DEFAULT_FIREBASE_CONFIG,
         cloudflareD1Config: cloudflareD1Config ?? DEFAULT_CLOUDFLARE_D1_CONFIG,
+        isAutoTagging: isAutoTagging ?? true,
       })
     },
   }

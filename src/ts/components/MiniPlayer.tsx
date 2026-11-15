@@ -70,32 +70,19 @@ export default function MiniPlayer() {
   }
 
   const handleOpenArtist = (artist: string) => {
-    const pageEl = document.querySelector('.page')
-    const scrollTop = pageEl?.scrollTop ?? 0
-    navigate(`/artist/${encodeURIComponent(artist)}`, {
-      state: { from: location.pathname, scrollTop },
-    })
+    navigate(`/artist/${encodeURIComponent(artist)}`)
   }
 
   const handleOpenSearchWithTag = (tag: string) => {
-    const pageEl = document.querySelector('.page')
-    const scrollTop = pageEl?.scrollTop ?? 0
     navigate('/sub/search', {
-      state: {
-        from: location.pathname,
-        scrollTop,
-        initialTags: [tag],
-      },
+      replace: location.pathname === '/sub/search',
+      state: { initialTags: [tag] },
     })
   }
 
   const handleOpenQueue = () => {
     if (location.pathname === '/sub/queue') return
-    const pageEl = document.querySelector('.page')
-    const scrollTop = pageEl?.scrollTop ?? 0
-    navigate('/sub/queue', {
-      state: { from: location.pathname, scrollTop },
-    })
+    navigate('/sub/queue')
   }
 
   if (!displayTrack) {

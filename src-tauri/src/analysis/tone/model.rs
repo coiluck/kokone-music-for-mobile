@@ -150,8 +150,11 @@ struct EnergyWeights {
 struct MoodWeights {
     features: Standardize,
     clip: f32,
-    coef: Vec<f32>,
-    intercept: f32,
+    /// 多クラスロジスティック回帰 (クラス 0/1/2 = 暗/淡/明)。[クラス][特徴]
+    logit_coef: Vec<Vec<f32>>,
+    logit_intercept: Vec<f32>,
+    /// 期待値を 暗 / 淡 / 明 に分ける境界 (下, 上)
+    thresholds: [f32; 2],
 }
 
 #[derive(serde::Deserialize)]
@@ -185,6 +188,15 @@ fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
+/// 多クラスロジスティック回帰のクラス番号の期待値 (0〜クラス数 - 1)。
+fn expected_class(coef: &[Vec<f32>], intercept: &[f32], z: &[f32]) -> f32 {
+    let logits: Vec<f32> = coef.iter().zip(intercept).map(|(c, b)| dot(c, z) + b).collect();
+    let max = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let exp: Vec<f32> = logits.iter().map(|l| (l - max).exp()).collect();
+    let sum: f32 = exp.iter().sum();
+    exp.iter().enumerate().map(|(k, e)| k as f32 * e / sum).sum()
+}
+
 impl Weights {
     /// エネルギーのスコア (0〜2, 境界 0.5 / 1.5)。
     /// 特徴量のロジスティック回帰の期待値と、埋め込みのリッジ回帰の平均。
@@ -192,11 +204,7 @@ impl Weights {
         let w = &self.energy;
         let lufs = lufs.unwrap_or(self.lufs_median);
         let z = standardized(&w.features, &|n| if n == "lufs" { Some(lufs) } else { value(n) })?;
-        let logits: Vec<f32> = w.logit_coef.iter().zip(&w.logit_intercept).map(|(c, b)| dot(c, &z) + b).collect();
-        let max = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-        let exp: Vec<f32> = logits.iter().map(|l| (l - max).exp()).collect();
-        let sum: f32 = exp.iter().sum();
-        let by_logit: f32 = exp.iter().enumerate().map(|(k, e)| k as f32 * e / sum).sum();
+        let by_logit = expected_class(&w.logit_coef, &w.logit_intercept, &z);
 
         let ze: Vec<f32> = emb
             .iter()
@@ -209,11 +217,13 @@ impl Weights {
         Ok((by_logit + by_emb) / 2.0)
     }
 
-    /// 明暗のスコア (0.5 より大きければ明)。
+    /// 明暗のスコア (境界 0.5 / 1.5 で 暗 / 淡 / 明)。
+    /// ロジスティック回帰の期待値は中央に寄るので、学習時に決めた境界が 0.5 / 1.5 に来るよう引き伸ばす。
     pub fn mood_score(&self, value: &dyn Fn(&str) -> Option<f32>) -> Result<f32> {
         let w = &self.mood;
         let z: Vec<f32> = standardized(&w.features, value)?.into_iter().map(|v| v.clamp(-w.clip, w.clip)).collect();
-        Ok(dot(&w.coef, &z) + w.intercept)
+        let [lo, hi] = w.thresholds;
+        Ok(0.5 + (expected_class(&w.logit_coef, &w.logit_intercept, &z) - lo) / (hi - lo))
     }
 }
 
@@ -253,7 +263,7 @@ mod tests {
     #[test]
     fn mood_score_fixed_input() {
         let w = Weights::get().unwrap();
-        assert_near(w.mood_score(&|n| raw(w, n)).unwrap(), 0.566267);
+        assert_near(w.mood_score(&|n| raw(w, n)).unwrap(), 2.112074);
     }
 
     #[test]

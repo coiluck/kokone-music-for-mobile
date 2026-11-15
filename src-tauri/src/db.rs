@@ -39,7 +39,8 @@ pub fn open_in_memory() -> Connection {
             trailing_silence_ms INTEGER,
             scanned_at          INTEGER NOT NULL,
             energy_score        REAL,
-            mood_score          REAL
+            mood_score          REAL,
+            auto_tags           TEXT    NOT NULL DEFAULT '[]'
          );
          CREATE TABLE playlists (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,

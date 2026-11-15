@@ -1,0 +1,117 @@
+.app-sidebar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  position: relative;
+  width: 100%;
+  background-color: var(--color-bg-mild);
+  border-top: 1px solid rgb(from var(--color-text) r g b / 0.3);
+  z-index: 2; /* MiniPlayer より大きい */
+}
+.app-sidebar-item {
+  padding: .5rem 0;
+}
+
+.app-sidebar-item-icon {
+  margin: 0 auto;
+  transition: all 0.2s ease-in-out;
+}
+.app-sidebar-item-label {
+  display: block;
+  text-align: center;
+  font-size: .8rem;
+  line-height: 1;
+  transition: all 0.2s ease-in-out;
+}
+.nav-active .app-sidebar-item-icon {
+  color: var(--color-accent);
+}
+.nav-active .app-sidebar-item-label {
+  color: var(--color-accent);
+}
+.app-sidebar-brand,
+.app-sidebar-actions {
+  display: none; /* PC のみ */
+}
+
+/* スマホの settings / stats は nav なし */
+@media (max-width: 767px) {
+  .app-layout:has(> .page) > .app-sidebar {
+    display: none;
+  }
+}
+
+/* PC */
+@media (min-width: 768px) {
+  .app-sidebar {
+    grid-area: nav;
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .5rem;
+    border-top: none;
+    border-right: 1px solid rgb(from var(--color-text) r g b / 0.12);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .app-sidebar-brand {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: .25rem;
+    padding-block: .25rem .5rem;
+  }
+  .app-sidebar-brand p {
+    display: none;
+  }
+  .app-sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin-top: auto;
+  }
+  .app-sidebar-actions button {
+    width: 100%;
+    border: none;
+    background: none;
+  }
+  .app-sidebar-item {
+    padding: .55rem 0 .45rem;
+    border-radius: .5rem;
+  }
+  .app-sidebar-item-label {
+    margin-top: 3px;
+    font-size: .7rem;
+  }
+  .nav-active .app-sidebar-item {
+    background-color: rgb(from var(--color-accent) r g b / 0.15);
+  }
+}
+@media (min-width: 768px) and (hover: hover) {
+  .app-sidebar :not(.nav-active) > .app-sidebar-item:hover {
+    background-color: rgb(from var(--color-text) r g b / 0.08);
+  }
+}
+
+/* 幅に余裕があればラベルを横に並べる */
+@media (min-width: 1024px) {
+  .app-sidebar-brand {
+    justify-content: flex-start;
+    padding-inline: .5rem;
+  }
+  .app-sidebar-brand p {
+    display: block;
+  }
+  .app-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .5rem .75rem;
+  }
+  .app-sidebar-item-icon {
+    margin: 0;
+  }
+  .app-sidebar-item-label {
+    margin-top: 0;
+    font-size: .95rem;
+  }
+}

@@ -39,12 +39,10 @@ pub struct ScanResult {
 #[tauri::command]
 pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<ScanResult> {
     let config = settings::read_all(&app);
-    let flag = |key: &str| config.get(key).and_then(|v| v.as_bool()).unwrap_or(false);
     // ignoreMode が ON なら ignoreTime 秒より短い曲を除く
-    let min_duration_ms = flag("ignoreMode")
+    let min_duration_ms = flag(&config, "ignoreMode")
         .then(|| (config.get("ignoreTime").and_then(|v| v.as_f64()).unwrap_or(0.0) * 1000.0) as i64);
-    // 開発者モードで disableAnalysingLoudness が ON のときだけ解析しない
-    let analyze = !(flag("isDeveloperMode") && flag("disableAnalysingLoudness"));
+    let analyze = analyzes_loudness(&config);
     let db_path = db::path(&app)?;
 
     let added = tauri::async_runtime::spawn_blocking({
@@ -59,6 +57,22 @@ pub async fn music_scan_folders(app: AppHandle, paths: Vec<String>) -> Result<Sc
 
     let analysis = if analyze { request_analysis(app, db_path) } else { 0 };
     Ok(ScanResult { added, analysis })
+}
+
+fn flag(config: &serde_json::Value, key: &str) -> bool {
+    config.get(key).and_then(|v| v.as_bool()).unwrap_or(false)
+}
+
+/// 4 を行うか。開発者モードで disableAnalysingLoudness が ON のときだけ解析しない
+fn analyzes_loudness(config: &serde_json::Value) -> bool {
+    !(flag(config, "isDeveloperMode") && flag(config, "disableAnalysingLoudness"))
+}
+
+/// 5 を行うか。開発者モードで isAutoTagging が OFF のときは付けない (未設定は ON)。
+/// 曲調の推定は LUFS を使うので、4 を行わないときも付けない
+fn tags_tone(config: &serde_json::Value) -> bool {
+    let auto_tagging = config.get("isAutoTagging").and_then(|v| v.as_bool()).unwrap_or(true);
+    analyzes_loudness(config) && (auto_tagging || !flag(config, "isDeveloperMode"))
 }
 
 /// 1〜3。追加したトラック数を返す。
@@ -94,6 +108,10 @@ fn request_analysis(app: AppHandle, db_path: PathBuf) -> u64 {
         move |ticket| {
             // 失敗しても送り、フロントが解析中の表示のまま止まらないようにする
             let _ = done_app.emit("scan-analyze-completed", ticket);
+            // LUFS の解析中に設定を変えても反映されるよう、ここで読み直す
+            if !tags_tone(&settings::read_all(&done_app)) {
+                return;
+            }
             // 曲調の推定は LUFS を特徴量に使うので LUFS の後に回す
             let (app, db_path) = (done_app.clone(), done_db_path.clone());
             TONE.request(
@@ -164,4 +182,39 @@ pub fn android_list_audio_folders(app: AppHandle) -> Result<Vec<String>> {
         .filter_map(|m| Path::new(&m.display_path).parent()?.to_str().map(|s| s.to_string()))
         .collect();
     Ok(folders.into_iter().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn analyzes_and_tags_by_default() {
+        let config = json!({});
+        assert!(analyzes_loudness(&config));
+        assert!(tags_tone(&config));
+    }
+
+    #[test]
+    fn disabling_loudness_stops_both() {
+        // isAutoTagging が ON のままでも、LUFS を解析しないなら曲調も付けない
+        let config = json!({ "isDeveloperMode": true, "disableAnalysingLoudness": true, "isAutoTagging": true });
+        assert!(!analyzes_loudness(&config));
+        assert!(!tags_tone(&config));
+    }
+
+    #[test]
+    fn disabling_auto_tagging_stops_only_tone() {
+        let config = json!({ "isDeveloperMode": true, "isAutoTagging": false });
+        assert!(analyzes_loudness(&config));
+        assert!(!tags_tone(&config));
+    }
+
+    #[test]
+    fn developer_settings_are_ignored_outside_developer_mode() {
+        let config = json!({ "isDeveloperMode": false, "disableAnalysingLoudness": true, "isAutoTagging": false });
+        assert!(analyzes_loudness(&config));
+        assert!(tags_tone(&config));
+    }
 }

@@ -1,20 +1,22 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getPlaylists, getPlaylistTracks, getHistory, getRecommended, setPlaylistIcon } from '../lib/db'
 import { sortByTitle } from '../lib/trackStore'
 import { playFromList, playAll, shufflePlay } from '../lib/trackActions'
 import MusicItem from '../components/MusicItem'
 import { DISPLAY_NAMES } from './PlaylistsPage'
 import { useSettingsStore, type Lang } from '../lib/settingsStore'
-import { ListIcon } from '../components/ListIcon'
 import { rollHue, type PlaylistIcon as PlaylistIconData } from '../lib/playlistIcon'
 import { Icon } from '../components/Icon'
+import DetailsHeader from '../components/DetailsHeader'
 import '../../css/pages/PlaylistsDetailsPage.css'
 import { usePlayerStore } from '../lib/playerStore'
+import { useScrollRestoration } from '../lib/scrollRestoration'
 
 export default function PlaylistsDetailsPage() {
   const { name } = useParams<{ name: string }>()
-  const playlistName = name ? decodeURIComponent(name) : ''
+  const navigate = useNavigate()
+  const playlistName = name ?? ''
   const lang = useSettingsStore(s => s.lang)
   const [playlistId, setPlaylistId] = useState<number | null>(null)
   const [icon, setIcon] = useState<PlaylistIconData | null>(null)
@@ -22,6 +24,8 @@ export default function PlaylistsDetailsPage() {
   const iconStyle = useSettingsStore(s => s.iconStyle)
 
   const [trackIds, setTrackIds] = useState<number[]>([])
+  const pageRef = useRef<HTMLDivElement>(null)
+  useScrollRestoration(pageRef, { ready: trackIds.length > 0 })
 
   useEffect(() => {
     if (playlistName === '__history__') {
@@ -88,43 +92,19 @@ export default function PlaylistsDetailsPage() {
     </div>
   </div>
   ) : (
-    <div className="playlists-details-header">
-      <div className="playlists-details-header-title">{displayName}</div>
-      <div className="playlists-details-header-icon-container">
-        <div className="playlists-details-header-cd-wrapper">
-          <div
-            className="playlists-details-header-cd-jacket-container"
-            onClick={handleRollIcon}
-          >
-            {icon && <ListIcon icon={icon} name={playlistName} size={192} />}
-          </div>
-          <div className="playlists-details-header-cd-disc-icon" />
-        </div>
-      </div>
-      <div className="playlists-details-button-container">
-        <div className="playlists-details-button-left">
-          <Icon name="plus" mode={null} size={16} folder='/images/PlaylistsPage/' />
-        </div>
-        <div className="playlists-details-button-right">
-          <div
-            className="playlists-details-button-right shuffle"
-            onClick={handleShuffle}
-          >
-            <Icon name="shuffle" mode={null} size={24} folder='/images/PlaylistsPage/' />
-          </div>
-          <div
-            className="playlists-details-button-right play_all"
-            onClick={handlePlayAll}
-          >
-            <Icon name="play_all" mode={null} size={16} folder='/images/PlaylistsPage/' />
-          </div>
-        </div>
-      </div>
-    </div>
+    <DetailsHeader
+      title={displayName}
+      trackIds={trackIds}
+      art={{ kind: 'cd', icon, name: playlistName, onClick: handleRollIcon }}
+      extraAction={{
+        icon: <Icon name="plus" mode={iconStyle} size={16} folder='/images/PlaylistsPage/' />,
+        onClick: () => navigate(`/sub/playlists/${encodeURIComponent(playlistName)}/add`),
+      }}
+    />
   )
 
   return (
-    <div className="page fade-in">
+    <div className="page fade-in" ref={pageRef}>
       {playlistHeader}
       <div style={{ paddingBottom: isPlaying ? 'calc(24px + .8rem + 20px + .5rem)' : 0 }}> {/* MiniPlayerの高さ */}
         {trackIds.map(id => (
