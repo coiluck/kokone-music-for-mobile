@@ -1,9 +1,10 @@
 // ---------------------------------------------------------------------------
-// 5. 曲調タグ : LUFS 解析の後に、energy_score が NULL のトラックの曲調を推定する。
+// 5. 曲調タグ : LUFS 解析の後に、energy_score か mood_score が NULL のトラックの曲調を推定する。
 //    LUFS が付いていない曲は LUFS が付くまで待つ。
 //
-// スコアは tracks.energy_score / mood_score に保存し、曲調タグ (ENERGY_TAGS / MOOD_TAGS) が
-// まだ 1 つも付いていない曲にだけ推定タグを追加する。ユーザーが付けたタグは上書きしない。
+// スコアは tracks.energy_score / mood_score に保存し、推定した曲調タグ (ENERGY_TAGS / MOOD_TAGS) を付ける。
+// 自動で付けたタグは tracks.auto_tags にも記録する。前に自動で付けたタグは新しい推定で置き換えるが、
+// ユーザーが付けた曲調タグ (auto_tags に無いもの) がある曲のタグは変えない。
 // 解析が重い (1 曲数秒) ので、途中で終了しても結果が残るよう 1 曲ごとに書き込む。
 // ---------------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ struct Pending {
 pub fn run(app: &AppHandle, db_path: &Path) -> Result<()> {
     let conn = db::open(db_path)?;
     let pending: Vec<Pending> = conn
-        .prepare("SELECT id, path, lufs FROM tracks WHERE energy_score IS NULL AND lufs IS NOT NULL")?
+        .prepare("SELECT id, path, lufs FROM tracks WHERE (energy_score IS NULL OR mood_score IS NULL) AND lufs IS NOT NULL")?
         .query_map([], |row| Ok(Pending { id: row.get(0)?, path: row.get(1)?, lufs: row.get(2)? }))?
         .filter_map(|r| r.ok())
         .collect();
@@ -55,21 +56,34 @@ pub fn run(app: &AppHandle, db_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// スコアを保存し、曲調タグが未設定ならタグを追加する。
+/// スコアを保存し、曲調タグを付ける。
 fn save(conn: &Connection, id: i64, tone: &Tone) -> rusqlite::Result<()> {
     conn.execute("UPDATE tracks SET energy_score = ?1, mood_score = ?2 WHERE id = ?3", params![tone.energy_score, tone.mood_score, id])?;
-    add_tag_if_missing(conn, id, &ENERGY_TAGS, tone.energy_tag())?;
-    add_tag_if_missing(conn, id, &MOOD_TAGS, tone.mood_tag())?;
+    set_auto_tag(conn, id, &ENERGY_TAGS, tone.energy_tag())?;
+    set_auto_tag(conn, id, &MOOD_TAGS, tone.mood_tag())?;
     Ok(())
 }
 
-/// `group` のタグが 1 つも付いていなければ `tag` を追加する。
-/// 判定と追加を 1 つの UPDATE で行い、読み込みから書き込みの間にフロントで編集されたタグを消さないようにする。
-fn add_tag_if_missing(conn: &Connection, id: i64, group: &[&str], tag: &str) -> rusqlite::Result<usize> {
-    let placeholders = vec!["?"; group.len()].join(", ");
+/// `group` のうち自動で付けたタグを `tag` に置き換える (無ければ追加する)。
+/// ユーザーが付けた `group` のタグ (auto_tags に無いもの) があれば何もしない。
+/// 判定と書き込みを 1 つの UPDATE で行い、読み込みから書き込みの間にフロントで編集されたタグを消さないようにする。
+fn set_auto_tag(conn: &Connection, id: i64, group: &[&str], tag: &str) -> rusqlite::Result<usize> {
+    // ?1 = tag, ?2 = id, ?3 以降 = group
+    let group_params = (0..group.len()).map(|i| format!("?{}", i + 3)).collect::<Vec<_>>().join(", ");
+    // group のタグを除いた並びの末尾に tag を足す
+    let replaced = |column: &str| {
+        format!(
+            "(SELECT json_group_array(value) FROM ( \
+               SELECT key, value FROM json_each(tracks.{column}) WHERE value NOT IN ({group_params}) \
+               UNION ALL SELECT 2147483647, ?1 ORDER BY key))"
+        )
+    };
     let sql = format!(
-        "UPDATE tracks SET tags = json_insert(tags, '$[#]', ?) WHERE id = ? \
-         AND NOT EXISTS (SELECT 1 FROM json_each(tracks.tags) WHERE value IN ({placeholders}))"
+        "UPDATE tracks SET tags = {}, auto_tags = {} WHERE id = ?2 \
+         AND NOT EXISTS (SELECT 1 FROM json_each(tracks.tags) WHERE value IN ({group_params}) \
+                         AND value NOT IN (SELECT value FROM json_each(tracks.auto_tags)))",
+        replaced("tags"),
+        replaced("auto_tags"),
     );
     let mut values: Vec<rusqlite::types::Value> = vec![tag.to_string().into(), id.into()];
     values.extend(group.iter().map(|g| g.to_string().into()));
@@ -98,7 +112,7 @@ mod tests {
         let conn = db::open_in_memory();
         let id = track_with_tags(&conn, r#"["好き"]"#);
 
-        assert_eq!(add_tag_if_missing(&conn, id, &MOOD_TAGS, "明").unwrap(), 1);
+        assert_eq!(set_auto_tag(&conn, id, &MOOD_TAGS, "明").unwrap(), 1);
         assert_eq!(tags_of(&conn, id), r#"["好き","明"]"#);
     }
 
@@ -107,7 +121,7 @@ mod tests {
         let conn = db::open_in_memory();
         let id = track_with_tags(&conn, r#"["暗"]"#);
 
-        assert_eq!(add_tag_if_missing(&conn, id, &MOOD_TAGS, "明").unwrap(), 0);
+        assert_eq!(set_auto_tag(&conn, id, &MOOD_TAGS, "明").unwrap(), 0);
         assert_eq!(tags_of(&conn, id), r#"["暗"]"#);
     }
 
@@ -119,8 +133,8 @@ mod tests {
         save(&conn, id, &Tone { energy_score: 2.0, mood_score: 0.0 }).unwrap();
         save(&conn, id, &Tone { energy_score: 0.0, mood_score: 1.0 }).unwrap();
 
-        // 2 回目は両方のグループにタグがあるので何も足さない
-        assert_eq!(tags_of(&conn, id), format!(r#"["{}","{}"]"#, ENERGY_TAGS[2], MOOD_TAGS[0]));
+        // 1 回目に自動で付けたタグは 2 回目の推定で置き換わる
+        assert_eq!(tags_of(&conn, id), format!(r#"["{}","{}"]"#, ENERGY_TAGS[0], MOOD_TAGS[1]));
         let (e, m): (f64, f64) = conn.query_row("SELECT energy_score, mood_score FROM tracks WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         assert_eq!((e, m), (0.0, 1.0));
     }

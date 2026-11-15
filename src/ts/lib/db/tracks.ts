@@ -71,15 +71,20 @@ export async function updateTrack(
   data: { title: string; artist: string; tags: string[]; path?: string }
 ): Promise<void> {
   const db = await getDb()
+  // 編集で外されたタグは auto_tags からも外す。後で同じタグを付け直したときに手動のタグとして扱うため
+  const autoTags = `auto_tags = (
+    SELECT json_group_array(value) FROM json_each(tracks.auto_tags)
+    WHERE value IN (SELECT value FROM json_each($3))
+  )`
   if (data.path !== undefined) {
     // Android でタイトル変更に伴いファイル名が変わったとき、path も追従させる。
     await db.execute(
-      'UPDATE tracks SET title = $1, artist = $2, tags = $3, path = $4 WHERE id = $5',
+      `UPDATE tracks SET title = $1, artist = $2, tags = $3, ${autoTags}, path = $4 WHERE id = $5`,
       [data.title, data.artist, JSON.stringify(data.tags), data.path, id]
     )
   } else {
     await db.execute(
-      'UPDATE tracks SET title = $1, artist = $2, tags = $3 WHERE id = $4',
+      `UPDATE tracks SET title = $1, artist = $2, tags = $3, ${autoTags} WHERE id = $4`,
       [data.title, data.artist, JSON.stringify(data.tags), id]
     )
   }

@@ -78,6 +78,18 @@ async function migrate(db: Database): Promise<void> {
       await db.execute(`ALTER TABLE tracks ADD COLUMN ${col} REAL`)
     }
   }
+  // tags のうち曲調推定が自動で付けたもの。手で付けたタグを推定のやり直しで上書きしないために区別する
+  if (!trackCols.some(c => c.name === 'auto_tags')) {
+    await db.execute("ALTER TABLE tracks ADD COLUMN auto_tags TEXT NOT NULL DEFAULT '[]'")
+    // 明暗のモデルを作り直したので推定し直す。これまでの明暗タグは自動か手動か分からないので全て消す
+    await db.execute(`
+      UPDATE tracks
+      SET mood_score = NULL,
+          tags = (SELECT json_group_array(value) FROM (
+            SELECT value FROM json_each(tracks.tags) WHERE value NOT IN ('暗', '淡', '明') ORDER BY key
+          ))
+    `)
+  }
   // svg アイコンは廃止したので hue だけ残す
   for (const table of ['playlists', 'taglists']) {
     await db.execute(`
